@@ -1,0 +1,27 @@
+{
+  "name": "@cometchat-pulse/cometchat-pulse.js",
+  "version": "0.0.2-alpha",
+  "description": "A complete chat solution.",
+  "main": "CometChat.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "CometChat",
+    "chat",
+    "messaging",
+    "chat",
+    "sdk",
+    "message",
+    "sdk",
+    "messaging",
+    "sdk",
+    "audio",
+    "chat",
+    "video",
+    "chat",
+    "webRTC"
+  ],
+  "author": "CometChat",
+  "license": "ISC"
+}
