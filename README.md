@@ -163,7 +163,9 @@ if you reach the end of the list?, it will give you the **empty array.**
 ```
 ### Get User Information 
 To get the information of any particular user, you can use the `getUser()` method provided by the CometChat class. You can use the method as shown below:
-```
+```javascript
+import { CometChat } from '@cometchat-pulse/cometchat-pulse.js';
+
 var uid="SUPERHERO2" //udi is the unique id of the user whos info is to be requested
 CometChat
 	.getUser(uid) 
@@ -196,7 +198,8 @@ The `build()` method of the `GroupsRequestBuilder` class returns an object of th
 All the pagination related information is handled internally. You just need to be careful to call the `fetchNext()` method on the same object.
 
 You can achieve this as shown below:
-``` 
+```javascript
+import { GroupsRequestBuilder } from '@cometchat-pulse/cometchat-pulse.js';
 var limit=30;
 
 var groupsRequestBuilder = new GroupsRequestBuilder();
@@ -251,6 +254,7 @@ groupRequest.fetchNext().then(groupList => {
 To get the information of any particular group, you can use the getGroup() method provided by the CometChat class. You can use the method as shown below:
 
 ```javascript
+
 var guid = "SUPERGROUP1";
 CometChat.getGroup(guid).then(
 	group => {
@@ -291,7 +295,10 @@ The groupType needs to be either of the below 3 values :
 2. Group.Type.Private 
 3. Group.Type.Protected
 
-```
+```javascript
+import { Group } from '@cometchat-pulse/cometchat-pulse.js';
+import { Group } from '@cometchat-pulse/cometchat-pulse.js';
+
 var guid = "SUPERGROUP2";
 var groupName = "Group Name"
 var group = new Group(guid, groupName, Group.Type.Public);
@@ -316,7 +323,9 @@ CometChat.createGroup(group).then(group => {
 ```
 ### Join a Group
 In order to start participating in group conversations, you will have to join a group. You can do so using the `joinGroup()` method provided by the `CometChat` class. You can refer to the code snippet shown below to achieve this.
-```
+```javascript
+import { CometChat } from '@cometchat-pulse/cometchat-pulse.js';
+
 var guid = "SUPERGROUP1"; // guid of the group to join
 var groupName = "Name of the group";
 var password = ""; // mandatory in case of protected group
@@ -347,7 +356,7 @@ var guid = "SUPERGROUP1"; // guid of the group to join
 CometChat.leaveGroup(guid).then(
 	hasLeft => {
 		console.log("is user left the group", hasLeft);
-    //Posible values for hasLeft true|false
+    		//Posible values for hasLeft true|false
 		//Handler group leaving operation.
 	},
 	error => {
@@ -367,6 +376,8 @@ The `build()` method of the `GroupMembersRequestBuilder` class returns an object
 All the pagination related information is handled internally. You just need to be careful to call the `fetchNext()` method on the same object and not create a new object everytime to call the `fetchNext()` method.
 
 You can achieve this as shown below:
+
+import { GroupMembersRequestBuilder } from '@cometchat-pulse/cometchat-pulse.js';
 
 ```javascript
 var guid = "SUPERGROUP1";
@@ -467,6 +478,8 @@ Using the object of the TextMessage class created above, you can use the `sendMe
 
 #### Send message to user
 ```javascript
+import { TextMessage } from '@cometchat-pulse/cometchat-pulse.js';
+
 var uid="SUPERHERO2";
 var text="Hello";
 
@@ -480,6 +493,7 @@ cometchat.sendMessage(textMessage).then((message) => {
 ```
 #### Send message to group
 ```javascript
+import { TextMessage } from '@cometchat-pulse/cometchat-pulse.js';
 var TextMessage = CometChat.TextMessage;
 var uid="SUPERGROUP1";
 var text="Hello";
@@ -539,7 +553,8 @@ CometChat.sendMessage().then((message) => {
 Just like sending a TextMessage, you need to use the MediaMessage class to send any type of media messages to a user or a group.
 
 An object of the MediaMessage class can be created as shown below:
-```javascript 
+```javascript
+import { MediaMessage } from '@cometchat-pulse/cometchat-pulse.js';
 var mediaMessage=new MediaMessage(fileobject,MESSAGE_TYPE.FILE, RECEIVER_TYPE.GROUP)
 ```
 
@@ -550,7 +565,7 @@ var uid="SUPERHERO2";
 
 let mediaMessage=new MediaMessage(uid, `INPUT FILE OBJECT`,MESSAGE_TYPE.MEDIA, RECEIVER_TYPE.USER);
 CometChat.sendMessage(mediaMessage).then((message) => {	    
-		// do something.. 
+	  // do something.. 
 }, (error) => {
 	  // handle exceptiobn
 });
@@ -558,7 +573,7 @@ CometChat.sendMessage(mediaMessage).then((message) => {
 
 The message types can be one of the below values and can be obtained from the 
 `MESSAGE_TYPE`
-1.IMAGE
+1. IMAGE
 2. VIDEO
 3. AUDIO
 4. FILE
@@ -567,6 +582,7 @@ Both TextMessage and MediaMessage have a custom field called **metadata** that c
 You can use the `setMetadata()` and `getMetadata()` methods of the TextMessage or MediaMessage class to set and get the same.
 
 ```javascript
+import { TextMessage,CometChat,MediaMessage } from '@cometchat-pulse/cometchat-pulse.js';
 CometChat.addMessageEventListner(
 	"unique_listener_id",
 	new MessageEventListener({
@@ -616,6 +632,8 @@ The `UserMessagesRequestBuilder` class provides constructor:
 Following are the two ways to build `UserMessagesRequestBuilder`.
 
 ```javascript 
+import { UserMessagesRequestBuilder } from '@cometchat-pulse/cometchat-pulse.js';
+
 //Initiated by id.
 var messageRequestBuilder = new UserMessagesRequestBuilder(uid, currentTime, MESSAGE_REQUEST.ID);
 
@@ -633,6 +651,8 @@ You can achieve this as shown below:
 
 #### By timestamp
 ```javascript
+import { UserMessagesRequestBuilder } from '@cometchat-pulse/cometchat-pulse.js';
+
 var uid = "superhero2"; //Uid of the user with the communication is happening.;
 
 var currentTime = parseInt((new Date().getTime() / 1000).toString());
@@ -657,6 +677,7 @@ messageRequest
 ```
 #### By message Id
 ```javascript 
+import { UserMessagesRequestBuilder } from '@cometchat-pulse/cometchat-pulse.js';
 var uid = "superhero2"; //Uid of the user with the communication is happening.;
 
 var messageId = parseInt((new Date().getTime() / 1000).toString()); // minimum message id available for perticular conversation.
