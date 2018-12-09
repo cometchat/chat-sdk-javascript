@@ -1,6 +1,12 @@
-# CometChatPulse
-## The simplest voice, video and text chat SDK.
-
+<div style="width:100%">
+	<div style="width:50%; display:inline-block">
+		<h1> CometChat Pulse</h1> 
+		<img align="left" width="150" height="150" alt="CometChat Pulse" src="https://github.com/CometChat-Pulse/javascript-chat-sdk/blob/master/CometChat%20Pulse%20Logo.png">		
+	</div>	
+</div>
+</br>
+</br>
+<h2> The simplest voice, video and text chat SDK</h2>
 CometChat enables you to add voice, video and text chat to your  app in minutes! 
 
 
