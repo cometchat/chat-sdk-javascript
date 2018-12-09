@@ -10,6 +10,54 @@
 CometChat enables you to add voice, video and text chat to your  app in minutes! 
 
 
+### Table of Content 
+   
+   1. [Before you start](#before-you-start)
+   
+   2. [Adding JS SDK to your project](#adding-js-sdk-to-your-project)
+   
+   3. [Initialize the CometChat Pulse SDK](#initialize-the-cometchat-pulse-sdk)
+   
+   4. [Login](#login)
+   
+       - [Login using UserId and API KEY](#login-using-userid-and-api-key)
+       
+       - [Login using App Id and Auth Token](#login-using-app-id-and-auth-token)
+   
+   5.  [User](#get-list-of-users)
+          
+       - [Get list of Users](#get-list-of-users)
+       
+       - [Get User Information](#get-user-information)
+       
+   6.  [Group](#get-list-of-groups)    
+   
+       - [Get list of groups](#get-list-of-groups)
+       
+       - [Get Group information](#get-group-information)
+  
+       - [Create a group](#create-a-group)
+       
+       - [Join a Group](#join-a-group)
+       
+       - [Leave a Group](#leave-a-group)
+       
+       - [Get the list of Group Members](#get-the-list-of-group-members)
+       
+   7.  [Send A Message](#send-a-message)  
+       
+       - [Send a Text Message](#send-a-text-message)
+       
+       - [Send Media Message](#send-media-message)
+    
+   8.  [Fetching previous messages](#fetching-previous-messages)
+        
+       - [By timestamp](#by-timestamp)
+       
+       - [By message Id](#by-message-id)
+   
+       
+
 
 ### Before you start
 
@@ -18,7 +66,10 @@ Please keep following information handy.
 
 | APP ID  	| Unique identification of your app.Generated and given to you at the time of app creation. 	|
 |---------	|-------------------------------------------------------------------------------------------	|
-| API KEY 	| The API keys are use to give authorized access to app.                                    	|
+| API KEY 	| The API keys are use to give authorized access to app.         
+
+
+|
 
 
 ### Adding JS SDK to your project
@@ -51,7 +102,7 @@ Once you have initialized the CometChat Pulse SDK you can call Login.
 Once the initialization is successful, you will need to log the user into CometChat. We provide the below two mechanisms to do so.
 
 
-**Login using UserId and API KEY** 
+## Login using UserId and API KEY
 ```javascript
 var appId="xxxxxxxx";
 CometChat.init(appId);
@@ -69,7 +120,7 @@ CometChat.login(UID,apiKey).then(AppUser=>{
 > We suggest you avoid using this method, as this method takes the API-key as a parameter which can be insecure as the API-key can be obtained from the `Javascript` file. We suggest that you generate the auth-token using our [Restful API](https://cometchat-8.readme.io/v1/docs/js-quick-start-guide) at the server once the user is successfully authenticated for your app and then at the app level call the login method which only accepts the *Auth-Token* as shown below"
 }
 
-**Login using App Id and  Auth Token** 
+## Login using App Id and Auth Token 
 ```javascript var appId="xxxxxxxx";
 CometChat.init(appId);
 var authToken = "xxxxxxxxxxxxxxxxxxxxxxxxx";
@@ -629,7 +680,7 @@ CometChat.removeMessageEventListener("unique_listener_id");
 
 Apart from receiving real-time messages and actions, you will also need a mechanism to fetch the previous messages. You can do so using the mechanism mentioned in the next section.
 
-### Fetching previous messages for a User/Group
+### Fetching previous messages
 In order to fetch the previous messages for a conversation with any particular user, you will have to make use of a class named `UserMessagesRequest`. Using the `fetchPrevious()` method provided by the class, you can obtain a paginated list of Messages that we a part of the conversation with the user.
 
 You need to use the `UserMessagesRequestBuilder` class to create an object of the `UserMessagesRequest` class. 
