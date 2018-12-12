@@ -81,11 +81,8 @@ npm i @cometchat-pulse/cometchat-pulse.js
 ### OR
 
 ```html
-<script type="text/javascript" src="https://unpkg.com/@cometchat-pulse/cometchat-pulse.js@0.0.3/CometChat.js">
+<script type="text/javascript" src="https://unpkg.com/@cometchat-pulse/cometchat-pulse.js/CometChat.js">
 ```
-> **0.0.3** is version you want to integrate,
->  you can switch to latest version by changing the version appropriately 
-
 #### now you can start using CometChat Pulse.
 
 ```javascript
