@@ -1,0 +1,1 @@
+For license information, please visit: https://www.cometchat.com/legal

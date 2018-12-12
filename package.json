@@ -1,6 +1,6 @@
 {
   "name": "@cometchat-pulse/cometchat-pulse.js",
-  "version": "0.0.2-alpha",
+  "version": "0.0.3",
   "description": "A complete chat solution.",
   "main": "CometChat.js",
   "scripts": {
@@ -23,5 +23,13 @@
     "webRTC"
   ],
   "author": "CometChat",
-  "license": "ISC"
+  "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CometChat-Pulse/javascript-chat-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CometChat-Pulse/javascript-chat-sdk/issues"
+  },
+  "homepage": "https://github.com/CometChat-Pulse/javascript-chat-sdk#readme"
 }
