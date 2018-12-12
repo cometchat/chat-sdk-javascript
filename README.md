@@ -203,31 +203,6 @@ cometchat.sendMessage(textMessage).then((message) => {
   "sentAt": 1544169596
 }
 ```
-### Send Media Message:
-Just like sending a TextMessage, you need to use the MediaMessage class to send any type of media messages to a user or a group.
-An object of the MediaMessage class can be created as shown below:
-```javascript 
-  import { CometChat, MediaMessage } from '@cometchat-pulse/cometchat-pulse.js';
-
-    var mediaMessage=new MediaMessage(fileobject,MESSAGE_TYPE.FILE, RECEIVER_TYPE.GROUP);
-    var uid="SUPERHERO2";
-    let mediaMessage=new MediaMessage(uid, `INPUT FILE OBJECT`,MESSAGE_TYPE.MEDIA, RECEIVER_TYPE.USER);
-    CometChat.sendMessage(mediaMessage).then((message) => {	      
-    		// do something.. 
-    }, (error) => {
-	      // handle exceptiobn
-    });
-```
-The message types can be one of the below values and can be obtained from the 
-`MESSAGE_TYPE`
-1.IMAGE
-2. VIDEO
-3. AUDIO
-4. FILE
-
-Both TextMessage and MediaMessage have a custom field called **metadata** that can be used to share additional information with any message which will be received at the receiver end as it was sent.
- You can use the `setMetadata()` and `getMetadata()` methods of the TextMessage or MediaMessage class to set and get the same.
-
 
 ### Receiving Messages.
 In order to receive incoming messages, you will have to register listeners for the same. To register a listener for incoming messages you can use the `addMessageEventListener()` which takes two parameters:
