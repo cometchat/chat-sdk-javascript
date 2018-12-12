@@ -1,7 +1,7 @@
 <div style="width:100%">
 	<div style="width:50%; display:inline-block">
 		<h1> CometChat Pulse</h1> 
-		<img align="left" width="150" height="150" alt="CometChat Pulse" src="https://github.com/CometChat-Pulse/javascript-chat-sdk/blob/master/CometChat%20Pulse%20Logo.png">		
+		<img align="left" width="150" height="150" alt="CometChat Pulse" src="https://app.cometchat.com/resources/images/login/SmallLogo.png">		
 	</div>	
 </div>
 </br>
