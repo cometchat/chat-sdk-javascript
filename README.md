@@ -18,7 +18,7 @@ CometChat enables you to add voice, video and text chat to your  app in minutes!
    
    3. [Initialize the CometChat Pulse SDK](#initialize-the-cometchat-pulse-sdk)
    
-   4. [Login](#login)
+   4. [Authentication](#Authentication)
    
        - [Login using UserId and API KEY](#login-using-userid-and-api-key)
        
@@ -66,10 +66,7 @@ Please keep following information handy.
 
 | APP ID  	| Unique identification of your app.Generated and given to you at the time of app creation. 	|
 |---------	|-------------------------------------------------------------------------------------------	|
-| API KEY 	| The API keys are use to give authorized access to app.         
-
-
-|
+| API KEY 	| The API keys are use to give authorized access to app.                                      | 
 
 
 ### Adding JS SDK to your project
@@ -81,6 +78,15 @@ You can add the CometChat JS SDK to your project using `npm`.
 ```javascript
 npm i @cometchat-pulse/cometchat-pulse.js
 ```
+### OR
+
+```html
+<script type="text/javascript" src="https://unpkg.com/@cometchat-pulse/cometchat-pulse.js@0.0.3/CometChat.js">
+```
+> **0.0.3** is version you want to integrate,
+>  you can switch to latest version by changing the version appropriately 
+
+#### now you can start using CometChat Pulse.
 
 ```javascript
 import { CometChat } from '@cometchat-pulse/cometchat-pulse.js';
@@ -99,10 +105,8 @@ Once you have initialized the CometChat Pulse SDK you can call Login.
 
 ### Login
 
-Once the initialization is successful, you will need to log the user into CometChat. We provide the below two mechanisms to do so.
+Once the initialization is successful, you will need to log the user into CometChat. you do it by following simple instructions provided below.
 
-
-## Login using UserId and API KEY
 ```javascript
 var appId="xxxxxxxx";
 CometChat.init(appId);
@@ -114,6 +118,171 @@ CometChat.login(UID,apiKey).then(AppUser=>{
 }).catch(error=>{
   console.log("AppUser Information :", {error});
   // do something when login fails  
+});
+```
+**AppUser object will look as follow** 
+```json
+{ 
+    "uid": "superhero1",
+    "name": "name provided at the time of registration",
+    "authToken": "secure-auth-token-created for this session",
+    "avatar": "avatar-url-provided-at-the-time-of-user-creation", 
+    "link": "profile-url-provided-at-the-time-of-registration",
+    "status": "offline | online",
+    "language": "json"
+}
+```
+ As soon as you are logged in successfully you can start sending and receiving messages(Text/Multimedia messages) by following the simple instructions provided bellow.
+
+### Send A Message.
+
+Using CometChat, you can send two types of messages viz.
+
+1. TextMessage - a plain text message
+2. MediaMessage - Any media can be shared like image, video, audio, file etc.
+
+## Send a Text Message:
+In order to send a text message to a user or to a group, you can use the `sendMessage()` method provided by the `CometChat` class. 
+The `sendMessage()` method takes an object of the `TextMessage` class.
+ 
+The TextMessage class has the below constructor which takes the mandatory parameters. You can use the same to create an object of the class as shown below.
+
+```javascript 
+  var textMessage=new TextMessage(uid, text, MESSAGE_TYPE.TEXT, RECEIVER_TYPE.USER);
+```
+`CometChat.sendMessage` will return `Javascript Promise` and informs you when the message was sent successfully.
+Using the object of the TextMessage class created above, you can use the `sendMessage()` method as shown below to send a text message.
+
+```javascript 
+var uid="SUPERHERO2";
+var text="Hello";
+
+import { CometChat, TextMessage } from '@cometchat-pulse/cometchat-pulse.js';
+
+var textMessage=new TextMessage(uid, text, MESSAGE_TYPE.TEXT, RECEIVER_TYPE.USER);
+cometchat.sendMessage(textMessage).then((message) => {
+  console.log("sent message info:",messsage);
+ 	//Do something with message
+}, (error) => {
+  	//Handle any error
+});
+```
+**Message object obtained from send message promise** 
+```javascript 
+{
+  "receiver": "superhero2",
+  "type": "text",
+  "receiverType": "user",
+  "category": "message",
+  "data": {
+    "text": "Hello",
+    "entities": {
+      "sender": {
+        "entity": {
+          "uid": "superhero1",
+          "name": "SUPERHERO1",
+          "link": "https://abc.xyz.com",
+          "avatar": "image-url",
+          "status": "offline",
+          "role": "admin"
+        },
+        "entityType": "user"
+      },
+      "receiver": {
+        "entity": {
+          "uid": "superhero2",
+          "name": "SUPERHERO2",
+          "link": "https://abc.xyz.com",
+          "avatar": "image-url",
+          "status": "offline"
+        },
+        "entityType": "user"
+      }
+    }
+  },
+  "text": "Hello",
+  "id": "496",
+  "sender": "superhero1",
+  "sentAt": 1544169596
+}
+```
+### Send Media Message:
+Just like sending a TextMessage, you need to use the MediaMessage class to send any type of media messages to a user or a group.
+An object of the MediaMessage class can be created as shown below:
+```javascript 
+  import { CometChat, MediaMessage } from '@cometchat-pulse/cometchat-pulse.js';
+
+    var mediaMessage=new MediaMessage(fileobject,MESSAGE_TYPE.FILE, RECEIVER_TYPE.GROUP);
+    var uid="SUPERHERO2";
+    let mediaMessage=new MediaMessage(uid, `INPUT FILE OBJECT`,MESSAGE_TYPE.MEDIA, RECEIVER_TYPE.USER);
+    CometChat.sendMessage(mediaMessage).then((message) => {	      
+    		// do something.. 
+    }, (error) => {
+	      // handle exceptiobn
+    });
+```
+The message types can be one of the below values and can be obtained from the 
+`MESSAGE_TYPE`
+1.IMAGE
+2. VIDEO
+3. AUDIO
+4. FILE
+
+Both TextMessage and MediaMessage have a custom field called **metadata** that can be used to share additional information with any message which will be received at the receiver end as it was sent.
+ You can use the `setMetadata()` and `getMetadata()` methods of the TextMessage or MediaMessage class to set and get the same.
+
+
+### Receiving Messages.
+In order to receive incoming messages, you will have to register listeners for the same. To register a listener for incoming messages you can use the `addMessageEventListener()` which takes two parameters:
+1. A unique listener id
+2. An object of the `MessageEventListener` class.
+
+You can register the incoming listeners as shown below:
+
+```javascript
+CometChat.addMessageEventListner(
+	"unique_listener_id",
+	new MessageEventListener({
+		onActionRecived: action => {
+			// handle actions
+		},
+		onMessageReceived: message => {
+			if (message instanceof TextMessage) {
+				// handle text messages
+			} else if (message instanceof MediaMessage) {
+				// handle media messages
+			}
+		}
+	})
+);
+```
+You need to add these listeners where you need to receive events of messages or actions received.
+
+You can also remove the listeners once it is not in use using the below methods:
+
+```javascript
+    CometChat.removeMessageEventListener("unique_listener_id");
+```
+
+
+### Authentication.
+Following are two different ways to login and start using CometChat.
+
+#### 1.Login Using UID and API-KEY
+```javascript 
+var appId="xxxxxxxx";
+CometChat.init(appId);
+var UID = "SUPERHERO1";
+var apiKey = "xxxxxxxxxxxxxxxxxxxxxxxxx";
+
+CometChat.login(UID,apiKey).then(AppUser=>{  
+  console.log("AppUser Information :", {AppUser});
+   // do something when login is successful  
+  
+}).catch(error=>{  
+  console.log("AppUser Information :", {error});
+   // do something when login fails  
+  
 });
 ```
 
@@ -638,6 +807,13 @@ The message types can be one of the below values and can be obtained from the
 Both TextMessage and MediaMessage have a custom field called **metadata** that can be used to share additional information with any message which will be received at the receiver end as it was sent.
 You can use the `setMetadata()` and `getMetadata()` methods of the TextMessage or MediaMessage class to set and get the same.
 
+### Receiving Messages.
+In order to receive incoming messages, you will have to register listeners for the same. To register a listener for incoming messages you can use the `addMessageEventListener()` which takes two parameters:
+1. A unique listener id
+2. An object of the `MessageEventListener` class.
+
+You can register the incoming listeners as shown below:
+
 ```javascript
 import { TextMessage,CometChat,MediaMessage } from '@cometchat-pulse/cometchat-pulse.js';
 CometChat.addMessageEventListner(
@@ -655,25 +831,11 @@ CometChat.addMessageEventListner(
 		}
 	})
 );
-CometChat.addMessageEventListner(
-	"unique_listener_id",
-	new MessageEventListener({
-		onActionRecived: action => {
-			// handle actions
-		},
-		onMessageReceived: message => {
-			if (message instanceof TextMessage) {
-				// handle text messages
-			} else if (message instanceof MediaMessage) {
-				// handle media messages
-			}
-		}
-	})
-);
 ```
-You need to add these listeners to all the activities where you need to receive events of messages or actions received.
+You need to add these listeners where you need to receive events of messages or actions received.
 
-You can also remove the listeners once the activity or fragment is not in use using the below methods:
+You can also remove the listeners once it is not in use using the below methods:
+
 ```javascript
 CometChat.removeMessageEventListener("unique_listener_id");
 ```
