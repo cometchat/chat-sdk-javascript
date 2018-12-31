@@ -1,0 +1,35 @@
+{
+  "name": "@cometchat-pulse/cometchat-pulse.js",
+  "version": "0.0.6",
+  "description": "A complete chat solution.",
+  "main": "CometChat.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "CometChat",
+    "chat",
+    "messaging",
+    "chat",
+    "sdk",
+    "message",
+    "sdk",
+    "messaging",
+    "sdk",
+    "audio",
+    "chat",
+    "video",
+    "chat",
+    "webRTC"
+  ],
+  "author": "CometChat",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CometChat-Pulse/javascript-chat-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CometChat-Pulse/javascript-chat-sdk/issues"
+  },
+  "homepage": "https://github.com/CometChat-Pulse/javascript-chat-sdk#readme"
+}
