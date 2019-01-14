@@ -31,11 +31,11 @@ You can add the CometChat to your project using  `<script>` tag or `npm`.
 ```
 `NPM`
 ```Javascript
-  npm install @cometchat-pulse/cometchat-pulse.js --save
+  npm install @cometchat-pro/chat --save
 ```
 >If you are using HTML, then a window scope variable called `CometChat` is created.
 >if you are using npm to import CometChat,use : 
->`import { CometChat } from "@cometchat-pulse/cometchat-pulse.js"`
+>`import { CometChat } from "@cometchat-pro/chat"`
 
 # Initialize CometChat
 The `init()` method initializes the settings required for `CometChat`.
@@ -43,7 +43,7 @@ The `init()` method initializes the settings required for `CometChat`.
 You need to call `init()` before calling any other method from CometChat.
 
 ```Javascript
-import { CometChat } from "@cometchat-pulse/cometchat-pulse.js";
+import { CometChat } from "@cometchat-pro/chat";
 
 var appID = "APP_ID";
 
@@ -65,7 +65,7 @@ Once initialization is successful, you will need to log the user into CometChat 
 
 We recommend you call the CometChat login method once your user logs into your app.
 ```Javascript
-import { CometChat } from "@cometchat-pulse/cometchat-pulse.js";
+import { CometChat } from "@cometchat-pro/chat";
 
 var UID = "SUPERHERO1";
 var apiKey = "API_KEY";
@@ -91,7 +91,7 @@ The `login()` method returns the User object on `Promise` resolved containing al
 # Send a message
 Once your user has logged in, you can send a message using the `sendMessage()` method.
 ```Javascript
-import { CometChat } from "@cometchat-pulse/cometchat-pulse.js";
+import { CometChat } from "@cometchat-pro/chat";
 
 var receiverID = "SUPERHERO2";
 var messageText = "Hello";
@@ -117,7 +117,7 @@ Once the message is sent successfully, you will receive the message information 
 You can add multiple MessageListener using the `addMessageListener()` method, to receive incoming message wherever you need.
 
 ```Javascript 
-import { CometChat } from "@cometchat-pulse/cometchat-pulse.js";
+import { CometChat } from "@cometchat-pro/chat";
 
 var listenerID = "UNIQUE_LISTENER_ID";
 CometChat.addMessageListener(listenerID, new CometChat.MessageListener({
@@ -127,5 +127,5 @@ CometChat.addMessageListener(listenerID, new CometChat.MessageListener({
   }
 }));
 ```
-Learn more about <a href="https://docs.pulse.cometchat.com/docs/">CometChat</a>
+Learn more about <a href="https://docs.pro.cometchat.com/docs/">CometChat</a>
 
