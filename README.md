@@ -127,7 +127,5 @@ CometChat.addMessageListener(listenerID, new CometChat.MessageListener({
   }
 }));
 ```
-
-
-
+Learn more about <a href="https://docs.pulse.cometchat.com/docs/">CometChat</a>
 
