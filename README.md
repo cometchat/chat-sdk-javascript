@@ -1,50 +1,65 @@
 <div style="width:100%">
+<div style="width:100%">
 	<div style="width:50%; display:inline-block">
-		<h1> CometChat Pro</h1> 		
+		<p align="center">
+		<img style="text-align:center" width="180" height="180" alt="" src="https://raw.githubusercontent.com/cometchat-pro/ios-swift-chat-app/master/Screenshots/CometChat%20Logo.png">	
+		</p>	
 	</div>	
 </div>
-This guide demonstrates how to add chat to a Javascript application using CometChat. Before you begin, we strongly recommend you read the Key Concepts guide.
+</br>
+</br>
+</div>
 
-### Get your Application Keys
+CometChat Pro enables you to add voice, video & text chat for your website & app.
+
+<a href="https://www.npmjs.com">[![Platform](https://img.shields.io/badge/Platform-Javascript-blue.svg)](#)</a>
+<a href="https://www.npmjs.com">[![Platform](https://img.shields.io/badge/Platform-NPM-orange.svg)](#)</a>
+
+# Quick Start
+
+This guide demonstrates how to add chat to a Javascript application using CometChat. Before you begin, we strongly recommend you read the <a href="https://prodocs.cometchat.com/docs/concepts" target="_blank">Key Concepts</a> guide.
+
+## Get your Application Keys
 
 <a href="https://app.cometchat.com" target="_blank">Signup for CometChat</a> and then:
 
 1. Create a new app: Enter a name & hit the **+** button
-2. Head over to the **API Keys** section and click on the **Create API Key ** button
+2. Head over to the **API Keys** section and click on the **Create API Key** button
 3. Enter a name and select the scope as **Auth Only**
 4. Now note the **API Key** and **App ID**
 
-### CometChat can be integrated with:
-  * Web (Browser)
-  * Node.js
+## Add the CometChat Dependency
 
+### NPM
+First, install via npm
 
-# Add the CometChat Dependency
+`Shell`
 
-You can add the CometChat to your project using  `<script>` tag or `npm`.
-
-`HTML`
-
-```Javascript
-     <!--Copy and paste the code snippet into your application HTML. The code snippet should look like this:-->
-     <script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat/CometChat.js"></script>     
+```shell
+npm install @cometchat-pro/chat --save
 ```
-`NPM`
-```Javascript
-  npm install @cometchat-pro/chat --save
-```
->If you are using HTML, then a window scope variable called `CometChat` is created.
->if you are using npm to import CometChat,use : 
->`import { CometChat } from "@cometchat-pro/chat"`
 
-# Initialize CometChat
+Then, import the `CometChat` object wherever you want to use CometChat
+
+`JavaScript`
+
+```Javascript 
+import { CometChat } from "@cometchat-pro/chat" 
+```
+### HTML (via CDN)
+Include the CometChat Javascript library in your HTML code
+
+
+```HTML
+<script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat/CometChat.js"></script>
+```
+
+## Initialize CometChat
 The `init()` method initializes the settings required for `CometChat`.
 
 You need to call `init()` before calling any other method from CometChat.
 
 ```Javascript
-import { CometChat } from "@cometchat-pro/chat";
-
 var appID = "APP_ID";
 
 CometChat.init(appID).then(
@@ -60,12 +75,11 @@ CometChat.init(appID).then(
 ```
 Make sure you replace the `APP_ID` with your CometChat **App ID** in the above code.
 
-# Login your user
+## Login your user
 Once initialization is successful, you will need to log the user into CometChat using the login() method.
 
 We recommend you call the CometChat login method once your user logs into your app.
 ```Javascript
-import { CometChat } from "@cometchat-pro/chat";
 
 var UID = "SUPERHERO1";
 var apiKey = "API_KEY";
@@ -88,11 +102,9 @@ Make sure you replace the `API_KEY` with your `CometChat` **API Key** in the abo
 
 The `login()` method returns the User object on `Promise` resolved containing all the information of the logged in user.
 
-# Send a message
+## Send a message
 Once your user has logged in, you can send a message using the `sendMessage()` method.
 ```Javascript
-import { CometChat } from "@cometchat-pro/chat";
-
 var receiverID = "SUPERHERO2";
 var messageText = "Hello";
 var messageType = CometChat.MESSAGE_TYPE.TEXT;
@@ -111,15 +123,20 @@ CometChat.sendMessage(textMessage).then(
   }
 );
 ```
-Once the message is sent successfully, you will receive the message information as `TextMessage` object on `Promise` resolved.
+| **Parameter** | **Description**                                                                                                                                 |
+|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| receiverID    | The UID or GUID of the recipient                                                                                                                |
+| messageText   | The message string to be sent                                                                                                                   |
+| messageType   | The type of the message that needs to be sent which in this case is `CometChat.MESSAGE_TYPE.TEXT` (text)                                        |
+| receiverType  | The type of the receiver to whom the message is to be sent i.e `CometChat.RECEIVER_TYPE.USER` (user) or `CometChat.RECEIVER_TYPE.GROUP` (group) |
 
-# Receive Messages
+Once the message is sent successfully, you will receive the message information as <a href="https://prodocs.cometchat.com/docs/js-appendix#section-textmessage">`TextMessage` </a> object on `Promise` resolved.
+
+## Receive Messages
 You can add multiple MessageListener using the `addMessageListener()` method, to receive incoming message wherever you need.
 
 ```Javascript 
-import { CometChat } from "@cometchat-pro/chat";
-
-var listenerID = "UNIQUE_LISTENER_ID";
+var listenerID = "UNIQUE_LISTENER_ID";can we get single amazon server !
 CometChat.addMessageListener(listenerID, new CometChat.MessageListener({
   onTextMessageReceived: message => {
     console.log("Message received successfully:", message);
@@ -127,5 +144,9 @@ CometChat.addMessageListener(listenerID, new CometChat.MessageListener({
   }
 }));
 ```
-Learn more about <a href="https://docs.pro.cometchat.com/docs/">CometChat</a>
+| **Parameter** | **Description**                                                                                |
+|---------------|------------------------------------------------------------------------------------------------|
+| listenerID    | An ID that uniquely identifies that listener. We recommend using the activity or fragment name |
+ 
 
+To learn more, please refer to our <a href="https://prodocs.cometchat.com/docs/js-quick-start">javascript Developer Documentation</a>.
