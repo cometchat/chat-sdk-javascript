@@ -1,6 +1,6 @@
 {
   "name": "@cometchat-pro/chat",
-  "version": "1.2.0",
+  "version": "1.2.1-beta.0",
   "description": "A complete chat solution.",
   "main": "CometChat.js",
   "scripts": {
