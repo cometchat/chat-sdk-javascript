@@ -82,35 +82,7 @@ export class CometChat {
                 SENT_AT: string;
         };
         static user?: Me | any;
-        /**
-            *Setter method for CometChat authToken.
-            *
-            * @static
-            * @param {string} authToken
-            * @memberof CometChat
-            **/
-        static setAuthToken(authToken: string): void;
-        /**
-            *Getter method for CometChat authToken.
-            * @returns
-            * @memberof CometChat
-            **/
-        getAuthToken(): string;
-        /**
-            * Getter for appId.
-            *
-            * @static
-            * @returns
-            * @memberof CometChat
-            */
-        static getAppId(): string;
-        /**
-            *Getter for apiKey.
-            *
-            * @returns
-            * @memberof CometChat
-            */
-        getApiKey(): string;
+        
         /**------------------------------------*
             * Core apis     					   *
             *-------------------------------------**/
@@ -561,17 +533,17 @@ export class CometChatException implements ErrorModel {
 
 export interface UserObj {
         uid: string;
-        name?: string;
-        authToken?: string;
-        avatar?: string;
-        credits?: number;
-        email?: string;
-        lastActiveAt?: number;
-        link?: string;
-        metadata?: string;
-        role?: string;
-        status?: string;
-        statusMessage?: string;
+        name: string;
+        authToken: string;
+        avatar: string;
+        credits: number;
+        email: string;
+        lastActiveAt: number;
+        link: string;
+        metadata: string;
+        role: string;
+        status: string;
+        statusMessage: string;
 }
 /**
     * Implementation of UserObject
@@ -1173,6 +1145,8 @@ export class Group {
     setWsChannel(wsChannel: any): void;
     setScope(scope: string): void;
     getScope(): string;
+    getJoinedAt(): string;
+    setJoinedAt(joinedAt: string): void;
 }
 
 export class MessageEventListener {
