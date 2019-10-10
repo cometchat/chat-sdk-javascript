@@ -609,7 +609,6 @@ export namespace CometChat {
         authToken: string;
         avatar: string;
         credits: number;
-        email: string;
         lastActiveAt: number;
         link: string;
         metadata: string;
@@ -637,8 +636,6 @@ export namespace CometChat {
         setAvatar(avatar: string): void;
         getCredits(): number;
         setCredits(credits: number): void;
-        getEmail(): string;
-        setEmail(email: string): void;
         getLastActiveAt(): number;
         setLastActiveAt(lastActiveAt: number): void;
         getLink(): string;
@@ -1184,7 +1181,6 @@ export namespace CometChat {
         AUTH_TOKEN: string;
         AVATAR: string;
         CREDITS: string;
-        EMAIL: string;
         LAST_ACTIVE_AT: string;
         LINK: string;
         META_DATA: string;
@@ -1832,8 +1828,6 @@ export namespace CometChat {
         setAvatar(avatar: string): void;
         getCredits(): number;
         setCredits(credits: number): void;
-        getEmail(): string;
-        setEmail(email: string): void;
         getLastActiveAt(): number;
         setLastActiveAt(lastActiveAt: number): void;
         getLink(): string;
