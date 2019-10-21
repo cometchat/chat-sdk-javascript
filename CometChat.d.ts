@@ -1750,11 +1750,13 @@ export namespace CometChat {
         searchKeyword: string;
         shouldHideBlockedUsers: boolean;
         role: string;
+        showFriendsOnly: boolean;
         setLimit(limit: number): this;
         setStatus(status: string): this;
         setSearchKeyword(searchKeyword: string): this;
         hideBlockedUsers(hideBlockedUsers: boolean): this;
         setRole(role: string): this;
+        friendsOnly(friendsOnly: boolean): this;
         build(): UsersRequest;
     }
 
@@ -1776,6 +1778,8 @@ export namespace CometChat {
         searchKey?: string;
         updatedAt?: string;
         onlyUpdate?: number;
+        category?: string;
+        type?: string; 
         setLimit(limit: number): this;
         setGUID(guid: string): this;
         setUID(uid: string): this;
@@ -1787,6 +1791,8 @@ export namespace CometChat {
         setSearchKeyword(searchKey: string): this;
         setUpdatedAfter(updatedAt: string): this;
         updatesOnly(onlyUpdate: boolean): this;
+        setCategory(category: string): this;
+        setType(type: string): this;
         /**
           *Built the DefaultMessagesRequest
           *
