@@ -659,6 +659,20 @@ export namespace CometChat {
         getWsChannel(): any;
     }
 
+    export class Conversation {
+        setConversationId(conversationId: string): void;
+        setConversationType(conversationType: string): void;
+        setLastMessage(lastMessage: TextMessage | MediaMessage | CustomMessage | any): void;
+        setConversationWith(conversationWith: User|Group): void;
+        setUnreadMessageCount(unreadMessageCount: number | any): void;
+        getConversationId() : string;
+        getConversationType() : string;
+        getLastMessage() : TextMessage | MediaMessage | CustomMessage | any;
+        getConversationWith() : User | Group;
+        getUnreadMessageCount() : number | any;
+        constructor(conversationId: string, conversationType: string, lastMessage: TextMessage | MediaMessage | CustomMessage | any, conversationWith: User|Group, unreadMessageCount: number | any)
+    }
+
     export class MediaMessage extends BaseMessage implements Message {
         static readonly TYPE: {
             TEXT: string;
@@ -1760,6 +1774,23 @@ export namespace CometChat {
         build(): UsersRequest;
     }
 
+    export class ConversationsRequest {
+        constructor(builder?: ConversationsRequestBuilder);
+        fetchNext(): Promise<Conversation[] | CometChatException>;
+        getNextData(): any;
+    }
+    export class ConversationsRequestBuilder {
+        conversationType: string;
+        limit: number;
+        setLimit(limit: number): this;
+        setConversationType(conversationType: string): this;
+        build(): ConversationsRequest;
+    }
+
+    export class CometChatHelper {
+        static getConversationFromMessage(message: TextMessage | MediaMessage | CustomMessage | any): Conversation;
+    }
+
     export class DefaultMessagesRequest {
         constructor(builder?: DefaultMessagesRequestBuilder);
         fetchNext(): Promise<{}>;
@@ -1996,5 +2027,4 @@ export namespace CometChat {
         setReceiptType(receiptType?: string): void;
     }
 }
-
 
