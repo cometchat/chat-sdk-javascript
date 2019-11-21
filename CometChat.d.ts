@@ -1,6 +1,9 @@
 export namespace CometChat {
     let isNative: boolean;
-
+    let USER_STATUS: {
+        ONLINE: string;
+        OFFLINE: string;
+    };
     let MESSAGE_TYPE: {
         TEXT: string;
         MEDIA: string;
@@ -39,7 +42,6 @@ export namespace CometChat {
         CANCELLED: string;
         ENDED: string;
     };
-
     let GROUP_MEMBER_SCOPE: {
         ADMIN: string;
         MODERATOR: string;
@@ -55,26 +57,23 @@ export namespace CometChat {
         ID: string;
         SENT_AT: string;
     };
-
-
     /**
         *Setter method for CometChat authToken.
         *
-        * @export
+        * @static
         * @param {string} authToken
         * @memberof CometChat
         **/
-    export function setAuthToken(authToken: string): void;
     /**
         *Getter method for CometChat authToken.
         * @returns
         * @memberof CometChat
         **/
-    export function getAuthToken(): string;
+
     /**
         * Getter for appId.
         *
-        * @export
+        * @static
         * @returns
         * @memberof CometChat
         */
@@ -92,7 +91,7 @@ export namespace CometChat {
     /**
         * Initialize the CometChat app with the current appId provided as an argument.
         *
-        * @export
+        * @static
         * @param {string} appId
         * @returns {CometChat}
         * @memberof CometChat
@@ -101,7 +100,7 @@ export namespace CometChat {
     /**
         *function to check whether CometChat class initialized before.
         *
-        * @export
+        * @static
         * @returns
         * @memberof CometChat
         */
@@ -118,7 +117,7 @@ export namespace CometChat {
         *	two ways to login
         *	1. with uid and apiKey (unsecure way), double arguments.
         *  2. with authetoken (secure Way),single argument.
-        * @export
+        * @static
         * @param {...string[]} args
         * @returns
         * @memberof CometChat
@@ -130,7 +129,7 @@ export namespace CometChat {
     /**
         * function will cosume the api to send TextMessage and on success it will add the message to local storage.
         *
-        * @export
+        * @static
         * @param {(TextMessage | MediaMessage)} message
         * @returns
         * @memberof CometChat
@@ -139,7 +138,7 @@ export namespace CometChat {
     /**
         * Send direct message to user
         *
-        * @export
+        * @static
         * @param {*} message Object
         * @returns
         * @memberof CometChat
@@ -148,7 +147,7 @@ export namespace CometChat {
     /**
         * send message to group.
         *
-        * @export
+        * @static
         * @param {*} message
         * @returns
         * @memberof CometChat
@@ -157,7 +156,7 @@ export namespace CometChat {
     /**
         * function will cosume the api to send MediaMessage and on success it will add the message to local storage.
         *
-        * @export
+        * @static
         * @param {MediaMessage} message
         * @returns
         * @memberof CometChat
@@ -166,17 +165,17 @@ export namespace CometChat {
     /**
         *
         *function will cosume the api to send CustomMessage and on success it will add the message to local storage.
-        * @export
+        * @static
         * @param {CustomMessage} message
         * @returns
         * @memberof CometChat
         */
     export function sendCustomMessage(message: CustomMessage): Promise<{}>;
-    export function getLastDeliveredMessageId(listId: any): Promise<any>;
+    export function getLastDeliveredMessageId(): Promise<any>;
     /**
         * Sending the isTyping notification to provided uid/ guid.
         *
-        * @export
+        * @static
         * @param {string} uid
         * @param {string} receiverType
         * @memberof CometChat
@@ -185,26 +184,63 @@ export namespace CometChat {
     /**
         * Sending the typing paused notification to provided uid/ guid.
         *
-        * @export
+        * @static
         * @param {string} receiverId
         * @param {string} receiverType
         * @memberof CometChat
         */
     export function endTyping(typingNotification: TypingIndicator | any): void;
     export function markMessageAsRead(baseMessage: BaseMessage): void;
+    export function markMessageAsDelivered(baseMessage: BaseMessage): void;
     /**
-        * get the message Information wi
+        * get the message Information with the help of message id
         *
-        * @export
+        * @static
         * @param {(string|any)} messageId
         * @returns
         * @memberof CometChat
         */
-    export function getMessageDetails(messageId: string | any): any;
+    export function getMessageDetails(messageId: string | any): Promise<{}>;
+    /**
+* get the message Information with the help of message id
+*
+* @static
+* @param {(string|any)} messageId
+* @returns
+* @memberof CometChat
+*/
+    export function getMessageReceipts(messageId: string | any): Promise<{}>;
+    /**
+        *
+        *
+        * @static
+        * @returns
+        * @memberof CometChat
+        */
+    export function getUnreadMessageCount(doHideMessages?: boolean): Promise<{}>;
+    export function getUnreadMessageCountForAllUsers(doHideMessages?: boolean): Promise<{}>;
+    export function getUnreadMessageCountForAllGroups(doHideMessages?: boolean): Promise<{}>;
+    export function getUnreadMessageCountForUser(UID: string, doHideMessages?: boolean): Promise<{}>;
+    export function getUnreadMessageCountForGroup(GUID: string, doHideMessages?: boolean): Promise<{}>;
+    export function getUndeliveredMessageCount(doHideMessages?: boolean): Promise<{}>;
+    export function getUndeliveredMessageCountForAllUsers(doHideMessages?: boolean): Promise<{}>;
+    export function getUndeliveredMessageCountForAllGroups(doHideMessages?: boolean): Promise<{}>;
+    export function getUndeliveredMessageCountForUser(UID: string, doHideMessages?: boolean): Promise<{}>;
+    export function getUndeliveredMessageCountForGroup(GUID: string, doHideMessages?: boolean): Promise<{}>;
+    /**
+        *
+        *
+        * @static
+        * @param {BaseMessage} message
+        * @returns {Promise<BaseMessage>}
+        * @memberof CometChat
+        */
+    export function editMessage(message: BaseMessage): Promise<BaseMessage>;
+    export function deleteMessage(messageId: string | number): Promise<BaseMessage>;
     /**
         * function will accept the limit and timestamp as params and return the promise with array of message.
         *
-        * @export
+        * @static
         * @param {number} [limit]
         * @param {number} [timestamp]
         * @returns
@@ -214,7 +250,7 @@ export namespace CometChat {
     /**
         * function will accept the limit and id as params and return the promise with array of message.
         *
-        * @export
+        * @static
         * @param {number} [limit]
         * @param {number} [id]
         * @returns
@@ -224,7 +260,7 @@ export namespace CometChat {
     /**
         * function will accept the limit and timestamp as params and return the promise with array of message.
         *
-        * @export
+        * @static
         * @param {number} [limit]
         * @param {number} [timestamp]
         * @returns
@@ -234,7 +270,7 @@ export namespace CometChat {
     /**
         * function will accept the limit and id as params and return the promise with array of message.
         *
-        * @export
+        * @static
         * @param {number} [limit]
         * @param {number} [id]
         * @returns
@@ -246,7 +282,7 @@ export namespace CometChat {
         *--------------------------------------------------------------------**/
     /**
         * function to get the information for the uid provided as an argument
-        * @export
+        * @static
         * @param {string} uid
         * @returns {(Promise<AppUser | Error>)}
         * @memberof CometChat
@@ -259,13 +295,23 @@ export namespace CometChat {
         * @memberof CometChat
         */
     export function getLoggedinUser(): Promise<any | CometChatException>;
+    /**
+        * block the users.
+        *
+        * @static
+        * @param {String[]} blockedUids
+        * @returns
+        * @memberof CometChat
+        */
+    export function blockUsers(blockedUids: String[]): Promise<{}>;
+    export function unblockUsers(blockedUids: String[]): Promise<{}>;
     /**-------------------------------------------------------------------*
         * Group related functions provided by CometChat class                *
         *--------------------------------------------------------------------**/
     /**
         * function to create group and will also join the XMPP_MUC on success from the create group REST API.
         *
-        * @export function
+        * @static
         * @param {Group} group
         * @returns Promise<Group|CometChatException>
         * @memberof CometChat
@@ -274,7 +320,7 @@ export namespace CometChat {
     /**
         * function to get the information for the group id provided as an argument
         *
-        * @export function
+        * @static
         * @param {string} guid
         * @returns Promise<Group|CustomError>
         * @memberof CometChat
@@ -284,14 +330,14 @@ export namespace CometChat {
         * function to join the exiting group group.
         * can be use to join the public,private and password groups.
         *
-        * @export function
+        * @static
         * @param {guid} guid
         * @param {GroupType} type
         * @param {string} password
         * @returns {(Promise<Group>)}
         * @memberof CometChat
         */
-    export function joinGroup(grp: any, type?: GroupType, password?: string): Promise<Group>;
+    export function joinGroup(grp: any, type?: string, password?: string): Promise<Group>;
     /**
         *
         * function update the already existing group and returns the result with updated group
@@ -311,7 +357,7 @@ export namespace CometChat {
     /**
         * function to leave the exiting group.
         *
-        * @export function
+        * @static
         * @param {string} guid
         * @returns
         * @memberof CometChat
@@ -320,28 +366,28 @@ export namespace CometChat {
     /**
         * function to kick the member from existing group.
         *
-        * @export function
+        * @static
         * @param {*} guid
         * @param {*} uid
         * @returns
         * @memberof CometChat
         */
-    export function kickGroupMember(guid: any, uid: any): Promise<{}>;
+    export function kickGroupMember(guid: string, uid: string): Promise<{}>;
     /**
         * function to change the scope of the existing group.
         *
-        * @export function
+        * @static
         * @param {string} guid
         * @param {string} uid
         * @param {GroupMemberScope} scope
         * @returns
         * @memberof CometChat
         */
-    export function updateGroupMemberScope(guid: string, uid: string, scope: GroupMemberScope): Promise<{}>;
+    export function updateGroupMemberScope(guid: string, uid: string, scope: string): Promise<{}>;
     /**
         * function to ban the group member. this method will add the member to list of banned members.
         *
-        * @export function
+        * @static
         * @param {string} guid
         * @param {string} uid
         * @returns
@@ -351,7 +397,7 @@ export namespace CometChat {
     /**
         * function to unban the member to chat in group propvided as an argument
         *
-        * @export function
+        * @static
         * @param {string} guid
         * @param {string} uid
         * @returns
@@ -361,21 +407,21 @@ export namespace CometChat {
     /**
         *Function will return list of added GroupMembers.
         *
-        * @export function
+        * @static
         * @param {string} guid
         * @param {Array<GroupMember>} groupMembers
         * @param {Array<GroupMember>} [bannedMembersList]
         * @returns {Promise<Object>}
         * @memberof CometChat
         */
-    export function addMembersToGroup(guid: string, groupMembers: Array<GroupMember>, bannedMembersList?: Array<GroupMember>): Promise<Object>;
+    export function addMembersToGroup(guid: string, groupMembers: Array<string>, bannedMembersList?: Array<GroupMember>): Promise<Object>;
     /**-------------------------------------------------------------------*
         * Call related functions provided by CometChat class                 *
         *--------------------------------------------------------------------**/
     /**
         * function to call the api to initiated outgoing call session with another user or group.
         *
-        * @export function
+        * @static
         * @param {Call} call
         * @returns
         * @memberof CometChat
@@ -384,7 +430,7 @@ export namespace CometChat {
     /**
         * function to accept the incoming call from user to group.
         *
-        * @export function
+        * @static
         * @param {string} sessionid
         * @param {HTMLElement} view
         * @returns
@@ -393,7 +439,7 @@ export namespace CometChat {
     export function acceptCall(sessionid: string): Promise<{}>;
     /**
         * function to reject the incoming call,cancle the outgoing call or to end the ongoing call.
-        * @export function
+        * @static
         * @param {string} sessionId
         * @param {*} status
         * @returns
@@ -405,7 +451,7 @@ export namespace CometChat {
         * clears the session for the provided (ongoing) call.
         * and will also add the same in localstorage on success.
         * @private
-        * @export function
+        * @static
         * @param {string} sessionid
         * @returns
         * @memberof CometChat
@@ -414,7 +460,7 @@ export namespace CometChat {
     /**
         * function will return the active `Call` from `CallManager`
         *
-        * @export function
+        * @static
         * @returns
         * @memberof CometChat
         */
@@ -422,13 +468,16 @@ export namespace CometChat {
     /**
         * functiom to start the jitsi view in iframe.
         *
-        * @export function
+        * @static
         * @param {string} sessionId
         * @param {HTMLElement} view
         * @param {UserCallEventListener} [callEventHandler]
         * @memberof CometChat
         */
-    export function startCall(sessionId: string, view: HTMLElement, callEventHandler?: UserCallEventListener, context?: any): void;
+    export function startCall(sessionId: string, view: HTMLElement, callEventHandler?: OngoingCallListener, context?: any): void;
+    export function toggleAudio(): void;
+    export function toggleVideo(): void;
+    export function leaveCall(): void;
     export function createCallView(context: any): {
         prop1: typeof CometChat.makeCall;
         onMessage: (event: any) => void;
@@ -437,7 +486,7 @@ export namespace CometChat {
     /**
         * function will inform the server that current outgoing call is timedout for the call with the session id provided as an argument.
         * and will also add the same in localstorage on success.
-        * @export function
+        * @static
         * @param {string} sessionid
         * @returns
         * @memberof CometChat
@@ -453,7 +502,7 @@ export namespace CometChat {
         * @param {Function} callback
         * @memberof CometChat
         */
-    export function addMessageListener(name: string, messageEventListener): void;
+    export function addMessageListener(name: string, messageEventListener: MessageListener): void;
     /**
         * It will remove the MessgeEventListener from the list of the MessageEventListeners.
         *
@@ -468,7 +517,7 @@ export namespace CometChat {
         * @param {Function} callback
         * @memberof CometChat
         */
-    export function addCallListener(name: string, callEventListener: CallEventListener): void;
+    export function addCallListener(name: string, callEventListener: CallListener): void;
     /**
         * It will remove the CallEventListener from the list of the CallEventListeners
         *
@@ -483,7 +532,7 @@ export namespace CometChat {
         * @param {Function} callback
         * @memberof CometChat
         */
-    export function addUserListener(name: string, userEventListener: UserEventListener): void;
+    export function addUserListener(name: string, userEventListener: UserListener): void;
     /**
         * It will remove the UserEventListener from the list of the UserEventListener.
         *
@@ -498,7 +547,7 @@ export namespace CometChat {
         * @param {Function} callback
         * @memberof CometChat
         */
-    export function addGroupListener(name: string, groupEventListenerHandler: GroupEventListener): void;
+    export function addGroupListener(name: string, groupEventListenerHandler: GroupListener): void;
     /**
         * It will remove the GroupEventListener from the list of the GroupEventListeners.
         *
@@ -516,29 +565,22 @@ export namespace CometChat {
     /**
         * Clears the authtoken from server and clears the local cache.
         *
-        * @export function
+        * @static
         * @memberof CometChat
         */
     export function logout(): Promise<{}>;
-export function clearCache(): void;
+    export function isExtensionEnabled(extensionId: string): Promise<{}>;
+    export function clearCache(): void;
     export function typingTimer(): void;
-    /**
-        * add the CometChat Extetion to be executed in proper order
-        *
-        * @export function
-        * @param {CometChatExtension} cometChatExtension
-        * @memberof CometChat
-        */
-    export function addExtension(cometChatExtension: CometChatExtension): void;
 
 
     /**
-      *
-      *
-      * @export
-      * @class Error
-      * @implements {ErrorModel}
-      */
+    *
+    *
+    * @export
+    * @class Error
+    * @implements {ErrorModel}
+    */
     export class CometChatException implements ErrorModel {
         code?: string | number;
         name?: string;
@@ -562,8 +604,8 @@ export function clearCache(): void;
         statusMessage: string;
     }
     /**
-        * Implementation of UserObject
-        */
+    * Implementation of UserObject
+    */
     export class User {
         /**
             * Returns unique uid of the user.
@@ -595,6 +637,10 @@ export function clearCache(): void;
         setStatus(status: string): void;
         getStatusMessage(): string;
         setStatusMessage(statusMessage: string): void;
+        setBlockedByMe(blockedByMe: boolean): void;
+        getBlockedByMe(): boolean;
+        setJasBlockedMe(hasBlockedMe: boolean): void;
+        getHasBlockedMeMe(): boolean;
         constructor(userObj: UserObj | any);
     }
     export class Me extends User {
@@ -620,9 +666,10 @@ export function clearCache(): void;
             MESSAGE: string;
             ACTION: string;
             CALL: string;
+            CUSTOM: string;
         };
         protected data?: any;
-        constructor(receiver: string, file: File | string, type: string, receiverType: string);
+        constructor(receiver: string, file: object | string, type: string, receiverType: string);
         setCaption(text: string): void;
         getCaption(): any;
         getSender(): User;
@@ -639,30 +686,36 @@ export function clearCache(): void;
     export interface Message {
     }
     /**
-      *Basic Message Object
-      *
-      * @export
-      * @class BaseMessage
-      */
+    *Basic Message Object
+    *
+    * @export
+    * @class BaseMessage
+    */
     export class BaseMessage implements Message {
         protected id?: number;
         protected muid?: string;
         protected sender?: Me | any;
         protected receiver?: string;
         protected type?: string;
-        protected category?: MessageCategory;
+        protected category?: string;
         protected receiverType?: string;
         protected sentAt?: number;
         protected deliveredAt?: number;
         protected readAt?: string;
+        protected deliveredToMeAt?: string;
+        protected readByMeAt?: string;
         protected metadata: Object;
         protected status?: string;
         protected receipts?: any[];
         protected readReceipts?: MessageReceipt[];
         protected deliveryReceipts?: MessageReceipt[];
-        constructor(receiver: string, messageType: string, receiverType: string, category: MessageCategory);
+        protected editedAt: number;
+        protected editedBy: string;
+        protected deletedAt: number;
+        protected deletedBy: String;
+        constructor(receiver: string, messageType: string, receiverType: string, category: string);
         getId(): number;
-        setId(value: number): void;
+        setId(value: number | string): void;
         getMuid(): string;
         setMuid(value: string): void;
         getSender(): User;
@@ -680,13 +733,22 @@ export function clearCache(): void;
         setStatus(value: string): void;
         getDeliveredAt(): number;
         setDeliveredAt?(deliveredAt: number): void;
+        getDeliveredToMeAt(): string;
+        setDeliveredToMeAt?(deliveredToMeAt: string): void;
         getReadAt?(): string;
         setReadAt?(readAt: string): void;
-        getCategory(): MessageCategory;
-        setCategory(category: MessageCategory): void;
+        getReadByMeAt?(): string;
+        setReadByMeAt?(readByMeAt: string): void;
+        getCategory(): string;
+        setCategory(category: string): void;
+        setEditedAt(editedAt: number): void;
+        getEditedAt(): number;
+        setEditedBy(editedBy: string): void;
+        getEditedBy(): void;
+        setDeletedAt(): number;
     }
 
-    export class TextMessage extends BaseMessage {
+    export class TextMessage extends BaseMessage implements Message {
         static readonly TYPE: string;
         static readonly RECEIVER_TYPE: {
             USER: string;
@@ -725,18 +787,6 @@ export function clearCache(): void;
         DEFAULT_MSG_ID: number;
         DEFAULT_MAX_TYPING_INDICATOR_LIMIT: number;
     };
-    export enum GroupType {
-        Public = "public",
-        Private = "private",
-        Protected = "protected",
-        Password = "password"
-    }
-
-    export enum GroupMemberScope {
-        Admin = "admin",
-        Moderator = "moderator",
-        Member = "member"
-    }
 
     export const XMPP: {
         host: string;
@@ -782,6 +832,17 @@ export function clearCache(): void;
             KEY_ATTACHMENTS: string;
             CODE_REQUEST_OK: number;
             CODE_BAD_REQUEST: number;
+            UNREAD_UNDELIVERED_KEYS: {
+                ENTITY: string;
+                ENTITY_TYPE: string;
+                ENTITY_Id: string;
+                COUNT: string;
+            };
+            GROUP_MEMBERS_RESPONSE: {
+                SUCCESS: string;
+                ERROR: string;
+                MESSAGE: string;
+            };
         };
     };
     export const DELIVERY_RECEIPTS: {
@@ -793,6 +854,7 @@ export function clearCache(): void;
         DELIVERED_AT: string;
         ID: string;
         TIME: string;
+        DELIVERED_TO_ME_AT: string;
     };
     export const READ_RECEIPTS: {
         RECEIVER_ID: string;
@@ -803,6 +865,7 @@ export function clearCache(): void;
         READ_AT: string;
         ID: string;
         TIME: string;
+        READ_BY_ME_AT: string;
     };
     export const MessageConstatnts: {
         XMPP_KEYS: {
@@ -825,6 +888,7 @@ export function clearCache(): void;
             MESSAGE: string;
             ACTION: string;
             CALL: string;
+            CUSTOM: string;
         };
         RECEIVER_TYPE: {
             USER: string;
@@ -848,6 +912,7 @@ export function clearCache(): void;
             URL: string;
             METADATA: string;
             RECEIPTS: string;
+            MY_RECEIPTS: string;
             CUSTOM_DATA: string;
             CUSTOM_SUB_TYPE: string;
         };
@@ -878,6 +943,12 @@ export function clearCache(): void;
                 SENT_AT: string;
                 ID: string;
                 CURRENT_PAGE: string;
+                UNREAD: string;
+                UNDELIVERED: string;
+                HIDE_MESSAGES_FROM_BLOCKED_USER: string;
+                SEARCH_KEY: string;
+                ONLY_UPDATES: string;
+                UPDATED_AT: string;
             };
         };
     };
@@ -890,11 +961,7 @@ export function clearCache(): void;
             URL: string;
         };
     };
-    export enum MessageCategory {
-        ACTION = "action",
-        MESSAGE = "message",
-        CALL = "call"
-    }
+
     export const TYPING_NOTIFICATION: {
         RECEIVER_ID: string;
         RECEIVER_TYPE: string;
@@ -918,11 +985,13 @@ export function clearCache(): void;
             GROUP_USER: string;
             USER: string;
             GROUP: string;
+            MESSAGE: string;
         };
         ACTION_KEYS: {
             ACTION_CREATED: string;
             ACTION_UPDATED: string;
             ACTION_DELETED: string;
+            ENTITIES: string;
             ENTITY: string;
             ENTITY_TYPE: string;
             TYPE_MEMBER_JOINED: string;
@@ -931,11 +1000,18 @@ export function clearCache(): void;
             TYPE_MEMBER_BANNED: string;
             TYPE_MEMBER_UNBANNED: string;
             TYPE_MEMBER_INVITED: string;
+            TYPE_MEMBER_ADDED: string;
             ACTION_SCOPE_CHANGED: string;
             ACTION_TYPE_USER: string;
             ACTION_TYPE_GROUP: string;
             ACTION_TYPE_GROUP_MEMBER: string;
+            TYPE_MESSAGE_EDITED: string;
+            TYPE_MESSAGE_DELETED: string;
             ACTION_TYPE_CALL: string;
+            EXTRAS: string;
+            SCOPE: string;
+            NEW: string;
+            OLD: string;
         };
         ActionMessages: {
             ACTION_GROUP_JOINED_MESSAGE: string;
@@ -944,6 +1020,10 @@ export function clearCache(): void;
             ACTION_MEMBER_BANNED_MESSAGE: string;
             ACTION_MEMBER_UNBANNED_MESSAGE: string;
             ACTION_MEMBER_INVITED_MESSAGE: string;
+            ACTION_MESSAGE_EDITED_MESSAGE: string;
+            ACTION_MESSAGE_DELETED_MESSAGE: string;
+            ACTION_MEMBER_SCOPE_CHANGED: string;
+            ACTION_MEMBER_ADDED_TO_GROUP: string;
         };
         ACTION_TYPE: {
             TYPE_MEMBER_JOINED: string;
@@ -953,6 +1033,10 @@ export function clearCache(): void;
             TYPE_MEMBER_UNBANNED: string;
             TYPE_MEMBER_INVITED: string;
             TYPE_MEMBER_SCOPE_CHANGED: string;
+            TYPE_MESSAGE: string;
+            TYPE_MESSAGE_EDITED: string;
+            TYPE_MESSAGE_DELETED: string;
+            TYPE_MEMBER_ADDED: string;
         };
         ACTIONS: {
             MEMBER_JOINED: string;
@@ -962,6 +1046,15 @@ export function clearCache(): void;
             MEMBER_UNBANNED: string;
             MEMBER_INVITED: string;
             MEMBER_SCOPE_CHANGED: string;
+        };
+    };
+    export const BlockedUsersConstants: {
+        REQUEST_KEYS: {
+            DIRECTIONS: {
+                BOTH: string;
+                HAS_BLOCKED_ME: string;
+                BLOCKED_BY_ME: string;
+            };
         };
     };
     export const CallConstants: {
@@ -1088,6 +1181,7 @@ export function clearCache(): void;
         };
         STATUS: {
             ONLINE: string;
+            AVAILABLE: string;
             OFFLINE: string;
             JOINED: string;
             LEFT: string;
@@ -1112,12 +1206,15 @@ export function clearCache(): void;
             WEBRTC_WSS_PORT: string;
             WEBRTC_HTTP_BIND_PORT: string;
             WEBRTC_HTTPS_BIND_PORT: string;
+            EXTENSION_LIST: string;
+            EXTENSION_KEYS: {
+                ID: string;
+                NAME: string;
+            };
         };
     };
 
     export class Group {
-        static readonly TYPE: typeof GroupType;
-        static readonly Type: typeof GroupType;
         /**
           * Creates an instance of Group.
           * @param {string} guid
@@ -1128,13 +1225,13 @@ export function clearCache(): void;
           * @param {string} [description]
           * @memberof Group
           */
-        constructor(guid: string, name: string, type: GroupType | string, passsword?: string, icon?: string, description?: string, hasJoined?: boolean);
+        constructor(guid: string, name: string, type: string, passsword?: string, icon?: string, description?: string, hasJoined?: boolean);
         getGuid(): string;
         setGuid(guid: string): void;
         getName(): string;
         setName(name: string): void;
-        getType(): GroupType | string;
-        setType(type: GroupType | string): void;
+        getType(): string;
+        setType(type: string): void;
         setPassword(password: string): void;
         getIcon(): string;
         setIcon(icon: string): void;
@@ -1166,32 +1263,36 @@ export function clearCache(): void;
         onCall?: Function;
         onTypingStarted?: Function;
         onTypingEnded?: Function;
-        onMessageDelivered?: Function;
-        onMessageRead?: Function;
-        constructor(...args);
+        onMessagesDelivered?: Function;
+        onMessagesRead?: Function;
+        onMessageEdited?: Function;
+        onMessageDeleted?: Function;
+        constructor(...args: any[]);
     }
-    export class CallEventListener {
+    export class CallListener {
         onIncomingCallReceived?: Function;
         onOutgoingCallAccepted?: Function;
         onOutgoingCallRejected?: Function;
         onIncomingCallCancelled?: Function;
         constructor(...args: any[]);
     }
-    export class UserEventListener {
+    export class UserListener {
         onUserOnline?: Function;
         onUserOffline?: Function;
         constructor(...args: any[]);
     }
-    export class GroupEventListener {
+    export class GroupListener {
         onUserJoined?: Function;
         onUserLeft?: Function;
         onUserKicked?: Function;
         onUserBanned?: Function;
         onUserUnbanned?: Function;
         onMemberScopeChanged?: Function;
+        onMemberAddedToGroup: Function;
+        onAddedToGroup: Function;
         constructor(...args: any[]);
     }
-    export class UserCallEventListener {
+    export class OngoingCallListener {
         onYouLeft?: Function;
         onYouJoined?: Function;
         onUserJoined?: Function;
@@ -1199,41 +1300,6 @@ export function clearCache(): void;
         onCallEnded?: Function;
         onError?: Function;
         constructor(...args: any[]);
-    }
-    export interface EventListener {
-        _name: string;
-        _callback: Function;
-        _eventListener?: UserEventListener | UserCallEventListener | CallEventListener | GroupEventListener;
-    }
-    export class Listener implements EventListener {
-        _name: string;
-        _callback: Function;
-        constructor(name: string, callback: Function);
-    }
-    export class MessageEventListener extends Listener implements EventListener {
-        _cursor?: number;
-        _eventListener;
-        constructor(name: string, messageEventListener?, cursor?: number, callback?: Function);
-    }
-    export class UserListener extends Listener implements EventListener {
-        _cursor?: number;
-        _eventListener: UserEventListener;
-        constructor(name: string, userEventHandler?: UserEventListener, cursor?: number, callback?: Function);
-    }
-    export class GroupListener extends Listener implements EventListener {
-        _cursor?: number;
-        _eventListener: GroupEventListener;
-        constructor(name: string, groupEventHandler?: GroupEventListener, cursor?: number, callback?: Function);
-    }
-    export class UserCallListener extends Listener implements EventListener {
-        _cursor?: number;
-        _eventListener: UserCallEventListener;
-        constructor(callEventHandler?: UserCallEventListener, cursor?: number, callback?: Function);
-    }
-    export class CallListener extends Listener implements EventListener {
-        _cursor?: number;
-        _eventListener: CallEventListener;
-        constructor(name: string, callEventListner?: CallEventListener, cursor?: number, callback?: Function);
     }
 
     export class Call extends BaseMessage implements Message {
@@ -1250,12 +1316,13 @@ export function clearCache(): void;
             USER: string;
             GROUP: string;
         };
-        readonly CATEGORY: {
+        static readonly CATEGORY: {
             MESSAGE: string;
             ACTION: string;
             CALL: string;
+            CUSTOM: string;
         };
-        readonly ACTION_TYPE: {
+        static readonly ACTION_TYPE: {
             TYPE_MEMBER_JOINED: string;
             TYPE_MEMBER_LEFT: string;
             TYPE_MEMBER_KICKED: string;
@@ -1263,6 +1330,10 @@ export function clearCache(): void;
             TYPE_MEMBER_UNBANNED: string;
             TYPE_MEMBER_INVITED: string;
             TYPE_MEMBER_SCOPE_CHANGED: string;
+            TYPE_MESSAGE: string;
+            TYPE_MESSAGE_EDITED: string;
+            TYPE_MESSAGE_DELETED: string;
+            TYPE_MEMBER_ADDED: string;
         };
         protected metadata: any;
         protected action: string;
@@ -1274,7 +1345,7 @@ export function clearCache(): void;
         protected callReceiver: object;
         constructor(receiver: any, type: any, receiverType: any, category?: any);
         getCallInitiator(): User;
-        getCallReceiver(): User;
+        getCallReceiver(): Group | User;
         setCallInitiator(user: any): void;
         setCallReceiver(user: any): void;
         getData(): object;
@@ -1294,85 +1365,88 @@ export function clearCache(): void;
         getRawData(): any;
         setSender(sender: any): void;
         /**
-         *Creates an instance of TextMessage.
-         * @param {string} receiverUid
-         * @param {string} text
-         * @param {string} senderUid
-         * @param {string} receiverType
-         * @memberof Actions
-         */
-        callFromJSON(rawMessage: any): Call | Message;
+          *Creates an instance of TextMessage.
+          * @param {string} receiverUid
+          * @param {string} text
+          * @param {string} senderUid
+          * @param {string} receiverType
+          * @memberof Actions
+          */
+        static callFromJSON(rawMessage: any): Call | Message;
     }
 
     export class CallController {
         TAG: string;
         static callController: CallController;
         scrollHight: number;
-        getCallListner(): UserCallListener;
-        getInstance(): CallController;
+        getCallListner(): OngoingCallListener;
+        static getInstance(): CallController;
         /**
-         * returns the ongoing call object or null|undefined
-         *
-         * @returns {Call}
-         * @memberof CallController
-         */
+            * returns the ongoing call object or null|undefined
+            *
+            * @returns {Call}
+            * @memberof CallController
+            */
         getActiveCall(): Call;
         /**
-         * Initialize the call.
-         *
-         * @param {Call} call
-         * @returns
-         * @memberof CallController
-         */
+            * Initialize the call.
+            *
+            * @param {Call} call
+            * @returns
+            * @memberof CallController
+            */
         initiateCall(call: Call): Promise<{}>;
         /**
-         * Called when Incoming call initialized.
-         *
-         * @memberof CallController
-         */
+            * Called when Incoming call initialized.
+            *
+            * @memberof CallController
+            */
         onCallInitialized(): void;
         /**
-         * Joining the outgoing call
-         *
-         * @param {*} call
-         * @memberof CallController
-         */
+            * Joining the outgoing call
+            *
+            * @param {*} call
+            * @memberof CallController
+            */
         joinCall(call: any): void;
         /**
-         *Canceling dialed call.
-         *
-         * @memberof CallController
-         */
+            *Canceling dialed call.
+            *
+            * @memberof CallController
+            */
         cancelCall(): void;
         /**
-         *Reject the call
-         *
-         * @memberof CallController
-         */
+            *Reject the call
+            *
+            * @memberof CallController
+            */
         rejectCall(): void;
         /**
-         *Sending the busy reponce.
-         *
-         * @memberof CallController
-         */
+            *Sending the busy reponce.
+            *
+            * @memberof CallController
+            */
         sendBusyResponse(): void;
         /**
-         *End the onGoin call
-         *
-         * @param {boolean} [isInternal]
-         * @memberof CallController
-         */
+            *End the onGoin call
+            *
+            * @param {boolean} [isInternal]
+            * @memberof CallController
+            */
         endCall(isInternal?: boolean): void;
         onCallEnded(): void;
         /**
-         * UnAnswer the Call.
-         *
-         * @memberof CallController
-         */
+            * UnAnswer the Call.
+            *
+            * @memberof CallController
+            */
         unAnswerCall(): void;
         onCallStarted(call: Call): Promise<{}>;
         endCallSession(): void;
-        startCall(view: HTMLElement, callEventHandler?: UserCallEventListener, context?: any): void;
+        startCall(view: HTMLElement, callEventHandler?: OngoingCallListener, context?: any): void;
+        static toggleAudio(): void;
+        static toggleVideo(): void;
+        static leave(): void;
         destroy(): void;
     }
 
@@ -1394,8 +1468,9 @@ export function clearCache(): void;
             MESSAGE: string;
             ACTION: string;
             CALL: string;
+            CUSTOM: string;
         };
-        readonly ACTION_TYPE: {
+        static readonly ACTION_TYPE: {
             TYPE_MEMBER_JOINED: string;
             TYPE_MEMBER_LEFT: string;
             TYPE_MEMBER_KICKED: string;
@@ -1403,22 +1478,32 @@ export function clearCache(): void;
             TYPE_MEMBER_UNBANNED: string;
             TYPE_MEMBER_INVITED: string;
             TYPE_MEMBER_SCOPE_CHANGED: string;
+            TYPE_MESSAGE: string;
+            TYPE_MESSAGE_EDITED: string;
+            TYPE_MESSAGE_DELETED: string;
+            TYPE_MEMBER_ADDED: string;
         };
-        protected actionBy: User | Group;
-        protected actionFor: User | Group;
-        protected actionOn: User | Group;
+        protected actionBy: User | Group | BaseMessage;
+        protected actionFor: User | Group | BaseMessage;
+        protected actionOn: User | Group | BaseMessage;
         protected message: string;
         protected rawData: any;
         protected action: string;
+        protected oldScope: string;
+        protected newScope: string;
         /**
-         *Creates an instance of TextMessage.
-         * @param {string} receiverUid
-         * @param {string} text
-         * @param {string} senderUid
-         * @param {string} receiverType
-         * @memberof Actions
-         */
-        actionFromJSON(rawMessage: any): Action | Message;
+            *Creates an instance of TextMessage.
+            * @param {string} receiverUid
+            * @param {string} text
+            * @param {string} senderUid
+            * @param {string} receiverType
+            * @memberof Actions
+            */
+        static actionFromJSON(rawMessage: any): Action | Message;
+        getOldScope(): string;
+        getNewScope(): string;
+        setNewScope(newScope: string): void;
+        setOldScope(oldScope: string): void;
         setRawData(rawData: any): void;
         getRawData(): any;
         setMessage(message: string): void;
@@ -1426,12 +1511,12 @@ export function clearCache(): void;
         setAction(action: string): void;
         getAction(): string;
         getSender(): User;
-        setActionBy(by: User | Group): void;
-        getActionBy(): User | Group;
-        setActionOn(on: User | Group): void;
-        getActionOn(): User | Group;
-        setActionFor(actionFor: User | Group): void;
-        getActionFor(): User | Group;
+        setActionBy(by: User | Group | BaseMessage): void;
+        getActionBy(): User | Group | BaseMessage;
+        setActionOn(on: User | Group | BaseMessage): void;
+        getActionOn(): User | Group | BaseMessage;
+        setActionFor(actionFor: User | Group | BaseMessage): void;
+        getActionFor(): User | Group | BaseMessage;
         getMetadata(): any;
         setMetadata(metadata: any): void;
     }
@@ -1450,9 +1535,12 @@ export function clearCache(): void;
     }
     export class GroupsRequestBuilder {
         limit: number;
-        searchKeyWord: string;
+        searchKeyword: string;
+        hasJoined: boolean;
         setLimit(limit: number): this;
-        setSearchKeyWord(searchKeyWord: string): this;
+        setSearchKeyWord(searchKeyword: string): this;
+        setSearchKeyword(searchKeyword: string): this;
+        joinedOnly(hasJoined: boolean): this;
         build(): GroupsRequest;
     }
 
@@ -1465,11 +1553,12 @@ export function clearCache(): void;
     }
     export class GroupMembersRequestBuilder {
         limit: number;
-        searchKeyWord: string;
+        searchKeyword: string;
         guid: string;
         constructor(guid: string);
         setLimit(limit: number): this;
-        setSearchKeyWord(searchKeyWord: string): this;
+        setSearchKeyWord(searchKeyword: string): this;
+        setSearchKeyword(searchKeyword: string): this;
         build(): GroupMembersRequest;
     }
     export class GroupOutCastMembersRequestBuilder extends GroupMembersRequestBuilder {
@@ -1479,6 +1568,10 @@ export function clearCache(): void;
     }
 
     export class UsersRequest {
+        static USER_STATUS: {
+            ONLINE: string;
+            OFFLINE: string;
+        };
         constructor(builder?: UsersRequestBuilder);
         fetchPrevious(): Promise<User[] | CometChatException>;
         fetchNext(): Promise<User[] | CometChatException>;
@@ -1487,9 +1580,16 @@ export function clearCache(): void;
     }
     export class UsersRequestBuilder {
         limit: number;
-        searchKeyWord: string;
+        status: string;
+        searchKeyword: string;
+        shouldHideBlockedUsers: boolean;
+        role: string;
         setLimit(limit: number): this;
-        setSearchKeyWord(searchKeyWord: string): this;
+        setStatus(status: string): this;
+        setSearchKeyWord(searchKeyword: string): this;
+        setSearchKeyword(searchKeyword: string): this;
+        hideBlockedUsers(hideBlockedUsers?: boolean): this;
+        setRole(role: string): this;
         build(): UsersRequest;
     }
 
@@ -1505,11 +1605,25 @@ export function clearCache(): void;
         guid?: string;
         timestamp?: number;
         id?: number;
+        unread?: boolean;
+        undelivered?: boolean;
+        HideMessagesFromBlockedUsers?: boolean;
+        searchKey?: string;
+        updatedAt?: string;
+        onlyUpdate?: number;
         setLimit(limit?: number): this;
         setGUID(guid: string): this;
         setUID(uid: string): this;
-        setTimestamp(timestamp?: number): this;
-        setMessageId(id?: number): this;
+        setTimestamp(timestamp?: number | string): this;
+        setMessageId(id?: number | string): this;
+        setUnread(unread?: boolean): this;
+        setUndelivered(undelivered?: boolean): this;
+        hideMessagesFromBlockedUsers(hideMessagesFromBlockedUsers?: boolean): this;
+        setSearchKey(searchKey: string): this;
+        setSearchKeyWord(searchKey: string): this;
+        setSearchKeyword(searchKey: string): this;
+        setUpdatedAfter(updatedAt: string): this;
+        updatesOnly(onlyUpdate: boolean): this;
         /**
           *Built the DefaultMessagesRequest
           *
@@ -1532,7 +1646,7 @@ export function clearCache(): void;
     }
 
     export class CustomMessage extends BaseMessage implements Message {
-        constructor(receiver: string, customData: Object, receiverType: string);
+        constructor(...args: any[]);
         getCustomData(): Object;
         setCustomData(customData: Object): void;
         getSender(): User;
@@ -1567,7 +1681,7 @@ export function clearCache(): void;
         setStatusMessage(statusMessage: string): void;
         setGuid(guid: string): void;
         setUid(uid: string): void;
-        setScope(scope: GroupMemberScope): void;
+        setScope(scope: string): void;
         setJoinedAt(joinedAt: number): void;
         setIsBanned(isBanned: number): void;
         setUser(user: User): void;
@@ -1580,8 +1694,11 @@ export function clearCache(): void;
     }
 
     export abstract class CometChatExtension {
-        abstract onInit(appId: string, user?: Me): void;
-        abstract onLogin(user: Me): void;
+        constructor(extensionId: any);
+        abstract extensionId: string;
+        abstract getExtensionId(): string;
+        abstract onInit(appId: string, user?: Me): Promise<void>;
+        abstract onLogin(user: Me): Promise<void>;
         abstract beforeMessageSent(message: BaseMessage): Promise<BaseMessage>;
         abstract afterMessageSent(message: BaseMessage): Promise<BaseMessage>;
         abstract onMessageReceived(message: BaseMessage): Promise<BaseMessage>;
@@ -1589,13 +1706,41 @@ export function clearCache(): void;
         abstract onLogout(): void;
     }
 
+    export class ExtensionManager {
+        static cometChatExtensionList: CometChatExtension[];
+        static addCometChatExtension(cometchatExtension: CometChatExtension): Promise<void>;
+    }
+
+    export class BlockedUsersRequest {
+        static DIRECTIONS: {
+            BOTH: string;
+            HAS_BLOCKED_ME: string;
+            BLOCKED_BY_ME: string;
+        };
+        constructor(builder?: BlockedUsersRequestBuilder);
+        fetchPrevious(): Promise<User[] | CometChatException>;
+        fetchNext(): Promise<User[] | CometChatException>;
+        getNextData(): any;
+        getPreData(): any;
+    }
+    export class BlockedUsersRequestBuilder {
+        limit: number;
+        searchKeyword: string;
+        direction: string;
+        setLimit(limit: number): this;
+        setSearchKeyword(searchKeyword: string): this;
+        setDirection(direction: string): this;
+        blockedByMe(): this;
+        hasBlockedMe(): this;
+        build(): BlockedUsersRequest;
+    }
 
     /**
-      *
-      *
-      * @export
-      * @interface ErrorModel
-      */
+    *
+    *
+    * @export
+    * @interface ErrorModel
+    */
     export interface ErrorModel {
         code?: string | number;
         name?: string;
@@ -1632,10 +1777,6 @@ export function clearCache(): void;
         getFileUrl(): string;
         setFileUrl(url: string): void;
     }
-    export class ExtensionManager {
-        static cometChatExtensionList: CometChatExtension[];
-        static addCometChatExtension(cometchatExtension: CometChatExtension): void;
-    }
 
     export class MessageReceipt {
         RECEIPT_TYPE: {
@@ -1650,6 +1791,10 @@ export function clearCache(): void;
         setReceiver(receiver: string): void;
         getTimestamp(): string;
         setTimestamp(timestamp: string): void;
+        setReadAt(readAt: string): void;
+        getReceivedAt(): string;
+        setDeliveredAt(deliveredAt: string): void;
+        getDeliveredAt(): string;
         getMessageId(): string;
         setMessageId(messageId: string): void;
         getReceiptType(): string;
