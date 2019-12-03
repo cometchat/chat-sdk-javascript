@@ -38,13 +38,13 @@ First, install via npm
 For v1.8.x and older:
 
 ```shell
-npm install @cometchat-pro/@cometchat-pro/chat@1.8.14 --save
+npm install @cometchat-pro/chat@1.8.14 --save
 ```
 
 For v2.0.x:
 
 ```shell
-npm install @cometchat-pro/chat --save
+npm install @cometchat-pro/chat@2.0.4 --save
 ```
 
 Then, import the `CometChat` object wherever you want to use CometChat
@@ -67,7 +67,7 @@ For v1.8.x and older:
 For v2.0.x:
 
 ```HTML
-<script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat/CometChat.js"></script>
+<script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat@2.0.4/CometChat.js"></script>
 ```
 
 
