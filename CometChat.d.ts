@@ -575,7 +575,7 @@ export namespace CometChat {
         * @returns
         * @memberof CometChat
         */
-    export function getAppSettings(): Promise<{}>;
+    export function getAppSettings(): Promise<any>;
     /**
         * Clears the authtoken from server and clears the local cache.
         *
