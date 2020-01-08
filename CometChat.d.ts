@@ -101,6 +101,16 @@ export namespace CometChat {
     export function getInstance(appId?: string);
 
     /**
+        * function to register the FCM token for Push Notification.
+        * @static
+        * @param {string} token
+        * @param {JSON Object} Settings
+        * @returns {Promise<string>}
+        * @memberof CometChat
+        */
+    export function registerTokenForPushNotification(token: string, settings?: {}): Promise<string>;
+
+    /**
         *	login funtion will authenticate user provided as an argument.
         *	two ways to login
         *	1. with uid and apiKey (unsecure way), double arguments.
@@ -301,7 +311,7 @@ export namespace CometChat {
     /**
         * This function will return logged in user
         *
-        * @returns {Promise<any>}
+        * @returns {Promise<User>}
         * @memberof CometChat
         */
     export function getLoggedinUser(): Promise<User | null>;
@@ -318,7 +328,7 @@ export namespace CometChat {
         *
         * @static
         * @param {Group} group
-        * @returns Promise<Group|CometChatException>
+        * @returns Promise<Group>
         * @memberof CometChat
         */
     export function createGroup(group: any): Promise<Group>;
@@ -328,7 +338,7 @@ export namespace CometChat {
         *
         * @static
         * @param {string} guid
-        * @returns Promise<Group|CustomError>
+        * @returns Promise<Group>
         * @memberof CometChat
         */
     export function getGroup(guid: any): Promise<Group>;
@@ -336,10 +346,10 @@ export namespace CometChat {
         * function to get all the joined groups of logged in User
         *
         * @static
-        * @returns Promise<any>
+        * @returns Promise<Object>
         * @memberof CometChat
         */
-    export function getGroups(): Promise<Object>;
+    export function getJoinedGroups(): Promise<Object>;
 
     /**
         * function to join the exiting group group.
@@ -743,9 +753,9 @@ export namespace CometChat {
         protected receiverType?: string;
         protected sentAt?: number;
         protected deliveredAt?: number;
-        protected readAt?: string;
-        protected deliveredToMeAt?: string;
-        protected readByMeAt?: string;
+        protected readAt?: number;
+        protected deliveredToMeAt?: number;
+        protected readByMeAt?: number;
         protected metadata: Object;
         protected status?: string;
         protected receipts?: any[];
@@ -779,12 +789,12 @@ export namespace CometChat {
         setStatus(value: string): void;
         getDeliveredAt(): number;
         setDeliveredAt?(deliveredAt: number): void;
-        getDeliveredToMeAt(): string;
-        setDeliveredToMeAt?(deliveredToMeAt: string): void;
-        getReadAt?(): string;
-        setReadAt?(readAt: string): void;
-        getReadByMeAt?(): string;
-        setReadByMeAt?(readByMeAt: string): void;
+        getDeliveredToMeAt(): number;
+        setDeliveredToMeAt?(deliveredToMeAt: number): void;
+        getReadAt?(): number;
+        setReadAt?(readAt: number): void;
+        getReadByMeAt?(): number;
+        setReadByMeAt?(readByMeAt: number): void;
         getCategory(): string;
         setCategory(category: string): void;
         setEditedAt(editedAt: number): void;
@@ -1692,8 +1702,8 @@ export namespace CometChat {
 
     export class GroupsRequest {
         constructor(builder?: GroupsRequestBuilder);
-        fetchPrevious(): Promise<Group[]>;
-        fetchNext(): Promise<Group[]>;
+        fetchPrevious(): Promise<Group[] | []>;
+        fetchNext(): Promise<Group[] | []>;
         /**
             * Create the pagination data to send with each request.
             *
@@ -1715,8 +1725,8 @@ export namespace CometChat {
     export class BannedMembersRequest {
         constructor(builder?: BannedMembersRequestBuilder);
         setGUID
-        fetchPrevious(): Promise<GroupMember[]>;
-        fetchNext(): Promise<GroupMember[]>;
+        fetchPrevious(): Promise<GroupMember[] | []>;
+        fetchNext(): Promise<GroupMember[] | []>;
         /**
             * Create the pagination data to send with each request.
             *
@@ -1738,8 +1748,8 @@ export namespace CometChat {
 
     export class GroupMembersRequest {
         constructor(builder?: GroupMembersRequestBuilder | GroupOutCastMembersRequestBuilder);
-        fetchPrevious(): Promise<GroupMember[]>;
-        fetchNext(): Promise<GroupMember[]>;
+        fetchPrevious(): Promise<GroupMember[] | []>;
+        fetchNext(): Promise<GroupMember[] | []>;
         getNextData(): any;
         getPreData(): any;
     }
@@ -1764,8 +1774,8 @@ export namespace CometChat {
             OFFLINE: string;
         };
         constructor(builder?: UsersRequestBuilder);
-        fetchPrevious(): Promise<User[]>;
-        fetchNext(): Promise<User[]>;
+        fetchPrevious(): Promise<User[] | []>;
+        fetchNext(): Promise<User[] | []>;
         getNextData(): any;
         getPreData(): any;
     }
@@ -1787,7 +1797,7 @@ export namespace CometChat {
 
     export class ConversationsRequest {
         constructor(builder?: ConversationsRequestBuilder);
-        fetchNext(): Promise<Conversation[]>;
+        fetchNext(): Promise<Conversation[] | []>;
         getNextData(): any;
     }
     export class ConversationsRequestBuilder {
@@ -1804,8 +1814,8 @@ export namespace CometChat {
 
     export class MessagesRequest {
         constructor(builder?: MessagesRequestBuilder);
-        fetchNext(): Promise<BaseMessage[]>;
-        fetchPrevious(): Promise<BaseMessage[]>;
+        fetchNext(): Promise<BaseMessage[] | []>;
+        fetchPrevious(): Promise<BaseMessage[] | []>;
     }
     export class MessagesRequestBuilder {
         limit?: number;
@@ -1928,8 +1938,8 @@ export namespace CometChat {
             BLOCKED_BY_ME: string;
         };
         constructor(builder?: BlockedUsersRequestBuilder);
-        fetchPrevious(): Promise<User[]>;
-        fetchNext(): Promise<User[]>;
+        fetchPrevious(): Promise<User[] | []>;
+        fetchNext(): Promise<User[] | []>;
         getNextData(): any;
         getPreData(): any;
     }
@@ -2029,11 +2039,10 @@ export namespace CometChat {
         setReceiver(receiver: string): void;
         getTimestamp(): string;
         setTimestamp(timestamp: string): void;
-        getReadAt(): string;
-        setReadAt(readAt: string): void;
-        getReceivedAt(): string;
-        setDeliveredAt(deliveredAt: string): void;
-        getDeliveredAt(): string;
+        getReadAt(): number;
+        setReadAt(readAt: number): void;
+        setDeliveredAt(deliveredAt: number): void;
+        getDeliveredAt(): number;
         getMessageId(): string;
         setMessageId(messageId: string): void;
         getReceiptType(): string;
