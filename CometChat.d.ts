@@ -1810,6 +1810,7 @@ export namespace CometChat {
 
     export class CometChatHelper {
         static getConversationFromMessage(message: TextMessage | MediaMessage | CustomMessage | any): Promise<Conversation>;
+        static processMessage(message: Object): Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage>;
     }
 
     export class MessagesRequest {
