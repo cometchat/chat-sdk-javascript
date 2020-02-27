@@ -300,6 +300,25 @@ export namespace CometChat {
         * User related functions provided by CometChat class                 *
         *--------------------------------------------------------------------**/
     /**
+	 * function to create user.
+	 *
+	 * @static
+	 * @param {User} user, authOnly apiKey
+	 * @returns Promise<User>
+	 * @memberof CometChat
+	 */
+    export function createUser(user: User | any, apiKey: string): Promise<User>;
+
+    /**
+	 *
+	 * function to update the already existing user and returns the result with updated user
+	 * @param {User} user, authOnly apiKey
+	 * @returns Promise<User>
+	 * @memberof CometChat
+	 */
+    export function updateUser(user: User | any, apiKey: string): Promise<User>;
+    
+    /**
         * function to get the information for the uid provided as an argument
         * @static
         * @param {string} uid
