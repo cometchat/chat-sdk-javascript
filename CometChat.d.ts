@@ -244,11 +244,6 @@ export namespace CometChat {
     export function getUnreadMessageCountForAllGroups(doHideMessages?: boolean): Promise<Object>;
     export function getUnreadMessageCountForUser(UID: string, doHideMessages?: boolean): Promise<Object>;
     export function getUnreadMessageCountForGroup(GUID: string, doHideMessages?: boolean): Promise<Object>;
-    export function getUndeliveredMessageCount(doHideMessages?: boolean): Promise<Object>;
-    export function getUndeliveredMessageCountForAllUsers(doHideMessages?: boolean): Promise<Object>;
-    export function getUndeliveredMessageCountForAllGroups(doHideMessages?: boolean): Promise<Object>;
-    export function getUndeliveredMessageCountForUser(UID: string, doHideMessages?: boolean): Promise<Object>;
-    export function getUndeliveredMessageCountForGroup(GUID: string, doHideMessages?: boolean): Promise<Object>;
     export function editMessage(message: BaseMessage): Promise<BaseMessage>;
     export function deleteMessage(messageId: number): Promise<BaseMessage>;
 
@@ -676,7 +671,6 @@ export namespace CometChat {
         name: string;
         authToken: string;
         avatar: string;
-        credits: number;
         lastActiveAt: number;
         link: string;
         metadata: string;
@@ -702,8 +696,6 @@ export namespace CometChat {
         setAuthToken(authToken: string): void;
         getAvatar(): string;
         setAvatar(avatar: string): void;
-        getCredits(): number;
-        setCredits(credits: number): void;
         getLastActiveAt(): number;
         setLastActiveAt(lastActiveAt: number): void;
         getLink(): string;
@@ -1081,7 +1073,6 @@ export namespace CometChat {
                 ID: string;
                 CURRENT_PAGE: string;
                 UNREAD: string;
-                UNDELIVERED: string;
                 HIDE_MESSAGES_FROM_BLOCKED_USER: string;
                 SEARCH_KEY: string;
                 ONLY_UPDATES: string;
@@ -1263,7 +1254,6 @@ export namespace CometChat {
         NAME: string;
         AUTH_TOKEN: string;
         AVATAR: string;
-        CREDITS: string;
         LAST_ACTIVE_AT: string;
         LINK: string;
         META_DATA: string;
@@ -1882,7 +1872,6 @@ export namespace CometChat {
         timestamp?: number;
         id?: number;
         unread?: boolean;
-        undelivered?: boolean;
         HideMessagesFromBlockedUsers?: boolean;
         searchKey?: string;
         updatedAt?: string;
@@ -1895,7 +1884,6 @@ export namespace CometChat {
         setTimestamp(timestamp?: number): this;
         setMessageId(id?: number): this;
         setUnread(unread?: boolean): this;
-        setUndelivered(undelivered?: boolean): this;
         hideMessagesFromBlockedUsers(hideMessagesFromBlockedUsers?: boolean): this;
         setSearchKeyword(searchKey: string): this;
         setUpdatedAfter(updatedAt: string): this;
@@ -1942,8 +1930,6 @@ export namespace CometChat {
         setName(name: string): void;
         getAvatar(): string;
         setAvatar(avatar: string): void;
-        getCredits(): number;
-        setCredits(credits: number): void;
         getLastActiveAt(): number;
         setLastActiveAt(lastActiveAt: number): void;
         getLink(): string;
