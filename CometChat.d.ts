@@ -334,6 +334,22 @@ export namespace CometChat {
     export function unblockUsers(blockedUids: String[]): Promise<Object>;
 
     /**-------------------------------------------------------------------*
+	 * Conversation related functions provided by CometChat class         *
+	 *--------------------------------------------------------------------**/
+
+	/**
+	 * function to fetch conversation for a specific user/group.
+	 *
+	 * @static
+	 * @param {string} conversationWith
+	 * @param {string} conversationType
+	 * @returns Promise<Conversation>
+	 * @memberof CometChat
+	 */
+
+    export function getConversation(conversationWith: string, conversationType: string): Promise<Conversation>;
+
+    /**-------------------------------------------------------------------*
         * Group related functions provided by CometChat class                *
         *--------------------------------------------------------------------**/
 
