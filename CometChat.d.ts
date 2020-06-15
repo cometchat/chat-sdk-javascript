@@ -635,6 +635,21 @@ export namespace CometChat {
         */
     export function removeGroupListener(name: string): void;
     /**
+        * It will add the LoginEventListener to list of the LoginEventListeners.
+        *
+        * @param {string} name
+        * @param {Function} callback
+        * @memberof CometChat
+        */
+    export function addLoginListener(name: string, loginEventListenerHandler: LoginListener): void;
+    /**
+        * It will remove the LoginEventListener from the list of the LoginEventListeners.
+        *
+        * @param {string} name
+        * @memberof CometChat
+        */
+    export function removeLoginListener(name: string): void;
+    /**
         * Get the current connection status
         *
         * @returns string
@@ -1570,6 +1585,13 @@ export namespace CometChat {
         onUserLeft?: Function;
         onCallEnded?: Function;
         onError?: Function;
+        constructor(...args: any[]);
+    }
+    export class LoginListener {
+        loginSuccess?: Function;
+        loginFailure?: Function;
+        logoutFailure?: Function;
+        logoutSuccess?: Function;
         constructor(...args: any[]);
     }
 
