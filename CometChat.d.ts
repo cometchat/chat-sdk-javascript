@@ -657,6 +657,12 @@ export namespace CometChat {
         */
     export function getConnectionStatus(): string;
     /**
+        * It will return an Instance of the XMPPConnectionHelper Class.
+        *
+        * @memberof CometChat
+        */
+    export function getXMPPConnectionHelper(): any;
+    /**
         * Get the XMPP/ WEBRTC details from the servers
         *
         * @returns
@@ -828,6 +834,7 @@ export namespace CometChat {
     export class BaseMessage implements Message {
         protected id?: number;
         protected conversationId?: string;
+        protected parentMessageId?: string;
         protected muid?: string;
         protected sender?: Me | any;
         protected receiverId?: string;
@@ -849,11 +856,14 @@ export namespace CometChat {
         protected editedBy: string;
         protected deletedAt: number;
         protected deletedBy: string;
+        protected replyCount: number;
         constructor(receiverId: string, messageType: string, receiverType: string, category: string);
         getId(): number;
         setId(value: number): void;
         getConversationId(): string;
         setConversationId(value: string): void;
+        getParentMessageId(): number;
+        setParentMessageId(value: number): void;
         getMuid(): string;
         setMuid(value: string): void;
         getSender(): User;
@@ -889,6 +899,8 @@ export namespace CometChat {
         getDeletedAt(): number;
         setDeletedBy(deletedBy: string): void;
         getDeletedBy(): string;
+        setReplyCount(replyCount: number): void;
+        getReplyCount(): number;
     }
 
     export class TextMessage extends BaseMessage implements Message {
@@ -1128,6 +1140,7 @@ export namespace CometChat {
                 UPDATED_AT: string;
                 CATEGORY: string;
                 TYPE: string;
+                EXCLUDE_THREADED_MESSAGES: string;
             };
         };
     };
@@ -1939,6 +1952,7 @@ export namespace CometChat {
         maxLimit: number;
         uid?: string;
         guid?: string;
+        parentMessageId?: number;
         timestamp?: number;
         id?: number;
         unread?: boolean;
@@ -1948,9 +1962,11 @@ export namespace CometChat {
         onlyUpdate?: number;
         category?: string;
         type?: string;
+        hideThreadedMessages?: boolean;
         setLimit(limit: number): this;
         setGUID(guid: string): this;
         setUID(uid: string): this;
+        setParentMessageId(parentMessageId: number): this
         setTimestamp(timestamp?: number): this;
         setMessageId(id?: number): this;
         setUnread(unread?: boolean): this;
@@ -1960,6 +1976,7 @@ export namespace CometChat {
         updatesOnly(onlyUpdate: boolean): this;
         setCategory(category: string): this;
         setType(type: string): this;
+        excludeThreadedMessages(hideThreadedMessages: boolean): this;
         /**
          *Built the DefaultMessagesRequest
         *
