@@ -25,6 +25,11 @@ export namespace CometChat {
         MEMBER_INVITED: string;
         MEMBER_SCOPE_CHANGED: string;
     };
+    let CALL_MODE: {
+        DEFAULT: string,
+		SPOTLIGHT: string,
+		SINGLE: string,
+    };
     let CALL_TYPE: {
         AUDIO: string;
         VIDEO: string;
@@ -531,12 +536,12 @@ export namespace CometChat {
         * function to start the jitsi view in iframe.
         *
         * @static
-        * @param {string} sessionId
+        * @param {CallSettings | string} callSettings
         * @param {HTMLElement} view
         * @param {UserCallEventListener} [callEventHandler]
         * @memberof CometChat
         */
-    export function startCall(sessionId: string, view: HTMLElement, callEventHandler?: OngoingCallListener, context?: any): void;
+    export function startCall(callSettings: CallSettings | string, view: HTMLElement, callEventHandler?: OngoingCallListener, context?: any): void;
     export function toggleAudio(): void;
     export function toggleVideo(): void;
     export function leaveCall(): void;
@@ -772,6 +777,10 @@ export namespace CometChat {
     export class Me extends User {
         constructor(userObj: UserObj | any);
         getWsChannel(): any;
+    }
+
+    export class RTCUser {
+        constructor(uid: string, name: string, avatar: string);
     }
 
     export class Conversation {
@@ -1140,7 +1149,7 @@ export namespace CometChat {
                 UPDATED_AT: string;
                 CATEGORY: string;
                 TYPE: string;
-                EXCLUDE_THREADED_MESSAGES: string;
+                HIDE_REPLIES: string;
             };
         };
     };
@@ -1751,7 +1760,12 @@ export namespace CometChat {
         unAnswerCall(): void;
         onCallStarted(call: Call): Promise<Call>;
         endCallSession(): void;
-        startCall(view: HTMLElement, callEventHandler?: OngoingCallListener, context?: any): void;
+        startCall(callSettings: CallSettings, view: HTMLElement): void;
+        muteAudio(mute: boolean): void;
+        pauseVideo(pause: boolean): void;
+        stopScreenShare(): void;
+        startScreenShare(): void;
+        endSession(): void;
         static toggleAudio(): void;
         static toggleVideo(): void;
         static leave(): void;
@@ -1937,6 +1951,45 @@ export namespace CometChat {
         build(): ConversationsRequest;
     }
 
+    export class CallSettings {
+        constructor(builder?: CallSettingsBuilder);
+        getSessionId(): string;
+        isAudioOnlyCall(): boolean;
+        isDefaultLayoutEnabled(): boolean;
+        getUser(): RTCUser;
+        getRegion(): string;
+        getMode(): string;
+        isEndCallButtonEnabled(): boolean;
+        isScreenShareButtonEnabled(): boolean
+        isMuteAudioButtonEnabled(): boolean;
+        isPauseVideoButtonEnabled(): boolean;
+    }
+
+    export class CallSettingsBuilder {
+        sessionID: string;
+        defaultLayout: boolean;
+        isAudioOnly: boolean;
+        region: string;
+        user: RTCUser;
+        mode: string;
+        ShowEndCallButton: boolean;
+        ShowMuteAudioButton: boolean;
+        ShowPauseVideoButton: boolean;
+        ShowScreenShareButton: boolean;
+
+        setSessionID(sessionID: string): this;
+        enableDefaultLayout(defaultLayout: boolean): this;
+        setIsAudioOnlyCall(isAudioOnly: boolean): this;
+        setRegion(region: string): this;
+        setUser(user: RTCUser): this;
+        setMode(mode: string): this;
+        showEndCallButton(showEndCallButton: boolean): this;
+        showMuteAudioButton(showMuteAudioButton: boolean): this;
+        showPauseVideoButton(showPauseVideoButton: boolean): this;
+        showScreenShareButton(ShowScreenShareButton: boolean): this
+        build(): CallSettings;
+    }
+
     export class CometChatHelper {
         static getConversationFromMessage(message: TextMessage | MediaMessage | CustomMessage | any): Promise<Conversation>;
         static processMessage(message: Object): Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage>;
@@ -1976,7 +2029,7 @@ export namespace CometChat {
         updatesOnly(onlyUpdate: boolean): this;
         setCategory(category: string): this;
         setType(type: string): this;
-        excludeThreadedMessages(hideThreadedMessages: boolean): this;
+        hideReplies(hideReplies: boolean): this;
         /**
          *Built the DefaultMessagesRequest
         *
@@ -2110,6 +2163,7 @@ export namespace CometChat {
         subscribePresenceForRoles(roles: string[]): this;
         subscribePresenceForFriends(): this;
         setRegion(region?: string): this;
+        enableAutoJoinForGroups(isAutoJoinEnabled: boolean): this;
         build(): AppSettings;
     }
 
