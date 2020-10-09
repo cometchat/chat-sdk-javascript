@@ -788,12 +788,12 @@ export namespace CometChat {
         setConversationType(conversationType: string): void;
         setLastMessage(lastMessage: TextMessage | MediaMessage | CustomMessage | any): void;
         setConversationWith(conversationWith: User | Group): void;
-        setUnreadMessageCount(unreadMessageCount: number): void;
+        setUnreadMessageCount(unreadMessageCount: any): void;
         getConversationId(): string;
         getConversationType(): string;
         getLastMessage(): TextMessage | MediaMessage | CustomMessage | any;
         getConversationWith(): User | Group;
-        getUnreadMessageCount(): number;
+        getUnreadMessageCount(): any;
         constructor(conversationId: string, conversationType: string, lastMessage: TextMessage | MediaMessage | CustomMessage | any, conversationWith: User | Group, unreadMessageCount: number | any)
     }
 
