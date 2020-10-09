@@ -34,7 +34,7 @@ This guide demonstrates how to add chat to a Javascript application using CometC
 First, install via npm
 
 ```
-npm install @cometchat-pro/chat@2.1.1 --save
+npm install @cometchat-pro/chat@2.1.2 --save
 ```
 
 Then, import the `CometChat` object wherever you want to use CometChat
@@ -47,7 +47,7 @@ import { CometChat } from "@cometchat-pro/chat"
 Include the CometChat Javascript library in your HTML code
 
 ```
-<script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat@2.1.1/CometChat.js"></script>
+<script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat@2.1.2/CometChat.js"></script>
 ```
 
 To learn more, please refer to our Documentation: <a href="https://prodocs.cometchat.com/docs/js-quick-start">Documentation</a>
