@@ -1252,8 +1252,11 @@ export namespace CometChat {
         };
     };
     export const CallConstants: {
-        CALL_TYPE_AUDIO: string;
-        CALL_TYPE_VIDEO: string;
+        CALL_MODE: {
+            DEFAULT: string,
+            SPOTLIGHT: string,
+            SINGLE: string,
+        };
         CALL_TYPE: {
             AUDIO: string;
             VIDEO: string;
