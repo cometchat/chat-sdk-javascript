@@ -476,6 +476,17 @@ export namespace CometChat {
         */
     export function addMembersToGroup(guid: string, groupMembers: Array<GroupMember>, bannedMembersList: Array<string>): Promise<Object>;
 
+    /**
+        * function to transfer the ownership of the group.
+        *
+        * @static
+        * @param {string} guid
+        * @param {string} uid
+        * @returns {Promise<string>}
+        * @memberof CometChat
+        */
+    export function transferGroupOwnership(guid: string, uid: string): Promise<string>;
+
     /**-------------------------------------------------------------------*
         * Call related functions provided by CometChat class                 *
         *--------------------------------------------------------------------**/
