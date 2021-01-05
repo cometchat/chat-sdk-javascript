@@ -17,6 +17,7 @@ export namespace CometChat {
     let CATEGORY_ACTION: string;
     let CATEGORY_CALL: string;
     let ACTION_TYPE: {
+        MEMBER_ADDED: string;
         MEMBER_JOINED: string;
         MEMBER_LEFT: string;
         MEMBER_KICKED: string;
@@ -1246,6 +1247,7 @@ export namespace CometChat {
             TYPE_MEMBER_ADDED: string;
         };
         ACTIONS: {
+            MEMBER_ADDED: string;
             MEMBER_JOINED: string;
             MEMBER_LEFT: string;
             MEMBER_KICKED: string;
@@ -1983,6 +1985,7 @@ export namespace CometChat {
         isScreenShareButtonEnabled(): boolean
         isMuteAudioButtonEnabled(): boolean;
         isPauseVideoButtonEnabled(): boolean;
+        getLocalizedStringObject(): Object;
     }
 
     export class CallSettingsBuilder {
@@ -1996,6 +1999,7 @@ export namespace CometChat {
         ShowMuteAudioButton: boolean;
         ShowPauseVideoButton: boolean;
         ShowScreenShareButton: boolean;
+        localizedObject: Object;
 
         setSessionID(sessionID: string): this;
         enableDefaultLayout(defaultLayout: boolean): this;
@@ -2006,7 +2010,8 @@ export namespace CometChat {
         showEndCallButton(showEndCallButton: boolean): this;
         showMuteAudioButton(showMuteAudioButton: boolean): this;
         showPauseVideoButton(showPauseVideoButton: boolean): this;
-        showScreenShareButton(ShowScreenShareButton: boolean): this
+        showScreenShareButton(ShowScreenShareButton: boolean): this;
+        setLocalizedStringObject(localizedStringObject: Object): this;
         build(): CallSettings;
     }
 
