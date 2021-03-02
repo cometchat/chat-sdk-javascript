@@ -680,12 +680,36 @@ export namespace CometChat {
         */
     export function getConnectionStatus(): string;
     /**
+	 * Returns a boolean value which indicates if the extension is enabled or not.
+	 *
+     * @param {string} extensionId Id of the extension
+	 * @returns
+	 * @memberof CometChat
+	 */
+	export function isExtensionEnabled(extensionId: string): Promise<boolean>;
+    /**
+	 * Returns an object of CCExtension Class which has the details of the extension.
+	 *
+     * @param {string} extensionId Id of the extension
+	 * @returns
+	 * @memberof CometChat
+	 */
+	export function getExtensionDetails(extensionId: string): Promise<CCExtension>;
+    /**
         * Get the XMPP/ WEBRTC details from the servers
         *
         * @returns
         * @memberof CometChat
         */
     export function getAppSettings(): Promise<Object>;
+    /**
+	 * Returns a boolean value which indicates if a feature is enabled or not for the current plan.
+	 *
+     * @param {string} feature Name of feature
+	 * @returns
+	 * @memberof CometChat
+	 */
+	export function isFeatureEnabled(feature: string): Promise<boolean>;
     /**
         * Clears the authtoken from server and clears the local cache.
         *
@@ -2205,6 +2229,12 @@ export namespace CometChat {
         setRegion(region?: string): this;
         enableAutoJoinForGroups(isAutoJoinEnabled: boolean): this;
         build(): AppSettings;
+    }
+
+    export class CCExtension {
+        constructor(extension: any);
+        getId(): string;
+        getName(): string;
     }
 
     /**
