@@ -560,6 +560,16 @@ export namespace CometChat {
         * @memberof CometChat
         */
     export function startCall(callSettings: CallSettings | string, view: HTMLElement, callEventHandler?: OngoingCallListener, context?: any): void;
+    /**
+        * function to fetch participant count of an ongoing call.
+        *
+        * @static
+        * @param {string} sessionId
+        * @param {string} type
+        * @returns {Promise<number>}
+        * @memberof CometChat
+        */
+    export function getCallParticipantCount(sessionId: string, type: string): Promise<number>;
     export function toggleAudio(): void;
     export function toggleVideo(): void;
     export function leaveCall(): void;
@@ -816,11 +826,6 @@ export namespace CometChat {
         constructor(userObj: UserObj | any);
         getWsChannel(): any;
     }
-
-    export class RTCUser {
-        constructor(uid: string, name: string, avatar: string);
-    }
-
     export class Conversation {
         setConversationId(conversationId: string): void;
         setConversationType(conversationType: string): void;
@@ -1656,6 +1661,7 @@ export namespace CometChat {
         onUserLeft?: Function;
         onCallEnded?: Function;
         onError?: Function;
+        onUserListUpdated?: Function;
         constructor(...args: any[]);
     }
     export class LoginListener {
@@ -2013,40 +2019,40 @@ export namespace CometChat {
         getSessionId(): string;
         isAudioOnlyCall(): boolean;
         isDefaultLayoutEnabled(): boolean;
-        getUser(): RTCUser;
-        getRegion(): string;
         getMode(): string;
         isEndCallButtonEnabled(): boolean;
         isScreenShareButtonEnabled(): boolean
         isMuteAudioButtonEnabled(): boolean;
         isPauseVideoButtonEnabled(): boolean;
         getLocalizedStringObject(): Object;
+        getStartWithAudioMuted(): boolean;
+        getStartWithVideoMuted(): boolean;
     }
 
     export class CallSettingsBuilder {
         sessionID: string;
         defaultLayout: boolean;
         isAudioOnly: boolean;
-        region: string;
-        user: RTCUser;
         mode: string;
         ShowEndCallButton: boolean;
         ShowMuteAudioButton: boolean;
         ShowPauseVideoButton: boolean;
         ShowScreenShareButton: boolean;
         localizedObject: Object;
+        StartAudioMuted: boolean;
+        StartVideoMuted: boolean;
 
         setSessionID(sessionID: string): this;
         enableDefaultLayout(defaultLayout: boolean): this;
         setIsAudioOnlyCall(isAudioOnly: boolean): this;
-        setRegion(region: string): this;
-        setUser(user: RTCUser): this;
         setMode(mode: string): this;
         showEndCallButton(showEndCallButton: boolean): this;
         showMuteAudioButton(showMuteAudioButton: boolean): this;
         showPauseVideoButton(showPauseVideoButton: boolean): this;
         showScreenShareButton(ShowScreenShareButton: boolean): this;
         setLocalizedStringObject(localizedStringObject: Object): this;
+        startWithAudioMuted(audioMuted: boolean): this;
+        startWithVideoMuted(videoMuted: boolean): this;
         build(): CallSettings;
     }
 
