@@ -203,26 +203,22 @@ export namespace CometChat {
     export function endTyping(typingNotification: TypingIndicator | any): void;
 
     /**
-        * Mark all messages upto a specifeied message id as read
+        * Mark all messages upto a specified message id as read
         *
         * @static
-        * @param {string} messageId
-        * @param {string} receiverId
-        * @param {string} receiverType
+        * @param { ...string[] | (BaseMessage | TextMessage | MediaMessage | CustomMessage | any)  } args
         * @memberof CometChat
         */
-    export function markAsRead(messageId: string, receiverId: string, receiverType: string): void;
+     export function markAsRead(...args: any): void;
 
-    /**
-        * Mark all messages upto a specifeied message id as delivered
+     /**
+        * Mark all messages upto a specified message id as delivered
         *
         * @static
-        * @param {string} messageId
-        * @param {string} receiverId
-        * @param {string} receiverType
+        * @param { ...string[] | (BaseMessage | TextMessage | MediaMessage | CustomMessage | any)  } args
         * @memberof CometChat
         */
-    export function markAsDelivered(messageId: string, receiverId: string, receiverType: string): void;
+    export function markAsDelivered(...args: any): void;
 
     /**
         * get the message Information with the help of message id
@@ -250,51 +246,7 @@ export namespace CometChat {
     export function getUnreadMessageCountForGroup(GUID: string, doHideMessages?: boolean): Promise<Object>;
     export function editMessage(message: BaseMessage): Promise<BaseMessage>;
     export function deleteMessage(messageId: number): Promise<BaseMessage>;
-
-    /**
-        * function will accept the limit and timestamp as params and return the promise with array of message.
-        *
-        * @static
-        * @param {number} [limit]
-        * @param {number} [timestamp]
-        * @returns
-        * @memberof CometChat
-        */
-    export function getPreviousMessagesByTimestamp(limit?: number, timestamp?: number): Promise<Object>;
-
-    /**
-        * function will accept the limit and id as params and return the promise with array of message.
-        *
-        * @static
-        * @param {number} [limit]
-        * @param {number} [id]
-        * @returns
-        * @memberof CometChat
-        */
-    export function getPreviousMessagesById(limit?: number, id?: number): Promise<Object>;
-
-    /**
-        * function will accept the limit and timestamp as params and return the promise with array of message.
-        *
-        * @static
-        * @param {number} [limit]
-        * @param {number} [timestamp]
-        * @returns
-        * @memberof CometChat
-        */
-    export function getNextMessagesByTimestamp(limit?: number, timestamp?: number): Promise<Object>;
-
-    /**
-        * function will accept the limit and id as params and return the promise with array of message.
-        *
-        * @static
-        * @param {number} [limit]
-        * @param {number} [id]
-        * @returns
-        * @memberof CometChat
-        */
-    export function getNextMessagesById(limit?: number, id?: number): Promise<Object>;
-
+    
     /**-------------------------------------------------------------------*
         * User related functions provided by CometChat class                 *
         *--------------------------------------------------------------------**/
