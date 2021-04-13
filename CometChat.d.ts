@@ -36,6 +36,8 @@ export namespace CometChat {
         DEFAULT: string,
 		SPOTLIGHT: string,
 		SINGLE: string,
+        TILE: string,
+        GRID: string
     };
     let CALL_TYPE: {
         AUDIO: string;
@@ -570,9 +572,6 @@ export namespace CometChat {
         * @memberof CometChat
         */
     export function getCallParticipantCount(sessionId: string, type: string): Promise<number>;
-    export function toggleAudio(): void;
-    export function toggleVideo(): void;
-    export function leaveCall(): void;
     export function createCallView(context: any): {
         prop1: typeof CometChat.makeCall;
         onMessage: (event: any) => void;
@@ -1662,6 +1661,7 @@ export namespace CometChat {
         onCallEnded?: Function;
         onError?: Function;
         onUserListUpdated?: Function;
+        onMediaDeviceListUpdated?: Function;
         constructor(...args: any[]);
     }
     export class LoginListener {
@@ -1816,14 +1816,18 @@ export namespace CometChat {
         onCallStarted(call: Call): Promise<Call>;
         endCallSession(): void;
         startCall(callSettings: CallSettings, view: HTMLElement): void;
+        getAudioInputDevices(): MediaDevice[];
+        getAudioOutputDevices(): MediaDevice[];
+        getVideoInputDevices(): MediaDevice[];
+        setAudioInputDevice(deviceId: string): void;
+        setAudioOutputDevice(deviceId: string): void;
+        setVideoInputDevice(deviceId: string): void;
         muteAudio(mute: boolean): void;
         pauseVideo(pause: boolean): void;
+        setMode(mode: string): void;
         stopScreenShare(): void;
         startScreenShare(): void;
         endSession(): void;
-        static toggleAudio(): void;
-        static toggleVideo(): void;
-        static leave(): void;
         destroy(): void;
     }
 
@@ -2021,7 +2025,8 @@ export namespace CometChat {
         isDefaultLayoutEnabled(): boolean;
         getMode(): string;
         isEndCallButtonEnabled(): boolean;
-        isScreenShareButtonEnabled(): boolean
+        isScreenShareButtonEnabled(): boolean;
+        isModeButtonEnabled(): boolean;
         isMuteAudioButtonEnabled(): boolean;
         isPauseVideoButtonEnabled(): boolean;
         getLocalizedStringObject(): Object;
@@ -2038,6 +2043,7 @@ export namespace CometChat {
         ShowMuteAudioButton: boolean;
         ShowPauseVideoButton: boolean;
         ShowScreenShareButton: boolean;
+        ShowSwitchModeButton: boolean;
         localizedObject: Object;
         StartAudioMuted: boolean;
         StartVideoMuted: boolean;
@@ -2050,10 +2056,18 @@ export namespace CometChat {
         showMuteAudioButton(showMuteAudioButton: boolean): this;
         showPauseVideoButton(showPauseVideoButton: boolean): this;
         showScreenShareButton(ShowScreenShareButton: boolean): this;
+        showModeButton(showModeButton: boolean): this;
         setLocalizedStringObject(localizedStringObject: Object): this;
         startWithAudioMuted(audioMuted: boolean): this;
         startWithVideoMuted(videoMuted: boolean): this;
         build(): CallSettings;
+    }
+
+    export class MediaDevice {
+        constructor(id, name, active);
+        getId(): string;
+        getName(): string;
+        getIsActive(): boolean;
     }
 
     export class CometChatHelper {
