@@ -2032,6 +2032,7 @@ export namespace CometChat {
         getLocalizedStringObject(): Object;
         getStartWithAudioMuted(): boolean;
         getStartWithVideoMuted(): boolean;
+        getCustomCSS(): string;
     }
 
     export class CallSettingsBuilder {
@@ -2047,6 +2048,7 @@ export namespace CometChat {
         localizedObject: Object;
         StartAudioMuted: boolean;
         StartVideoMuted: boolean;
+        customCSS: string;
 
         setSessionID(sessionID: string): this;
         enableDefaultLayout(defaultLayout: boolean): this;
@@ -2060,6 +2062,7 @@ export namespace CometChat {
         setLocalizedStringObject(localizedStringObject: Object): this;
         startWithAudioMuted(audioMuted: boolean): this;
         startWithVideoMuted(videoMuted: boolean): this;
+        setCustomCSS(customCSS: string): this 
         build(): CallSettings;
     }
 
