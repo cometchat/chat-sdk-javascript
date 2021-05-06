@@ -320,6 +320,15 @@ export namespace CometChat {
     export function updateUser(user: User | any, apiKey: string): Promise<User>;
     
     /**
+	 *
+	 * function to update the logged-in user and returns the result with updated user
+	 * @param {User} user
+	 * @returns Promise<User>
+	 * @memberof CometChat
+	 */
+    export function updateCurrentUserDetails(user: User | any): Promise<User>
+
+    /**
         * function to get the information for the uid provided as an argument
         * @static
         * @param {string} uid
@@ -354,6 +363,18 @@ export namespace CometChat {
 	 */
 
     export function getConversation(conversationWith: string, conversationType: string): Promise<Conversation>;
+
+    /**
+	 * function to delete conversation of a specific user/group.
+	 *
+	 * @static
+	 * @param {string} conversationWith
+	 * @param {string} conversationType
+	 * @returns Promise<string>
+	 * @memberof CometChat
+	 */
+
+    export function deleteConversation(conversationWith: string, conversationType: string): Promise<string>;
 
     /**-------------------------------------------------------------------*
         * Group related functions provided by CometChat class                *
