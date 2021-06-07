@@ -929,6 +929,7 @@ export namespace CometChat {
         protected deletedAt: number;
         protected deletedBy: string;
         protected replyCount: number;
+        protected rawMessage: Object;
         constructor(receiverId: string, messageType: string, receiverType: string, category: string);
         getId(): number;
         setId(value: number): void;
@@ -973,6 +974,8 @@ export namespace CometChat {
         getDeletedBy(): string;
         setReplyCount(replyCount: number): void;
         getReplyCount(): number;
+        setRawMessage(rawMessage: Object): void;
+        getRawMessage(): Object;
     }
 
     export class TextMessage extends BaseMessage implements Message {
