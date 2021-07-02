@@ -40,7 +40,7 @@ This guide demonstrates how to add chat to a WebSite using CometChat Pro.
 [Push Notification](https://prodocs.cometchat.com/docs/extensions-enhanced-push-notification) | [Email Notification](https://prodocs.cometchat.com/docs/extensions-email-notification) | [SMS Notification](https://prodocs.cometchat.com/docs/extensions-sms-notification) | [Thumbnail Generation](https://prodocs.cometchat.com/docs/extensions-thumbnail-generation) | [Link Preview](https://prodocs.cometchat.com/docs/extensions-link-preview) | [Rich Media Preview](https://prodocs.cometchat.com/docs/extensions-rich-media-preview) | [Voice Transcription](https://prodocs.cometchat.com/docs/extensions-voice-transcription) | [Smart Reply](https://prodocs.cometchat.com/docs/extensions-smart-reply) | [Message Translation](https://prodocs.cometchat.com/docs/extensions-message-translation) | [Emojis](https://prodocs.cometchat.com/docs/extensions-emojis) | [Polls](https://prodocs.cometchat.com/docs/extensions-polls) | [Reactions](https://prodocs.cometchat.com/docs/extensions-reactions) | [Stickers](https://prodocs.cometchat.com/docs/extensions-stickers) | [Video Broadcasting](https://prodocs.cometchat.com/docs/extensions-broadcast) | [Collaborative Documents](https://prodocs.cometchat.com/docs/extensions-collaborative-document) | [Collaborative Whiteboards](https://prodocs.cometchat.com/docs/extensions-collaborative-whiteboard) | [Data Masking Filter](https://prodocs.cometchat.com/docs/extensions-data-masking-filter) | [Profanity Filter](https://prodocs.cometchat.com/docs/extensions-profanity-filter) | [Image Moderation](https://prodocs.cometchat.com/docs/extensions-image-moderation)| [Sentiment Analysis](https://prodocs.cometchat.com/docs/extensions-sentiment-analysis) | [In-flight Message Moderation](https://prodocs.cometchat.com/docs/extensions-in-flight-message-moderation) | [Virus & Malware Scanner](https://prodocs.cometchat.com/docs/extensions-virus-malware-scanner) | [XSS Filter](https://prodocs.cometchat.com/docs/extensions-xss-filter)
 
 [![Platform](https://img.shields.io/badge/Platform-Javascript-brightgreen)](#)
-<a href=" "> <img src="https://img.shields.io/badge/Version-2.3.6-important" /></a>
+<a href=" "> <img src="https://img.shields.io/badge/Version-2.4.0-important" /></a>
 ![GitHub repo size](https://img.shields.io/github/repo-size/cometchat-pro/javascript-chat-sdk)
 ![GitHub contributors](https://img.shields.io/github/contributors/cometchat-pro/javascript-chat-sdk)
 ![GitHub stars](https://img.shields.io/github/stars/cometchat-pro/javascript-chat-sdk?style=social)
@@ -78,7 +78,7 @@ To setup Javascript SDK, you  need to first register on CometChat Dashboard. [Cl
 1. Run the following command to install the CometChat Pro Javascript SDK<br/>
 
 ```javascript
-	npm install @cometchat-pro/chat@2.3.6 --save
+	npm install @cometchat-pro/chat@2.4.0 --save
 ```
 </li>
 
@@ -87,7 +87,7 @@ To setup Javascript SDK, you  need to first register on CometChat Dashboard. [Cl
 1. Include the CometChat Pro Javascript library in your HTML code.<br/>
 
 ```html
-  <script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat@2.3.6/CometChat.js"></script>
+  <script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat@2.4.0/CometChat.js"></script>
 ```
 
  You can refer to the below link for instructions on how to do so:<br/>
