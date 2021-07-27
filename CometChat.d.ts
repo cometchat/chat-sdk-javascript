@@ -223,6 +223,15 @@ export namespace CometChat {
     export function markAsDelivered(...args: any): void;
 
     /**
+	 * Send a transient message.
+	 *
+	 * @static
+	 * @param {TransientMessage} transientMessage
+	 * @memberof CometChat
+	 */
+    export function sendTransientMessage(transientMessage: TransientMessage | any): void;
+    
+    /**
         * get the message Information with the help of message id
         *
         * @static
@@ -1604,6 +1613,7 @@ export namespace CometChat {
         onMessagesRead?: Function;
         onMessageEdited?: Function;
         onMessageDeleted?: Function;
+        onTransientMessageReceived?: Function;
         constructor(...args: any[]);
     }
     export class CallListener {
@@ -2116,6 +2126,18 @@ export namespace CometChat {
         setReceiverId(receiverId: string): void;
         getMetadata(): Object;
         setMetadata(meta: Object): void;
+        getSender(): User;
+        setSender(sender: User): void;
+    }
+
+    export class TransientMessage {
+        constructor(receiverId: string, receiverType: string, data: any);
+        getReceiverId(): string;
+        setReceiverId(receiverId: string): void;
+        getReceiverType(): string;
+        setReceiverType(receiverType: string): void;
+        getData(): any;
+        setData(data: any): void;
         getSender(): User;
         setSender(sender: User): void;
     }
