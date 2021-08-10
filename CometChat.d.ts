@@ -258,6 +258,27 @@ export namespace CometChat {
     export function editMessage(message: BaseMessage): Promise<BaseMessage>;
     export function deleteMessage(messageId: number): Promise<BaseMessage>;
     
+    /**---------------------------------------------------------------------------------------*
+     * Online User/Group Member count related functions provided by CometChat class           *
+     *----------------------------------------------------------------------------------------**/
+    
+    /**
+	 * This function will return online user count
+	 *
+	 * @returns {Promise<number>}
+	 * @memberof CometChat
+	 */
+    export function getOnlineUserCount(): Promise<number>;
+
+    /**
+	 * This function will return online group members count for given GUIDs
+	 *
+	 * @param {String[]} groups
+	 * @returns {Promise<number>}
+	 * @memberof CometChat
+	 */
+    export function getOnlineGroupMemberCount(groups: String[]): Promise<Object>;
+    
     /**-------------------------------------------------------------------*
         * User related functions provided by CometChat class                 *
         *--------------------------------------------------------------------**/
@@ -2005,6 +2026,7 @@ export namespace CometChat {
         limit: number;
         setLimit(limit: number): this;
         setConversationType(conversationType: string): this;
+        withUserAndGroupTags(getUserAndGroupTags: boolean): this;
         build(): ConversationsRequest;
     }
 
