@@ -1688,6 +1688,8 @@ export namespace CometChat {
         onMediaDeviceListUpdated?: Function;
         onRecordingStarted?: Function;
         onRecordingStopped?: Function;
+        onScreenShareStarted?: Function;
+        onScreenShareStopped?: Function;
         onUserMuted?: Function;
         constructor(...args: any[]);
     }
@@ -2067,7 +2069,8 @@ export namespace CometChat {
         getStartWithVideoMuted(): boolean;
         getCustomCSS(): string;
         isRecordingButtonEnabled(): boolean;
-        shouldStartRecordingOnCallStart(): boolean
+        shouldStartRecordingOnCallStart(): boolean;
+        shouldUseLegacyUI(): boolean;
     }
 
     export class CallSettingsBuilder {
@@ -2086,6 +2089,7 @@ export namespace CometChat {
         ShowRecordingButton: boolean;
         StartRecordingOnCallStart: boolean;
         customCSS: string;
+        useLegacyUI: boolean;
 
         setSessionID(sessionID: string): this;
         enableDefaultLayout(defaultLayout: boolean): this;
@@ -2102,6 +2106,7 @@ export namespace CometChat {
         setCustomCSS(customCSS: string): this;
         showRecordingButton(showRecordingButton: boolean): this;
         startRecordingOnCallStart(startRecordingOnCallStart: boolean): this;
+        forceLegacyUI(legacyUI: boolean): this;
         build(): CallSettings;
     }
 
