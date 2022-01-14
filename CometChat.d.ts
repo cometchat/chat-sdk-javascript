@@ -2188,15 +2188,12 @@ export const APP_SETTINGS: {
         DEFAULT_MODE: string;
         LIMITED_TRANSIENT: string;
         NO_TRANSIENT: string;
-        POLLING_ENABLED: string;
-        POLLING_INTERVAL: string;
         ANALYTICS_PING_DISABLED: string;
         ANALYTICS_HOST: string;
         ANALYTICS_VERSION: string;
         ANALYTICS_USE_SSL: string;
         SETTINGS_HASH: string;
         SETTINGS_HASH_RECEIVED_AT: string;
-        DENY_FALLBACK_TO_POLLING: string;
         APP_VERSION: string;
     };
 };
