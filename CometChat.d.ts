@@ -55,6 +55,14 @@ export namespace CometChat {
                 CANCELLED: string;
                 ENDED: string;
         };
+        let SORT_BY: {
+            NAME: string;
+            STATUS: string;
+        }
+        let SORT_ORDER: {
+            ASCENDING: string;
+            DESCENDING: string;
+        }
 
         let appSettings: AppSettings;
 
@@ -511,6 +519,16 @@ export namespace CometChat {
             * @memberof CometChat
          */
         export function transferGroupOwnership(guid: string, uid: string): Promise<string>;
+
+        /**
+         * Function to create a group and add/ban members in/from that group.
+         * @param {Group} group
+         * @param {Array<GroupMember>} members
+         * @param {Array<String>} banMembers
+         * @returns {Promise<Object>}
+         * @memberof CometChat
+        */
+        export function createGroupWithMembers(group: Group, members: Array<GroupMember>, banMembers: Array<string>): Promise<Object>;
 
         /**-------------------------------------------------------------------*
         * Call related functions provided by CometChat class                 *
@@ -3218,6 +3236,10 @@ export class UsersRequestBuilder {
         /** @private */ showFriendsOnly: boolean;
         /** @private */ showTags: boolean;
         /** @private */ UIDs: Array<String>;
+        /** @private */ SortBy: string;
+        /** @private */ SortOrder: string;
+        /** @private */ SearchIn: Array<String>;
+        
         /**
             * A method to set limit for the number of Users returned in a single iteration. A maximum of 100 users can fetched in a single iteration.
             * @param {number} limit
@@ -3279,6 +3301,31 @@ export class UsersRequestBuilder {
          */
         setUIDs(uids: Array<String>): this;
         /**
+         * A method to get the users sorted by either `name` or `status`. 
+         * It accepts a string as input.
+         * By default the SDK fetches users sorted by `status`.
+         * @param {string} sortBy 
+         * @returns 
+        */
+        public sortBy(sortBy: string): this;
+        /**
+         * A method to get the users sorted either in `asc` or `desc` order.  
+         * It accepts a string as input.
+         * By default the SDK fetches users sorted in `asc` order.
+         * @param {string} sortOrder 
+         * @returns 
+        */
+        public sortByOrder(sortOrder: string): this;
+        /**
+         * A method to set which field the search string should be searched. 
+         * It accepts an array of string as input.
+         * It can be `["name"]`, `["uid"]` or `["name", "uid"]`.
+         * By default the SDK searches the search string in `["name", "uid"]`.
+         * @param {string[]} searchIn 
+         * @returns 
+        */
+        public searchIn(searchIn: Array<String>): this;
+        /**
             * This method will return an object of the UsersRequest class.
             * @returns {UsersRequest}
          */
@@ -3303,6 +3350,8 @@ export class ConversationsRequestBuilder {
         /** @private */ getUserAndGroupTags: boolean;
         /** @private */ tags: Array<String>;
         /** @private */ WithTags: boolean;
+        /** @private */ groupTags: Array<String>;
+        /** @private */ userTags: Array<String>;
         /**
             *
             * @param {number} limit
@@ -3336,6 +3385,18 @@ export class ConversationsRequestBuilder {
          * @returns 
         */
         setTags(tags: Array<String>): this;
+        /**
+         * A method to filter conversation list by group tags.
+         * @param {Array<String>} groupTags 
+         * @returns 
+        */
+        public setGroupTags(groupTags: Array<String>): this;
+        /**
+         * A method to filter conversation list by user tags.
+         * @param {Array<String>} userTags 
+         * @returns 
+        */
+        public setUserTags(userTags: Array<String>): this;
         /**
             * This method will return an object of the ConversationsRequest class.
             * @returns {ConversationsRequest}
