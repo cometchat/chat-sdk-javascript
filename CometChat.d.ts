@@ -2635,6 +2635,10 @@ export class OngoingCallListener {
             * This event is triggered when an error occurs.
          */
         onError?: Function;
+        /**
+         * This event is triggered when an audio call is switched to a video call.
+        */
+        onCallSwitchedToVideo?: Function;
         constructor(...args: any[]);
 }
 export class LoginListener {
@@ -2926,6 +2930,26 @@ export class CallController {
             * Method to stop call recording.
         */
         stopRecording(): void;
+
+        /**
+         * Method to switch an audio call to video call.
+        */
+        switchToVideoCall(): void;
+
+         /**
+          * Method to open the virtual background settings.
+         */
+        openVirtualBackground(): void;
+ 
+         /**
+          * Method to set the background blur. This method takes number as input which decides the blur level of the background.
+         */
+        setBackgroundBlur(blurLevel: number): void;
+ 
+         /**
+          * Method to set the background image. This method takes either a URL or file Object & sets that image as the background.
+         */
+        setBackgroundImage(image: string | Object): void;
 }
 
 /**
@@ -4056,6 +4080,9 @@ export class CallSettings {
         isModeButtonEnabled(): boolean;
         getLocalizedStringObject(): Object;
         getAnalyticsSettings(): Object;
+        isAudioToVideoButtonEnabled(): boolean;
+        getVirtualBackground(): VirtualBackground;
+        isVirtualBackgroundSettingEnabled(): boolean;
 }
 export class CallSettingsBuilder {
         /** @private */ sessionID: string;
@@ -4079,6 +4106,9 @@ export class CallSettingsBuilder {
         /** @private */ ShowRecordingButton: boolean;
         /** @private */ StartRecordingOnCallStart: boolean;
         /** @private */ useLegacyUI: boolean;
+        /** @private */ShowSwitchToVideoCallButton: boolean;
+        /** @private */virtualBackground: VirtualBackground;
+        /** @private */ShowVirtualBackgroundSetting: boolean;
         /**
             *
             * @param {string} sessionID
@@ -4259,10 +4289,125 @@ export class CallSettingsBuilder {
          */
         forceLegacyUI(legacyUI: boolean): this;
         /**
+         * 
+         * @param {boolean} showAudioToVideoSwitchButton 
+         * This method shows/hides the switch to video call button.
+         * If set to true it will display the switch to video call button. 
+         * If set to false it will hide the switch to video call button.
+         * Default value is true.
+         * @returns 
+        */
+        showSwitchToVideoCallButton(showAudioToVideoSwitchButton: boolean): this;
+
+         /**
+          *
+          * @param {VirtualBackground} virtualBackground 
+          * This method will set the virtual background setting. 
+          * This methods takes an Object of VirtualBackground Class.
+          * @returns 
+         */
+        setVirtualBackground(virtualBackground: VirtualBackground): this;
+ 
+         /**
+          * 
+          * @param {boolean} showVirtualBackgroundSetting 
+          * This method shows/hides the virtual background setting button.
+          * If set to true it will display the virtual background setting button. 
+          * If set to false it will hide the virtual background setting button.
+          * Default value is true.
+          * @returns 
+         */
+        showVirtualBackgroundSetting(showVirtualBackgroundSetting: boolean): this;
+        /**
             * This method will return an object of the CallSettings class.
             * @returns {CallSettings}
          */
         build(): CallSettings;
+}
+
+export class VirtualBackground {
+    public constructor(builder?: VirtualBackgroundBuilder);
+    shouldAllowBackgroundBlur(): boolean;
+    shouldAllowUserImages(): boolean;
+    shouldShowDefaultImages(): boolean;
+    getImages(): Array<String>;
+    isBackgroundBlurEnforced(): number;
+    getEnforcedBackgroundImage(): string;
+}
+    
+export class VirtualBackgroundBuilder{
+    /** @private */ AllowBackgroundBlur: boolean;
+    /** @private */ AllowUserImages: boolean;
+    /** @private */ ShowDefaultImages: boolean;
+    /** @private */ SetImages: Array<String>;
+    /** @private */ EnforceBackgroundBlur: number;
+    /** @private */ EnforceBackgroundImage: string;
+    
+    /**
+    *
+    * @param {boolean} AllowBackgroundBlur
+    * This method will show the background blur option in Virtual Background.
+    * If set to true it will show the background blur option.
+    * Default value is true.
+    * @returns
+    */
+    allowBackgroundBlur(AllowBackgroundBlur: boolean): this;
+    
+    /**
+    *
+    * @param {boolean} AllowUserImage
+    * This method will allow the user to add custom images as background.
+    * If set to true it will allow the user to add custom images as background.
+    * Default value is true.
+    * @returns
+    */
+    allowUserImages(AllowUserImages: boolean): this;
+    
+    /**
+    *
+    * @param {boolean} ShowDefaultImages
+    * This method will show the default images to be used as background.
+    * If set to true it will show the default images to be used as background.
+    * Default value is true.
+    * @returns
+    */
+    showDefaultImages(ShowDefaultImages: boolean): this;
+    
+    /**
+    *
+    * @param {boolean} SetImages
+    * This method will allow user to add custom Images to be used as background. It takes in an array of URLs.
+    * @returns
+    */
+    
+    setImages(SetImages: Array<String>):
+    this;
+    
+    /**
+    *
+    * @param {number} EnforceBackgroundBlur
+    * This method will enforce background blur.
+    * This method takes number as input which decides the blur level of the background.
+    * Default value is 0.
+    * @returns
+    */
+    enforceBackgroundBlur(EnforceBackgroundBlur: number): this;
+    
+    /**
+    *
+    * @param {string} EnforceBackgroundImage
+    * This method will enforce background image.
+    * If an URL of the image is sent then that image will be set as background.
+    * By default no image is set.
+    * @returns
+    */
+    enforceBackgroundImage(EnforceBackgroundImage: string): this;
+    
+    /**
+    * This method will return an object of the VirtualBackground class.
+    * @returns {VirtualBackground}
+    */
+    build(): VirtualBackground;
 }
 
 export class CCExtension {
