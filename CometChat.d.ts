@@ -972,12 +972,13 @@ export class MediaMessage extends BaseMessage implements Message {
         };
         private url;
         private file;
+        private files;
         private _metaData;
         protected data?: any;
         private attachment;
         private caption;
         private tags?: Array<String>;
-        constructor(receiverId: string, file: object | string, type: string, receiverType: string);
+        constructor(receiverId: string, file: object | string | Array<object> | any, type: string, receiverType: string);
         /**
             * Method to set caption for the media message.
             * @param {string} text
@@ -1028,6 +1029,16 @@ export class MediaMessage extends BaseMessage implements Message {
             * @param {Attachment} attachment
          */
         setAttachment(attachment: Attachment): void;
+        /**
+         * Method to get all the attachments of media message.
+         * @returns {Array<Attachment>}
+        */
+        getAttachments(): Array<Attachment>;
+        /**
+         * Method to set multiple attachments of media message.
+         * @param {Array<Attachment>} attachments
+        */
+        setAttachments(attachments: Array<Attachment>): void;
         /**
             * Method to get URL of the media file.
             * @returns {string}
