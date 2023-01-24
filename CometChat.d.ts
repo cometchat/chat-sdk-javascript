@@ -1415,7 +1415,7 @@ export const DEFAULT_VALUES: {
     REGION_DEFAULT_IN: string;
     REGION_DEFAULT_PRIVATE: string;
 };
-export const CALLING_COMPONENT_VERSION = 4;
+export const CALLING_COMPONENT_VERSION = 5;
 export enum GroupType {
     Public = "public",
     Private = "private",
@@ -3824,6 +3824,10 @@ export class AppSettings {
         autoJoinGroup: boolean;
         /** @private */
         establishSocketConnection: boolean;
+        /** @private */
+        adminHost: string;
+        /** @private */
+        clientHost: string;
         /**
             * @private
             * @param {AppSettingsBuilder}
@@ -3854,6 +3858,18 @@ export class AppSettings {
             * @returns {boolean}
          */
         shouldAutoEstablishSocketConnection(): boolean;
+
+        /**
+         * This method returns the admin host to which the SDK should connect.
+         * @returns {boolean}
+        */
+        getAdminHost(): string;
+
+        /**
+         * This method returns the client host to which the SDK should connect.
+         * @returns {boolean}
+        */
+        getClientHost(): string;
 }
 export class AppSettingsBuilder {
         /** @private */
@@ -3866,6 +3882,10 @@ export class AppSettingsBuilder {
         autoJoinGroup: boolean;
         /** @private */
         establishSocketConnection: boolean;
+        /** @private */
+        adminHost: string;
+        /** @private */
+        clientHost: string;
         /**
             * A method to subscribe presence for all users.
             * @returns
@@ -3900,6 +3920,18 @@ export class AppSettingsBuilder {
             * @returns
          */
         autoEstablishSocketConnection(establishSocketConnection?: boolean): this;
+        /**
+         * @param {string} adminHost
+         * This method is used to override the admin host which the SDK uses to make an API call.
+         * @returns 
+        */
+        overrideAdminHost(adminHost: string): this;
+        /**
+         * @param {string} clientHost
+         * This method is used to override the client host which the SDK uses to make an API call.
+         * @returns 
+        */
+        overrideClientHost(clientHost: string): this
         /**
             * This method will return an object of the AppSettings class.
             * @returns {AppSettings}
@@ -4069,6 +4101,13 @@ export class Attachment {
 }
 
 export class CallSettings {
+        static POSITION_TOP_LEFT: string;
+        static POSITION_TOP_RIGHT: string;
+        static POSITION_BOTTOM_LEFT: string;
+        static POSITION_BOTTOM_RIGHT: string;
+        static ASPECT_RATIO_DEFAULT: string;
+        static ASPECT_RATIO_CONTAIN: string;
+        static ASPECT_RATIO_COVER: string;
         constructor(builder?: CallSettingsBuilder);
         shouldUseLegacyUI(): boolean;
         isRecordingButtonEnabled(): boolean;
@@ -4094,6 +4133,7 @@ export class CallSettings {
         isAudioToVideoButtonEnabled(): boolean;
         getVirtualBackground(): VirtualBackground;
         isVirtualBackgroundSettingEnabled(): boolean;
+        getMainVideoContainerSetting(): MainVideoContainerSetting;
 }
 export class CallSettingsBuilder {
         /** @private */ sessionID: string;
@@ -4120,6 +4160,7 @@ export class CallSettingsBuilder {
         /** @private */ShowSwitchToVideoCallButton: boolean;
         /** @private */virtualBackground: VirtualBackground;
         /** @private */ShowVirtualBackgroundSetting: boolean;
+        /** @private */ MainVideoContainerSetting: MainVideoContainerSetting;
         /**
             *
             * @param {string} sessionID
@@ -4330,10 +4371,64 @@ export class CallSettingsBuilder {
          */
         showVirtualBackgroundSetting(showVirtualBackgroundSetting: boolean): this;
         /**
+         * 
+         * @param {MainVideoContainerSetting} mainVideoContainerSetting 
+         * This method can be used to customize the main video container.
+         * @returns 
+        */
+        setMainVideoContainerSetting(mainVideoContainerSetting: MainVideoContainerSetting): this;
+        /**
             * This method will return an object of the CallSettings class.
             * @returns {CallSettings}
          */
         build(): CallSettings;
+}
+
+export class MainVideoContainerSetting{
+    /** @private */  videoFit: string;
+    /** @private */  zoomButton: Object;
+    /** @private */  nameLabel: Object;
+    /** @private */  network: Object;
+
+    /**
+     * 
+     * @param {string} mainVideoAspectRatio 
+     * This method is used to set the aspect ratio of main video.
+     * The default value is `contain`.
+     * @returns 
+    */
+    setMainVideoAspectRatio(mainVideoAspectRatio: string);
+    
+    /**
+     * 
+     * @param {string} position 
+     * @param {boolean} visibility 
+     * This method is used to set the position & visibility parameter of the full screen button.
+     * By default the full screen button is visible in the `bottom-right` position.
+     * @returns 
+    */
+    setFullScreenButtonParams(position: string, visibility: boolean);
+
+    /**
+     * 
+     * @param {string} position 
+     * @param {boolean} visibility 
+     * @param {string} backgroundColor 
+     * This method is used to set the position, visibility & background color of the name label.
+     * By default the name label is visible in the `bottom-right` position with a background-color `rgba(27, 27, 27, 0.4)`.
+     * @returns 
+    */
+    setNameLabelParams(position: string, visibility: boolean, backgroundColor: string);
+
+    /**
+     * 
+     * @param {string} position 
+     * @param {boolean} visibility 
+     * This method is used to set the position, visibility of the network label.
+     * By default the network label is visible in the `bottom-right` position.
+     * @returns 
+    */
+    setNetworkLabelParams(position: string, visibility: boolean);
 }
 
 export class VirtualBackground {
