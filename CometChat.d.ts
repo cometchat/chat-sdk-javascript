@@ -4397,7 +4397,7 @@ export class MainVideoContainerSetting{
      * The default value is `contain`.
      * @returns 
     */
-    setMainVideoAspectRatio(mainVideoAspectRatio: string);
+    setMainVideoAspectRatio(mainVideoAspectRatio: string): void;
     
     /**
      * 
@@ -4407,7 +4407,7 @@ export class MainVideoContainerSetting{
      * By default the full screen button is visible in the `bottom-right` position.
      * @returns 
     */
-    setFullScreenButtonParams(position: string, visibility: boolean);
+    setFullScreenButtonParams(position: string, visibility: boolean): void;
 
     /**
      * 
@@ -4418,7 +4418,7 @@ export class MainVideoContainerSetting{
      * By default the name label is visible in the `bottom-right` position with a background-color `rgba(27, 27, 27, 0.4)`.
      * @returns 
     */
-    setNameLabelParams(position: string, visibility: boolean, backgroundColor: string);
+    setNameLabelParams(position: string, visibility: boolean, backgroundColor: string): void;
 
     /**
      * 
@@ -4428,7 +4428,7 @@ export class MainVideoContainerSetting{
      * By default the network label is visible in the `bottom-right` position.
      * @returns 
     */
-    setNetworkLabelParams(position: string, visibility: boolean);
+    setNetworkLabelParams(position: string, visibility: boolean): void;
 }
 
 export class VirtualBackground {
