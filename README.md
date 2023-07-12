@@ -12,8 +12,8 @@
 
 # CometChat Javascript SDK
 
-CometChat Pro enables you to add voice, video & text chat for your website & app.
-This guide demonstrates how to add chat to a WebSite using CometChat Pro.
+CometChat enables you to add voice, video & text chat for your website & app.
+This guide demonstrates how to add chat to a WebSite using CometChat.
 
 ## Features
 
@@ -75,19 +75,19 @@ To setup Javascript SDK, you  need to first register on CometChat Dashboard. [Cl
 <ul>
 <li>
 <b>Install via NPM</b><br/>
-1. Run the following command to install the CometChat Pro Javascript SDK<br/>
+1. Run the following command to install the CometChat Javascript SDK<br/>
 
 ```javascript
-	npm install @cometchat-pro/chat@3.0.11 --save
+	npm install @cometchat/chat-sdk-javascript@4.0.0-beta3 --save
 ```
 </li>
 
 <li>
 <b>Import via CDN</b><br/>
-1. Include the CometChat Pro Javascript library in your HTML code.<br/>
+1. Include the CometChat Javascript library in your HTML code.<br/>
 
 ```html
-  <script type="text/javascript" src="https://unpkg.com/@cometchat-pro/chat@3.0.11/CometChat.js"></script>
+  <script type="text/javascript" src="https://unpkg.com/@cometchat/chat-sdk-javascript@4.0.0-beta3/CometChat.js"></script>
 ```
 
  You can refer to the below link for instructions on how to do so:<br/>
@@ -171,7 +171,7 @@ CometChat.getLoggedinUser().then(
 
 <hr/>
 
-📝 Please refer to our [Developer Documentation](https://prodocs.cometchat.com/docs/js-quick-start) for more information on how to configure the CometChat Pro SDK and implement various features using the same.
+📝 Please refer to our [Developer Documentation](https://prodocs.cometchat.com/docs/js-quick-start) for more information on how to configure the CometChat SDK and implement various features using the same.
 
 <hr/>
 
