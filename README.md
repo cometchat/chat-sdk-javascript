@@ -78,7 +78,7 @@ To setup Javascript SDK, you  need to first register on CometChat Dashboard. [Cl
 1. Run the following command to install the CometChat Javascript SDK<br/>
 
 ```javascript
-	npm install @cometchat/chat-sdk-javascript@4.0.0-beta4 --save
+	npm install @cometchat/chat-sdk-javascript@latest --save
 ```
 </li>
 
@@ -87,7 +87,7 @@ To setup Javascript SDK, you  need to first register on CometChat Dashboard. [Cl
 1. Include the CometChat Javascript library in your HTML code.<br/>
 
 ```html
-  <script type="text/javascript" src="https://unpkg.com/@cometchat/chat-sdk-javascript@4.0.0-beta4/CometChat.js"></script>
+  <script type="text/javascript" src="https://unpkg.com/@cometchat/chat-sdk-javascript@latest/CometChat.js"></script>
 ```
 
  You can refer to the below link for instructions on how to do so:<br/>
