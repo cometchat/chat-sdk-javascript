@@ -32,5 +32,6 @@
   "bugs": {
     "url": "https://github.com/cometchat-pro/javascript-chat-sdk/issues"
   },
-  "homepage": "https://github.com/cometchat-pro/javascript-chat-sdk#readme"
+  "homepage": "https://github.com/cometchat-pro/javascript-chat-sdk#readme",
+  "types": "./CometChat.d.ts"
 }
