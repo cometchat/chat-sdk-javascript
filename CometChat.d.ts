@@ -307,6 +307,7 @@ export class CometChat {
                         ACTION: string;
                         CALL: string;
                         CUSTOM: string;
+                        INTERACTIVE: string;
                 };
                 RECEIVER_TYPE: {
                         USER: string;
@@ -335,6 +336,14 @@ export class CometChat {
                         CUSTOM_DATA: string;
                         CUSTOM_SUB_TYPE: string;
                         RESOURCE: string;
+                        MENTIONS: string;
+                        INTERACTIVE_DATA: string;
+                        INTERACTION_GOAL: string;
+                        INTERACTIONS: string;
+                        ALLOW_SENDER_INTERACTION: string;
+                        ELEMENT_ID: string;
+                        INTERACTED_AT: string;
+                        ELEMENT_IDS: string;
                 };
                 KNOWN_MEDIA_TYPE: {
                         IMAGE: any[];
@@ -376,6 +385,10 @@ export class CometChat {
                                 HIDE_DELETED_MESSAGES: string;
                                 WITH_TAGS: string;
                                 TAGS: string;
+                                MY_MENTIONS_ONLY: string;
+                                MENTIONS_WITH_TAG_INFO: string;
+                                MENTIONS_WITH_BLOCKED_INFO: string;
+                                ONLY_INTERACTION_GOAL_COMPLETED: string;
                         };
                 };
         };
@@ -938,6 +951,7 @@ export class CometChat {
                 MSG_VER_PRE: string;
                 MSG_VER_POST: string;
         };
+        static GoalType: typeof GoalType;
         static CometChatException: typeof CometChatException;
         static TextMessage: typeof TextMessage;
         static MediaMessage: typeof MediaMessage;
@@ -947,6 +961,10 @@ export class CometChat {
         static Call: typeof Call;
         static TypingIndicator: typeof TypingIndicator;
         static TransientMessage: typeof TransientMessage;
+        static InteractiveMessage: typeof InteractiveMessage;
+        static InteractionGoal: typeof InteractionGoal;
+        static Interaction: typeof Interaction;
+        static InteractionReceipt: typeof InteractionReceipt;
         static Group: typeof Group;
         static User: typeof User;
         static GroupMember: typeof GroupMember;
@@ -1000,6 +1018,7 @@ export class CometChat {
         static CATEGORY_ACTION: string;
         static CATEGORY_CALL: string;
         static CATEGORY_CUSTOM: string;
+        static CATEGORY_INTERACTIVE: string;
         static ACTION_TYPE: {
                 MEMBER_ADDED: string;
                 MEMBER_JOINED: string;
@@ -1196,11 +1215,11 @@ export class CometChat {
          *--------------------------------------------------------------------**/
         /**
             * Function to send message.
-            * @param {TextMessage | MediaMessage | CustomMessage | any} message
+            * @param {TextMessage | MediaMessage | CustomMessage | InteractiveMessage |any} message
             * @returns {Message | any}
             * @memberof CometChat
             */
-        static sendMessage(message: TextMessage | MediaMessage | CustomMessage | any): Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage>;
+        static sendMessage(message: TextMessage | MediaMessage | CustomMessage | InteractiveMessage | any): Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage>;
         /**
             * Function to send a message to user.
             * @internal
@@ -1232,6 +1251,14 @@ export class CometChat {
             * @memberof CometChat
          */
         static sendCustomMessage(message: CustomMessage): Promise<TextMessage | BaseMessage | MediaMessage | CustomMessage>;
+        /**
+            *
+            * Function to send a interactive message.
+            * @param {InteractiveMessage} message
+            * @returns {Message | any}
+            * @memberof CometChat
+         */
+        static sendInteractiveMessage(message: InteractiveMessage): Promise<TextMessage | BaseMessage | MediaMessage | CustomMessage>;
         /**
             *
             * Function to get the last delivered message id from local storage.
@@ -1268,6 +1295,13 @@ export class CometChat {
          */
         static markAsDelivered(...args: any): any;
         /**
+            * Mark all the messages after the specified message id as unread.
+            * @param {TextMessage | MediaMessage | CustomMessage | BaseMessage | any} message
+            * @returns {Promise<string>}
+            * @memberof CometChat
+         **/
+        static markAsUnread(message: TextMessage | MediaMessage | CustomMessage | any): Promise<string | CometChatException>;
+        /**
             * Send a transient message.
             * @param {string} uid
             * @param {string} receiverType
@@ -1287,7 +1321,7 @@ export class CometChat {
             * @returns {Message | any}
             * @memberof CometChat
          */
-        static getMessageDetails(messageId: string | any): Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage>;
+        static getMessageDetails(messageId: string | any): Promise<TextMessage | MediaMessage | CustomMessage | InteractiveMessage | BaseMessage>;
         /**
             * Function to fetch message receipt details for the provided messageID.
             * @param {string | any} messageId
@@ -1898,6 +1932,13 @@ export class CometChat {
             * @returns
          */
         internalLogout(pushToLoginListener?: boolean): Promise<unknown>;
+        /**
+    * Mark the element of a message as interacted.
+    * @param {string} messageId
+    * @param {string} elementId
+    * @memberof CometChat
+ */
+        static markAsInteracted(messageId: string | any, elementId: string): Promise<string>;
 }
 
 /**
@@ -1921,7 +1962,7 @@ export interface UserObj {
         avatar: string;
         lastActiveAt: number;
         link: string;
-        metadata: string;
+        metadata: object;
         role: string;
         status: string;
         statusMessage: string;
@@ -1994,14 +2035,14 @@ export class User {
         setLink(link: string): string;
         /**
             * Method to get metadata of the user.
-            * @returns {string}
+            * @returns {object}
          */
-        getMetadata(): string;
+        getMetadata(): object;
         /**
             * Method to set metadata of the user.
-            * @param {string} metadata
+            * @param {object} metadata
          */
-        setMetadata(metadata: string): void;
+        setMetadata(metadata: object): void;
         /**
             * Method to get role of the user.
             * @returns {string}
@@ -2097,6 +2138,7 @@ export class MediaMessage extends BaseMessage implements Message {
                 ACTION: string;
                 CALL: string;
                 CUSTOM: string;
+                INTERACTIVE: string;
         };
         private url;
         private file;
@@ -2222,6 +2264,8 @@ export class BaseMessage implements Message {
         protected deletedBy: string;
         protected replyCount: number;
         protected rawMessage: Object;
+        protected mentionedUsers?: User[];
+        protected mentionedMe?: boolean;
         constructor(receiverId: string, messageType: string, receiverType: string, category: MessageCategory);
         /**
             * Get ID of the message
@@ -2437,6 +2481,26 @@ export class BaseMessage implements Message {
             * Set the raw JSON of the message.
          */
         setRawMessage(rawMessage: Object): void;
+        /**
+            * @param {User[]} mentionedUsers
+            * Set the array of mentioned users
+         */
+        setMentionedUsers(mentionedUsers: User[]): void;
+        /**
+            * Get the array of mentioned users
+            * @returns
+         */
+        getMentionedUsers(): User[];
+        /**
+            * @param {boolean} hasMentionedMe
+            * Method to set if the user was mentioned in the message
+         */
+        setHasMentionedMe(hasMentionedMe: boolean): void;
+        /**
+            * Method to check if the user was mentioned in the message
+            * @returns
+         */
+        hasMentionedMe(): boolean;
 }
 
 /**
@@ -2682,6 +2746,7 @@ export const MessageConstatnts: {
         ACTION: string;
         CALL: string;
         CUSTOM: string;
+        INTERACTIVE: string;
     };
     RECEIVER_TYPE: {
         USER: string;
@@ -2710,6 +2775,14 @@ export const MessageConstatnts: {
         CUSTOM_DATA: string;
         CUSTOM_SUB_TYPE: string;
         RESOURCE: string;
+        MENTIONS: string;
+        INTERACTIVE_DATA: string;
+        INTERACTION_GOAL: string;
+        INTERACTIONS: string;
+        ALLOW_SENDER_INTERACTION: string;
+        ELEMENT_ID: string;
+        INTERACTED_AT: string;
+        ELEMENT_IDS: string;
     };
     KNOWN_MEDIA_TYPE: {
         IMAGE: any[];
@@ -2751,6 +2824,10 @@ export const MessageConstatnts: {
             HIDE_DELETED_MESSAGES: string;
             WITH_TAGS: string;
             TAGS: string;
+            MY_MENTIONS_ONLY: string;
+            MENTIONS_WITH_TAG_INFO: string;
+            MENTIONS_WITH_BLOCKED_INFO: string;
+            ONLY_INTERACTION_GOAL_COMPLETED: string;
         };
     };
 };
@@ -2767,7 +2844,14 @@ export enum MessageCategory {
     ACTION = "action",
     MESSAGE = "message",
     CALL = "call",
-    CUSTOM = "custom"
+    CUSTOM = "custom",
+    INTERACTIVE = "interactive"
+}
+export enum GoalType {
+    ANY_ACTION = "anyAction",
+    ANY_OF = "anyOf",
+    ALL_OF = "allOf",
+    NONE = "none"
 }
 export const TYPING_NOTIFICATION: {
     RECEIVER_ID: string;
@@ -3625,14 +3709,14 @@ export class Group {
         setOwner(owner: string): void;
         /**
             * Method to get metadata of the group.
-            * @returns {string}
+            * @returns {object}
          */
-        getMetadata(): string;
+        getMetadata(): object;
         /**
             * Method to set metadata of the group.
-            * @param {string} metadata
+            * @param {object} metadata
          */
-        setMetadata(metadata: string): void;
+        setMetadata(metadata: object): void;
         /**
             * Method to get the created at timestamp of the group.
             * @returns {number}
@@ -3750,6 +3834,14 @@ export class MessageListener {
             * This event is triggered when a transient message is received.
          */
         onTransientMessageReceived?: Function;
+        /**
+            * This event is triggered when a interactive message is received.
+         */
+        onInteractiveMessageReceived?: Function;
+        /**
+            * This event is triggered when a interaction goal is completd .
+         */
+        onInteractionGoalCompleted?: Function;
         constructor(...args: any[]);
 }
 export class CallListener {
@@ -3991,6 +4083,7 @@ export class Call extends BaseMessage implements Message {
                 ACTION: string;
                 CALL: string;
                 CUSTOM: string;
+                INTERACTIVE: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
@@ -4059,12 +4152,12 @@ export class Call extends BaseMessage implements Message {
             * Get JSONObject of data set by developer.
             * @returns
             */
-        getMetadata(): any;
+        getMetadata(): object;
         /**
-            * @param {any} metadata
+            * @param {object} metadata
             * Set metadata of the call message.
          */
-        setMetadata(metadata: any): void;
+        setMetadata(metadata: object): void;
         /**
             * Get sender of the message.
             * @returns {User}
@@ -4275,6 +4368,7 @@ export class Action extends BaseMessage implements Message {
                 ACTION: string;
                 CALL: string;
                 CUSTOM: string;
+                INTERACTIVE: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
@@ -4388,14 +4482,14 @@ export class Action extends BaseMessage implements Message {
         setActionFor(actionFor: User | Group | BaseMessage): void;
         /**
             * Method to get the metadata of the action message.
-            * @returns {any}
+            * @returns {object}
          */
-        getMetadata(): any;
+        getMetadata(): object;
         /**
-            * @param {any} metadata
+            * @param {object} metadata
             * Method to get the metadata of the action message.
          */
-        setMetadata(metadata: any): void;
+        setMetadata(metadata: object): void;
 }
 
 export class GroupsRequest {
@@ -4777,6 +4871,10 @@ export class MessagesRequestBuilder {
         /** @private */ HideDeletedMessages?: boolean;
         /** @private */ tags?: Array<String>;
         /** @private */ WithTags?: boolean;
+        /** @private */ interactionGoalCompletedOnly?: boolean;
+        /** @private */ ListMentionedMessages?: boolean;
+        /** @private */ mentionsWithUserTags?: boolean;
+        /** @private */ mentionsWithBlockedRelation?: boolean;
         /**
             * A method to set limit for the number of messages returned in a single iteration. A maximum of 100 messages can fetched in a single iteration.
             * @param {number} limit
@@ -4892,6 +4990,30 @@ export class MessagesRequestBuilder {
          */
         withTags(withTags: boolean): this;
         /**
+            * A method to get the list of message with mentions
+            * @param {boolean} listMentionedMessages
+            * @returns
+         */
+        myMentionsOnly(listMentionedMessages?: boolean): this;
+        /**
+            * A method to include the user tags  when getting the list of message with mentions
+            * @param {boolean} mentionsWithUserTags
+            * @returns
+         */
+        mentionsWithTagInfo(mentionsWithUserTags?: boolean): this;
+        /**
+            * A method to include the blocked relation when getting the list of message with mentions
+            * @param {boolean} mentionsWithBlockedRelation
+            * @returns
+         */
+        mentionsWithBlockedInfo(mentionsWithBlockedRelation?: boolean): this;
+        /**
+            * A method to get only interacted messages.
+            * @param {boolean} interactionGoalCompletedOnly
+            * @returns
+         */
+        setInteractionGoalCompletedOnly(interactionGoalCompletedOnly?: boolean): this;
+        /**
             * This method will return an object of the MessagesRequest class.
             * @returns {MessagesRequest}
          */
@@ -4926,14 +5048,14 @@ export class TypingIndicator {
         setReceiverId(receiverId: string): void;
         /**
             * Method to get metadata of the transient message.
-            * @returns {string}
+            * @returns {object}
          */
-        getMetadata(): string;
+        getMetadata(): object;
         /**
             * Method to set metadata of the transient message.
-            * @param {string} meta
+            * @param {object} meta
          */
-        setMetadata(meta: string): void;
+        setMetadata(meta: object): void;
         /**
             * Method to get sender of the transient message.
             * @returns {User}
@@ -5245,20 +5367,20 @@ export class CometChatHelper {
         /**
             * Takes JSONMessage as an input and will return an Object of BaseMessage Class.
             * @param {Object} message
-            * @returns {TextMessage | MediaMessage | CustomMessage | BaseMessage}
+            * @returns {TextMessage | MediaMessage | CustomMessage | InteractiveMessage | BaseMessage}
             * @memberof CometChatHelper
             */
-        static processMessage(message: Object): Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage>;
+        static processMessage(message: Object): Promise<TextMessage | MediaMessage | CustomMessage | InteractiveMessage | BaseMessage>;
         /**-------------------------------------------------------------------*
             * Message related functions provided by CometChat class              *
             *--------------------------------------------------------------------**/
         /**
             * Takes a Message Object and converts it into Conversation Object.
-            * @param {TextMessage | MediaMessage | CustomMessage} message
+            * @param {TextMessage | MediaMessage | CustomMessage | InteractiveMessage} message
             * @returns {Conversation} conversation
             * @memberof CometChat
             */
-        static getConversationFromMessage(message: TextMessage | MediaMessage | CustomMessage | any): Promise<Conversation>;
+        static getConversationFromMessage(message: TextMessage | MediaMessage | CustomMessage | InteractiveMessage | any): Promise<Conversation>;
 }
 
 /**
@@ -5884,6 +6006,225 @@ export class TransientMessage {
             * @param {User} sender
          */
         setSender(sender: User): void;
+}
+
+/**
+    *
+    * @module InteractiveMessage
+    */
+export class InteractiveMessage extends BaseMessage implements Message {
+        /** @private */ static readonly TYPE: {
+                TEXT: string;
+                MEDIA: string;
+                IMAGE: string;
+                VIDEO: string;
+                AUDIO: string;
+                FILE: string;
+                CUSTOM: string;
+        };
+        /** @private */ static readonly RECEIVER_TYPE: {
+                USER: string;
+                GROUP: string;
+        };
+        /** @private */ static readonly CATEGORY: {
+                MESSAGE: string;
+                ACTION: string;
+                CALL: string;
+                CUSTOM: string;
+                INTERACTIVE: string;
+        };
+        private interactiveData;
+        private interactionGoal;
+        private data?;
+        private interactions?;
+        private tags?;
+        private allowSenderInteraction?;
+        constructor(...args: any[]);
+        /**
+            * Method to get sender of the message.
+            * @returns {User}
+         */
+        getSender(): User;
+        /**
+            * Method to get interactive data of the message.
+            * @returns {Object}
+         */
+        getInteractiveData(): Object;
+        /**
+            * Method to set interactive data of interactive message.
+            * @param {Object} interactiveData
+         */
+        setInteractiveData(interactiveData: Object): void;
+        /**
+            * Method to get receiver of the message.
+            * @returns {User|Group}
+         */
+        getReceiver(): User | Group;
+        /**
+            * Method to interaction goal of the message.
+            * @returns {InteractionGoal}
+         */
+        getInteractionGoal(): InteractionGoal;
+        /**
+            * Method to set interaction goal of interactive message.
+            * @param {InteractionGoal} interactionGoal
+         */
+        setInteractionGoal(interactionGoal: InteractionGoal): void;
+        /**
+            * Method to get interactions on the message.
+            * @returns {Array<Interaction>}
+         */
+        getInteractions(): Array<Interaction>;
+        /**
+            * Method to set interactions of interactive message.
+            * @param {Array<Interaction>} interactions
+         */
+        setInteractions(interactions: Array<Interaction>): void;
+        /**
+            * Method to get metadata of the message.
+            * @returns {Object}
+         */
+        getMetadata(): Object;
+        /**
+            * Method to set sender metadata of the message.
+            * @returns {User}
+         */
+        setMetadata(metadata: Object): void;
+        /**
+            * Method to get data of the message.
+            * @returns {any}
+         */
+        getData(): any;
+        /**
+            * Method to get tags of the message.
+            * @returns {Array<String>}
+         */
+        getTags(): Array<String>;
+        /**
+            * Get the set tags fo the message .
+            *  @returns {Array<String>}
+         */
+        setTags(tags: Array<String>): void;
+        /**
+         * @param {boolean} flag
+         * Set the flag if sender is allowed to interact with the with the message.
+        */
+        setIsSenderInteractionAllowed(flag: boolean): void;
+        /**
+            * Get the flag which signifies if sender interaction is allowed .
+            *  @returns {boolean}
+         */
+        getIsSenderInteractionAllowed(flag: boolean): boolean;
+}
+
+/**
+    *
+    * @module InteractionGoal
+    */
+export class InteractionGoal {
+        constructor(type: GoalType, elementIds: Array<String>);
+        /**
+            * Get the type of the interaction goal.
+            * @returns {GoalType}
+         */
+        getType(): GoalType;
+        /**
+            * @param {GoalType} type
+            * Set the type of goal for the message.
+         */
+        setType(type: GoalType): void;
+        /**
+            * Get the element ids of the interacttion goal.
+            * @returns {Array<String>}
+         */
+        getElementIds(): Array<String>;
+        /**
+            * @param {Array<String>} elementIds
+            * Set the element id for the intearction goal.
+         */
+        setElementIds(elementIds: Array<String>): void;
+}
+
+export class Interaction {
+        constructor(elementId: string, interactedAt: number);
+        /**
+            * Get the element id of the interaction.
+            * @returns {string}
+         */
+        getElementId(): string;
+        /**
+         * Get the time of the interaction.
+         * @returns {number}
+        */
+        getInteractedAt(): number;
+        /**
+        * @param {string} elementId
+        * Set the element id.
+     */
+        setElementId(elementId: string): void;
+        /**
+        * @param {number} interactedAt
+        * Set the time of intertaction .
+     */
+        setInteractedAt(interactedAt: number): void;
+        static getInteractionFromJSON(message: any): Interaction;
+}
+
+/**
+    *
+    * @module InteractionReceipt
+    */
+export class InteractionReceipt {
+        /**
+            * Method to get receiver type of the interaction receipt.
+            * @returns {string}
+         */
+        getReceiverType(): string;
+        /**
+            * Method to set receiver type of the interaction receipt.
+            * @param {string} receiverType
+         */
+        setReceiverType(receiverType: string): void;
+        /**
+            * Method to get sender of the interaction receipt.
+            * @returns {User}
+         */
+        getSender(): User;
+        /**
+            * Method to set sender of the interaction receipt.
+            * @param {User} sender
+         */
+        setSender(sender: User): void;
+        /**
+            * Method to get receiver id of the interaction receipt.
+            * @returns {string}
+         */
+        getReceiveId(): string;
+        /**
+            * Method to set receiver of the interaction receipt.
+            * @param {string} receiverId
+         */
+        setReceiverId(receiverId: string): void;
+        /**
+            * Method to get the message ID.
+            * @returns {string}
+         */
+        getMessageId(): string;
+        /**
+            * Method to set the message ID.
+            * @param {string} messageId
+         */
+        setMessageId(messageId: string): void;
+        /**
+            * Method to get the interactions.
+            * @returns { Array<Interaction>}
+         */
+        getInteractions(): Array<Interaction>;
+        /**
+            * Method to set the interactions.
+            * @param {Array<Interaction>} interactions
+         */
+        setInteractions(interactions: Array<Interaction>): void;
 }
 
 /**
