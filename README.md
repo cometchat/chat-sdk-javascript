@@ -1,51 +1,11 @@
-<div style="width:100%">
-<div style="width:100%">
-	<div style="width:50%; display:inline-block">
-		<p align="center">
-		<img style="text-align:center" width="180" height="180" alt="" src="https://avatars2.githubusercontent.com/u/45484907?s=200&v=4">	
-		</p>	
-	</div>	
-</div>
-</br>
-</br>
-</div>
+<p align="center">
+  <img alt="CometChat" src="https://assets.cometchat.io/website/images/logos/banner.png">
+</p>
 
 # CometChat Javascript SDK
 
 CometChat enables you to add voice, video & text chat for your website & app.
 This guide demonstrates how to add chat to a WebSite using CometChat.
-
-## Features
-
-<ul>
-<li> 1-1 & Group Conversations </li>
-<li> Voice & video calling & conferencing </li>
-<li> Rich Media Attachments </li>
-<li> Typing Indicators </li>
-<li> Custom Messages </li>
-<li> Read receipts </li>
-<li> Online Presence Indicators </li>
-<li> Message History </li>
-<li> Single Sign-on </li>
-<li> Webhooks </li>
-<li> Bots </li>
-<li> Users & Friends List </li>
-<li> Groups List </li>
-<li> Conversations List </li>
-<li> Threaded Conversations </li>
-</ul>
-
-## Extensions
-
-[Push Notification](https://prodocs.cometchat.com/docs/extensions-enhanced-push-notification) | [Email Notification](https://prodocs.cometchat.com/docs/extensions-email-notification) | [SMS Notification](https://prodocs.cometchat.com/docs/extensions-sms-notification) | [Thumbnail Generation](https://prodocs.cometchat.com/docs/extensions-thumbnail-generation) | [Link Preview](https://prodocs.cometchat.com/docs/extensions-link-preview) | [Rich Media Preview](https://prodocs.cometchat.com/docs/extensions-rich-media-preview) | [Voice Transcription](https://prodocs.cometchat.com/docs/extensions-voice-transcription) | [Smart Reply](https://prodocs.cometchat.com/docs/extensions-smart-reply) | [Message Translation](https://prodocs.cometchat.com/docs/extensions-message-translation) | [Emojis](https://prodocs.cometchat.com/docs/extensions-emojis) | [Polls](https://prodocs.cometchat.com/docs/extensions-polls) | [Reactions](https://prodocs.cometchat.com/docs/extensions-reactions) | [Stickers](https://prodocs.cometchat.com/docs/extensions-stickers) | [Video Broadcasting](https://prodocs.cometchat.com/docs/extensions-broadcast) | [Collaborative Documents](https://prodocs.cometchat.com/docs/extensions-collaborative-document) | [Collaborative Whiteboards](https://prodocs.cometchat.com/docs/extensions-collaborative-whiteboard) | [Data Masking Filter](https://prodocs.cometchat.com/docs/extensions-data-masking-filter) | [Profanity Filter](https://prodocs.cometchat.com/docs/extensions-profanity-filter) | [Image Moderation](https://prodocs.cometchat.com/docs/extensions-image-moderation)| [Sentiment Analysis](https://prodocs.cometchat.com/docs/extensions-sentiment-analysis) | [In-flight Message Moderation](https://prodocs.cometchat.com/docs/extensions-in-flight-message-moderation) | [Virus & Malware Scanner](https://prodocs.cometchat.com/docs/extensions-virus-malware-scanner) | [XSS Filter](https://prodocs.cometchat.com/docs/extensions-xss-filter)
-
-[![Platform](https://img.shields.io/badge/Platform-Javascript-brightgreen)](#)
-<a href=" "> <img src="https://img.shields.io/badge/Version-3.0.11-important" /></a>
-![GitHub repo size](https://img.shields.io/github/repo-size/cometchat-pro/javascript-chat-sdk)
-![GitHub contributors](https://img.shields.io/github/contributors/cometchat-pro/javascript-chat-sdk)
-![GitHub stars](https://img.shields.io/github/stars/cometchat-pro/javascript-chat-sdk?style=social)
-![Twitter Follow](https://img.shields.io/twitter/follow/cometchat?style=social)
-<hr/>
 
 
 ## Prerequisites :star:
@@ -166,24 +126,10 @@ CometChat.getLoggedinUser().then(
 );
 ```
 
-| :information_source: &nbsp; <b>Note - The login() method needs to be called only once. Also replace AUTH_KEY with your App Auth Key.</b> |
+| :information_source: &nbsp; <b>Note - The login() method needs to be called only once. Also replace `AUTH_KEY` with Auth Key from your app.</b> |
 |------------------------------------------------------------------------------------------------------------|
 
-<hr/>
 
-📝 Please refer to our [Developer Documentation](https://prodocs.cometchat.com/docs/js-quick-start) for more information on how to configure the CometChat SDK and implement various features using the same.
 
-<hr/>
-
-## Learn more about UI-Kit
-[Angular UI Kit](https://github.com/cometchat-pro/javascript-angular-chat-ui-kit) | [React UI Kit](https://github.com/cometchat-pro/javascript-react-chat-ui-kit) | [Vue UI Kit](https://github.com/cometchat-pro/javascript-vue-chat-ui-kit)
-
-## Contributors :clap:
-Thanks to the following people who have contributed to this project:
-[👨‍💻 @ajaygajra](https://github.com/ajaygajra)
-[👨‍💻 @mayur-bhandari](https://github.com/mayur-bhandari)
-<hr/>
-
-## Contact :mailbox:
-Contact us via real time support present in [CometChat Dashboard.](https://app.cometchat.io/)
-<hr/>
+## Help and Support
+For issues running the project or integrating with our UI Kits, consult our [documentation](https://www.cometchat.com/docs/javascript-chat-sdk/overview) or create a [support ticket](https://help.cometchat.com/hc/en-us) or seek real-time support via the [CometChat Dashboard](https://app.cometchat.com/).
