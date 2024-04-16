@@ -3766,6 +3766,7 @@ export class Group {
         private joinedAt;
         private membersCount;
         private tags;
+        private isBanned;
         /**
             * Creates an instance of Group.
             * @param {string} guid
@@ -3931,6 +3932,11 @@ export class Group {
             * @returns {string[]}
          */
         getTags(): Array<String>;
+        /**
+            * Method to check if the logged-in user is banned from the group or not.
+            * @returns {boolean} status of the logged-in user as banned or not.
+        */
+        isBannedFromGroup(): boolean;
 }
 
 export class MessageListener {
@@ -5218,6 +5224,46 @@ export class TypingIndicator {
 export class CustomMessage extends BaseMessage implements Message {
         protected data?: Object;
         constructor(...args: any[]);
+        /**
+            * Retrieves the preview text for a custom message to be displayed in the Conversation List.
+            * This method allows for a textual representation of the custom message that can be used
+            * as a conversation snippet or preview, enhancing the user experience by providing context.
+            * @returns {string} The text to display as the conversation preview.
+        */
+        getConversationText(): string;
+        /**
+            * Sets the preview text for a custom message to be displayed in the Conversation List.
+            * This method allows for a textual representation of the custom message that can be used
+            * as a conversation snippet or preview, enhancing the user experience by providing context.
+            * @param {string} text The text to set as the conversation preview.
+        */
+        setConversationText(text: string): void;
+        /**
+            * Determines whether the custom message should be considered as the last message
+            * in the conversation, potentially changing the order of conversations.
+            * This method indicates if sending a custom message will update the conversation's last message,
+            * which may affect the conversation's position in the list based on the sorting order.
+            * @returns {boolean} A boolean value indicating whether sending the custom message triggers an update
+            * to the last message of the conversation, potentially altering the conversation order.
+        */
+        willUpdateConversation(): boolean;
+        /**
+            * Set the flag to determine if the conversation should be updated. 
+            * @param {boolean} updateConversation The flag to set if the conversation should be updated.
+        */
+        shouldUpdateConversation(updateConversation: boolean): void;
+        /**
+            * Determines whether a push notification should be sent for the custom message.
+            * This method checks if the current custom message configuration specifies that a push notification
+            * is warranted when the message is sent.
+            * @returns {boolean} A boolean value indicating whether to send a push notification for the custom message.
+        */
+        willSendNotification(): boolean;
+        /**
+            * Set the flag to determine if a notification should be sent.
+            * @param {boolean} sendNotification The flag to set if a notification should be sent.
+        */
+        shouldSendNotification(sendNotification: boolean): void;
         /**
             * Method to get custom data of the message.
             * @returns {Object}

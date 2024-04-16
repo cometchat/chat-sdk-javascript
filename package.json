@@ -1,6 +1,6 @@
 {
   "name": "@cometchat/chat-sdk-javascript",
-  "version": "4.0.4",
+  "version": "4.0.5",
   "description": "A complete chat solution.",
   "main": "CometChat.js",
   "scripts": {
