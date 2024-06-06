@@ -446,6 +446,11 @@ export class CometChat {
                         WEBRTC_WEB_FRONTEND_HOST: string;
                         WEBRTC_WEB_FRONTEND_VERSION: string;
                         SECURED_MEDIA_HOST: string;
+                        PARAMETERS: string;
+                        CORE_CONVERSATIONS_UPDATE_ON_CALL_ACTIVITIES: string;
+                        CORE_CONVERSATIONS_UPDATE_ON_GROUP_ACTIONS: string;
+                        CORE_CONVERSATIONS_UPDATE_ON_CUSTOM_MESSAGES: string;
+                        CORE_CONVERSATIONS_UPDATE_ON_REPLIES: string;
                 };
         };
         static GroupConstants: {
@@ -1966,6 +1971,12 @@ export class CometChat {
     * @memberof CometChat
  */
         static markAsInteracted(messageId: string | any, elementId: string): Promise<string>;
+        /**
+            * Retrieves the ConversationUpdateSettings.
+            *
+            * @return A ConversationUpdateSettings object that holds the settings for updating the conversation.
+         */
+        static getConversationUpdateSettings(): Promise<ConversationUpdateSettings>;
 }
 
 export class CometChatNotifications {
@@ -3657,6 +3668,11 @@ export const APP_SETTINGS: {
         WEBRTC_WEB_FRONTEND_HOST: string;
         WEBRTC_WEB_FRONTEND_VERSION: string;
         SECURED_MEDIA_HOST: string;
+        PARAMETERS: string;
+        CORE_CONVERSATIONS_UPDATE_ON_CALL_ACTIVITIES: string;
+        CORE_CONVERSATIONS_UPDATE_ON_GROUP_ACTIONS: string;
+        CORE_CONVERSATIONS_UPDATE_ON_CUSTOM_MESSAGES: string;
+        CORE_CONVERSATIONS_UPDATE_ON_REPLIES: string;
     };
 };
 export const COMMON_UTILITY_CONSTANTS: {
@@ -3935,7 +3951,7 @@ export class Group {
         /**
             * Method to check if the logged-in user is banned from the group or not.
             * @returns {boolean} status of the logged-in user as banned or not.
-        */
+         */
         isBannedFromGroup(): boolean;
 }
 
@@ -4259,8 +4275,8 @@ export class Call extends BaseMessage implements Message {
         protected initiatedAt: number;
         protected joinedAt: number;
         protected data: any;
-        protected callInitiator: object;
-        protected callReceiver: object;
+        protected callInitiator: User;
+        protected callReceiver: User | Group;
         /**
             * @memberof {@link CometChat | CometChat }
             * @param receiverId
@@ -5225,44 +5241,44 @@ export class CustomMessage extends BaseMessage implements Message {
         protected data?: Object;
         constructor(...args: any[]);
         /**
-            * Retrieves the preview text for a custom message to be displayed in the Conversation List.
-            * This method allows for a textual representation of the custom message that can be used
-            * as a conversation snippet or preview, enhancing the user experience by providing context.
-            * @returns {string} The text to display as the conversation preview.
-        */
+                 * Retrieves the preview text for a custom message to be displayed in the Conversation List.
+                 * This method allows for a textual representation of the custom message that can be used
+                 * as a conversation snippet or preview, enhancing the user experience by providing context.
+                 * @returns {string} The text to display as the conversation preview.
+         */
         getConversationText(): string;
         /**
-            * Sets the preview text for a custom message to be displayed in the Conversation List.
-            * This method allows for a textual representation of the custom message that can be used
-            * as a conversation snippet or preview, enhancing the user experience by providing context.
-            * @param {string} text The text to set as the conversation preview.
-        */
+                 * Sets the preview text for a custom message to be displayed in the Conversation List.
+                 * This method allows for a textual representation of the custom message that can be used
+                 * as a conversation snippet or preview, enhancing the user experience by providing context.
+                 * @param {string} text The text to set as the conversation preview.
+         */
         setConversationText(text: string): void;
         /**
-            * Determines whether the custom message should be considered as the last message
-            * in the conversation, potentially changing the order of conversations.
-            * This method indicates if sending a custom message will update the conversation's last message,
-            * which may affect the conversation's position in the list based on the sorting order.
-            * @returns {boolean} A boolean value indicating whether sending the custom message triggers an update
-            * to the last message of the conversation, potentially altering the conversation order.
-        */
+                 * Determines whether the custom message should be considered as the last message
+                 * in the conversation, potentially changing the order of conversations.
+                 * This method indicates if sending a custom message will update the conversation's last message,
+                 * which may affect the conversation's position in the list based on the sorting order.
+                 * @returns {boolean} A boolean value indicating whether sending the custom message triggers an update
+                 * to the last message of the conversation, potentially altering the conversation order.
+         */
         willUpdateConversation(): boolean;
         /**
-            * Set the flag to determine if the conversation should be updated. 
-            * @param {boolean} updateConversation The flag to set if the conversation should be updated.
-        */
+                 * Set the flag to determine if the conversation should be updated.
+                 * @param {boolean} updateConversation The flag to set if the conversation should be updated.
+         */
         shouldUpdateConversation(updateConversation: boolean): void;
         /**
-            * Determines whether a push notification should be sent for the custom message.
-            * This method checks if the current custom message configuration specifies that a push notification
-            * is warranted when the message is sent.
-            * @returns {boolean} A boolean value indicating whether to send a push notification for the custom message.
-        */
+                 * Determines whether a push notification should be sent for the custom message.
+                 * This method checks if the current custom message configuration specifies that a push notification
+                 * is warranted when the message is sent.
+                 * @returns {boolean} A boolean value indicating whether to send a push notification for the custom message.
+         */
         willSendNotification(): boolean;
         /**
-            * Set the flag to determine if a notification should be sent.
-            * @param {boolean} sendNotification The flag to set if a notification should be sent.
-        */
+                 * Set the flag to determine if a notification should be sent.
+                 * @param {boolean} sendNotification The flag to set if a notification should be sent.
+         */
         shouldSendNotification(sendNotification: boolean): void;
         /**
             * Method to get custom data of the message.
@@ -6541,6 +6557,15 @@ export class Reaction {
     setReactedAt(reactedAt: number): void;
     getReactedBy(): User;
     setReactedBy(reactedBy: User): void;
+}
+
+export class ConversationUpdateSettings {
+    constructor();
+    shouldUpdateOnCallActivities(): boolean;
+    shouldUpdateOnGroupActions(): boolean;
+    shouldUpdateOnCustomMessages(): boolean;
+    shouldUpdateOnMessageReplies(): boolean;
+    static fromJSON(jsonData: Object): ConversationUpdateSettings;
 }
 
 /** Push Notification Preferences Enums */
