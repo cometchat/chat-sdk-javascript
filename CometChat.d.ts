@@ -4671,6 +4671,38 @@ export class GroupsRequest {
             * @returns {Promise<Group[] | []>}
          */
         fetchNext(): Promise<Group[] | []>;
+        /**
+            * Gets the limit on the number of groups to be fetched in a single operation.
+            *
+            * @return {number}
+            */
+        getLimit(): number;
+        /**
+            * Gets the search keyword used to filter the groups by their name or GUID.
+            * Only groups whose names or GUIDs contain this keyword will be fetched.
+            *
+            * @return {string}
+            */
+        getSearchKeyword(): string;
+        /**
+            * Gets the flag indicating whether only the groups the user has joined should be fetched.
+            *
+            * @return {boolean}
+            */
+        isJoinedOnly(): any;
+        /**
+            * Gets the list of tags used to filter the groups.
+            * Only groups associated with these tags will be fetched.
+            *
+            * @return {String[]}
+            */
+        getTags(): String[];
+        /**
+            * Gets the flag indicating whether tags should be included with the groups data.
+            *
+            * @return {boolean}
+            */
+        isWithTags(): boolean;
 }
 export class GroupsRequestBuilder {
         /** @private */ limit: number;
@@ -4727,6 +4759,31 @@ export class GroupMembersRequest {
          */
         fetchNext(): Promise<GroupMember[] | []>;
         /**
+            * Get the unique identifier of the group for which members are requested.
+            *
+            * @return {string}.
+            */
+        getGuid(): string;
+        /**
+            * Get the maximum number of group members to fetch in a single operation.
+            *
+            * @return {number}
+            */
+        getLimit(): number;
+        /**
+            * Gets the search keyword used to filter the group members by name or UID.
+            *
+            * @return {string}
+            */
+        getSearchKeyword(): string;
+        /**
+            * Gets the list of scopes used to filter banned group members based on specific criteria.
+            * The scopes define the categories or roles of the group members to be fetched.
+            *
+            * @return {String[]}
+            */
+        getScopes(): String[];
+        /**
             * @internal
             */
         getNextData(): any;
@@ -4737,6 +4794,13 @@ export class GroupMembersRequestBuilder {
         /** @private */ guid: string;
         /** @private */ scopes?: Array<String>;
         constructor(guid: string);
+        /**
+            * Set the unique identifier of the group.
+            *
+            * @param guid The group ID to set.
+            * @returns
+            */
+        setGuid(guid: string): this;
         /**
             *
             * @param {number} limit
@@ -4773,6 +4837,31 @@ export class BannedMembersRequest {
          */
         fetchNext(): Promise<GroupMember[] | []>;
         /**
+            * Get the unique identifier of the group for which banned members are requested.
+            *
+            * @return {string}.
+            */
+        getGuid(): string;
+        /**
+            * Get the maximum number of banned group members to fetch in a single operation.
+            *
+            * @return {number}
+            */
+        getLimit(): number;
+        /**
+            * Get the search keyword used to filter banned group members.
+            *
+            * @return {string}
+            */
+        getSearchKeyword(): string;
+        /**
+            * Gets the list of scopes used to filter banned group members based on specific criteria.
+            * The scopes define the categories or roles of the group members to be fetched.
+            *
+            * @return {String[]}
+            */
+        getScopes(): String[];
+        /**
             * @internal
             */
         getNextData(): any;
@@ -4783,6 +4872,13 @@ export class BannedMembersRequestBuilder {
         /** @private */ guid: string;
         /** @private */ scopes?: Array<String>;
         constructor(guid: string);
+        /**
+            * Set the unique identifier of the group.
+            *
+            * @param guid The group ID to set.
+            * @returns
+            */
+        setGuid(guid: string): this;
         /**
             *
             * @param {number} limit
@@ -4817,6 +4913,90 @@ export class UsersRequest {
                 OFFLINE: string;
         };
         constructor(builder?: UsersRequestBuilder);
+        /**
+            * Gets the limit on the number of users to be fetched.
+            *
+            * @return {number}
+            */
+        getLimit(): number;
+        /**
+            * Gets the search keyword used to filter the users list.
+            * This keyword is used to search for users based on their name or UID.
+            *
+            * @return {string}
+            */
+        getSearchKeyword(): string;
+        /**
+            * Determines whether blocked users are excluded from the users list.
+            *
+            * @return {boolean}
+            */
+        isHideBlockedUsers(): boolean;
+        /**
+            * Gets the status filter used to fetch users based on their online or offline status.
+            *
+            * @return {string}
+            */
+        getStatus(): string;
+        /**
+            * Gets the user role filter used to fetch users based on their role.
+            *
+            * @return {string}
+            */
+        getRole(): string;
+        /**
+            * Determines whether only friends are included in the users list.
+            *
+            * @return {boolean}
+            */
+        isFriendsOnly(): boolean;
+        /**
+            * Gets the list of roles used to filter users.
+            * Users will be fetched based on the specified roles.
+            *
+            * @return {String[]}
+            */
+        getRoles(): String[];
+        /**
+            * Gets the list of tags used to filter users.
+            * Users will be fetched based on the specified tags.
+            *
+            * @return {String[]}
+            */
+        getTags(): String[];
+        /**
+            * Determines whether the tags are included in the users data when fetched.
+            *
+            * @return {boolean}
+            */
+        isWithTags(): boolean;
+        /**
+            * Gets the list of UIDs used to fetch specific users.
+            *
+            * @return {}
+            */
+        getUIDs(): String[];
+        /**
+            * Gets the fields specified to search for the search keyword in the user data.
+            * Possible fields are "name" and "uid".
+            *
+            * @return {String[]}
+            */
+        getSearchIn(): String[];
+        /**
+            * Gets the field by which the user list is sorted.
+            * Possible values are "status" or "name".
+            *
+            * @return {string}
+            */
+        getSortBy(): string;
+        /**
+            * Gets the order in which the user list is sorted.
+            * Possible values are "asc" for ascending order and "desc" for descending order.
+            *
+            * @return {string}
+            */
+        getSortOrder(): string;
         /**
             * Get list of next set of users based on the parameters specified in UsersRequestBuilder class The Developer need to call this method repeatedly using the same object of UsersRequestBuilder class to get paginated list of users.
             * @returns {Promise<User[] | []>}
@@ -4948,6 +5128,57 @@ export class ConversationsRequest {
             * @internal
             */
         getNextData(): any;
+        /**
+            * Checks if blocked users are to be included in the list of conversations.
+            * @returns {boolean}
+         */
+        isIncludeBlockedUsers(): boolean;
+        /**
+            * Checks if blocked information should be included in the list of conversations.
+            * @returns {boolean}
+         */
+        isWithBlockedInfo(): boolean;
+        /**
+            * Gets the limit for the number of items to be fetched or processed.
+            * @returns {number}
+         */
+        getLimit(): number;
+        /**
+            * Retrieves the type of the conversation.
+            * This can be used to differentiate between different types of conversations, such as user and group.
+            * @returns {string}
+         */
+        getConversationType(): string;
+        /**
+            * Checks if the filtering should include both user and group tags.
+            * @return true if both user and group tags are included. false otherwise.
+            * @returns {boolean}
+         */
+        isWithUserAndGroupTags(): boolean;
+        /**
+            * Gets the list of tags associated with the conversation item.
+            * These tags can be used for categorization or filtering.
+            * @returns {String[]}
+         */
+        getTags(): String[];
+        /**
+            * Determines whether the filtering or selection process should consider tags.
+            *
+            * @returns {boolean}
+         */
+        isWithTags(): boolean;
+        /**
+            * Retrieves the list of group-specific tags.
+            * These tags are used to filter and fetch conversations that are associated with groups tagged with these specified tags.
+            * @returns {String[]}
+         */
+        getGroupTags(): String[];
+        /**
+            * Retrieves the list of user-specific tags.
+            * These tags are used to filter and fetch conversations that are associated with users tagged with these specified tags.
+            * @returns {String[]}
+         */
+        getUserTags(): String[];
 }
 export class ConversationsRequestBuilder {
         /** @private */ conversationType: string;
@@ -4957,6 +5188,8 @@ export class ConversationsRequestBuilder {
         /** @private */ WithTags: boolean;
         /** @private */ groupTags: Array<String>;
         /** @private */ userTags: Array<String>;
+        /** @private */ includeBlockedUsers: boolean;
+        /** @private */ withBlockedInfo: boolean;
         /**
             *
             * @param {number} limit
@@ -5003,6 +5236,18 @@ export class ConversationsRequestBuilder {
          */
         setUserTags(userTags: Array<String>): this;
         /**
+            * A method to include blocked users in the list of conversations.
+            * @param {boolean} userTags
+            * @returns
+         */
+        setIncludeBlockedUsers(_includeBlockedUsers: any): this;
+        /**
+            * A method to include blocked users information in the list of conversations.
+            * @param {boolean} userTags
+            * @returns
+         */
+        setWithBlockedInfo(_withBlockedInfo: any): this;
+        /**
             * This method will return an object of the ConversationsRequest class.
             * @returns {ConversationsRequest}
          */
@@ -5011,6 +5256,140 @@ export class ConversationsRequestBuilder {
 
 export class MessagesRequest {
         constructor(builder?: MessagesRequestBuilder);
+        /**
+            * Gets the limit on the number of messages to be fetched in a single operation.
+            *
+            * @return {number}
+            */
+        getLimit(): number;
+        /**
+            * Gets the UID of the user for which the messages are being fetched.
+            *
+            * @return {string}.
+            */
+        getUID(): string;
+        /**
+            * Gets the GUID of the group for which the messages are being fetched.
+            *
+            * @return {guid}
+            */
+        getGUID(): string;
+        /**
+            * Gets the message ID from which subsequent or previous messages are to be fetched.
+            *
+            * @return {number}
+            */
+        getMessageId(): number;
+        /**
+            * Gets the flag indicating whether to fetch only unread messages.
+            *
+            * @return {boolean}
+            */
+        isUnread(): boolean;
+        /**
+            * Gets the flag indicating whether to hide messages from blocked users.
+            *
+            * @return {boolean}
+            */
+        isHideMessagesFromBlockedUsers(): boolean;
+        /**
+            * Gets the timestamp from which messages are to be fetched.
+            * Used to fetch messages around a specific time point.
+            *
+            * @return {number}
+            */
+        getTimestamp(): number;
+        /**
+            * Gets the search keyword used to filter messages.
+            * Only messages containing this keyword will be fetched.
+            *
+            * @return {string}
+            */
+        getSearchKeyword(): string;
+        /**
+            * Gets the timestamp after which updated or edited messages are to be fetched.
+            *
+            * @return {string}
+            */
+        getUpdatedAfter(): string;
+        /**
+            * Gets the flag indicating whether to fetch only updated or edited messages.
+            *
+            * @return {boolean}
+            */
+        isUpdatesOnly(): any;
+        /**
+            * Gets the list of categories for which the messages are to be fetched.
+            *
+            * @return {String[]}
+            */
+        getCategories(): String[];
+        /**
+            * Gets the category for which the messages are to be fetched.
+            *
+            * @return {string}
+            */
+        getCategory(): string;
+        /**
+            * Gets the list of types for which the messages are to be fetched.
+            *
+            * @return {String[]}
+            */
+        getTypes(): String[];
+        /**
+            * Gets the type for which the messages are to be fetched.
+            *
+            * @return {string}
+            */
+        getType(): string;
+        /**
+            * Gets the parent message ID to fetch messages belonging to a specific thread.
+            *
+            * @return {number}
+            */
+        getParentMessageId(): number;
+        /**
+            * Gets the flag indicating whether to exclude replies (threaded messages) when fetching messages.
+            *
+            * @return {boolean}
+            */
+        isHideReplies(): boolean;
+        /**
+            * Gets the flag indicating whether to hide deleted messages when fetching messages.
+            *
+            * @return {boolean}
+            */
+        isHideDeletedMessages(): boolean;
+        /**
+            * Gets the list of tags for which the messages are to be fetched.
+            *
+            * @return {String[]}
+            */
+        getTags(): String[];
+        /**
+            * Gets the flag indicating whether messages should be fetched with their tags.
+            *
+            * @return {boolean}
+            */
+        isWithTags(): boolean;
+        /**
+            * Gets the flag indicating whether to fetch mentioned messages with user tag information.
+            *
+            * @return {boolean}
+            */
+        isMentionsWithTagInfo(): boolean;
+        /**
+            * Gets the flag indicating whether to fetch mentioned messages with blocked relation information.
+            *
+            * @return {boolean}
+            */
+        isMentionsWithBlockedInfo(): boolean;
+        /**
+            * Gets the flag indicating whether to fetch only messages with completed interaction goals.
+            *
+            * @return {boolean}
+            */
+        isInteractionGoalCompletedOnly(): boolean;
         /**
             * Get list of next messages based on the parameters specified in MessagesRequestBuilder class. The Developer need to call this method repeatedly using the same object of MessagesRequest class to get paginated list of message.
             * @returns {Promise<BaseMessage[] | []>}
@@ -5392,6 +5771,25 @@ export class BlockedUsersRequest {
             * @returns {Promise<User[] | []>}
             */
         fetchNext(): Promise<User[] | []>;
+        /**
+            * Gets the direction type to determine the nature of the blocked users to be fetched.
+            * The direction specifies whether to fetch users who are blocked by the logged-in user,
+            * users who have blocked the logged-in user, or both.
+            *
+            * @return {string}. It can be one of "blocked_by_me", "blocked_me", or "both".
+            */
+        getDirection(): string;
+        /**
+            * Get the maximum number of blocked users to be fetched in a single operation.
+            * @return {number}
+            */
+        getLimit(): number;
+        /**
+            * Get the search keyword used to filter blocked users by name or UID.
+            *
+            * @return {string}
+            */
+        getSearchKeyword(): string;
         /** @internal */
         getNextData(): any;
 }
@@ -6459,6 +6857,24 @@ export class InteractionReceipt {
 
 export class ReactionsRequest {
         constructor(builder?: ReactionsRequestBuilder);
+        /**
+            * Gets the limit on the number of reactions to be fetched in a single operation.
+            *
+            * @return {number}.
+            */
+        getLimit(): number;
+        /**
+         * Gets the message ID for which reactions are to be fetched.
+         *
+         * @return {number}
+         */
+        getMessageId(): number;
+        /**
+         * Gets the specific reaction type by which reactions are to be fetched.
+         *
+         * @return {string}
+         */
+        getReaction(): string;
         /**
             * Get list of next reactions list based on the parameters specified in ReactionsRequestBuilder class. The Developer need to call this method repeatedly using the same object of ReactionsRequest class to get paginated list of reactions.
             * @returns {Promise<Reaction[] | []>}
