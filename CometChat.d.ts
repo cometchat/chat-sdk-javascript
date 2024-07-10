@@ -1671,6 +1671,12 @@ export class CometChat {
          */
         static getActiveCall(): Call;
         /**
+            * Function to clear any active call.
+            * @returns {void}
+            * @memberof CometChat
+         */
+        static clearActiveCall(): void;
+        /**
             * Function to start a call.
             * @param {CallSettings | string} callSettings
             * @param {HTMLElement} view
@@ -1989,31 +1995,64 @@ export class CometChatNotifications {
         static MutedConversationType: typeof MutedConversationType;
         static PushPlatforms: typeof PushPlatforms;
         static DaySchedule: typeof DaySchedule;
+        /**
+            * @deprecated This property is deprecated as of version 4.0.8 due to newer property 'NotificationPreferences'.
+            * It will be removed in subsequent versions.
+         */
         static PushPreferences: typeof PushPreferences;
         static GroupPreferences: typeof GroupPreferences;
         static OneOnOnePreferences: typeof OneOnOnePreferences;
         static MutePreferences: typeof MutePreferences;
         static MutedConversation: typeof MutedConversation;
         static UnmutedConversation: typeof UnmutedConversation;
+        static NotificationPreferences: typeof NotificationPreferences;
         /**
             * Function to get preferences set for the logged-in user.
             * @returns {Promise<PushPreferences>}
             * @memberof CometChatNotifications
+            * @deprecated
+            *
+            * This method is deprecated as of version 4.0.8 due to newer method 'fetchPreferences'. It will be removed in subsequent versions.
          */
         static fetchPushPreferences(): Promise<PushPreferences>;
+        /**
+            * Function to get preferences set for the logged-in user.
+            * @returns {Promise<NotificationPreferences>}
+            * @memberof CometChatNotifications
+         */
+        static fetchPreferences(): Promise<NotificationPreferences>;
         /**
             * Function to update preferences for the logged-in user.
             * @param {PushPreferences} pushPreferences
             * @returns {Promise<PushPreferences>}
             * @memberof CometChatNotifications
+            * @deprecated
+            *
+            * This method is deprecated as of version 4.0.8 due to newer method 'updatePreferences'. It will be removed in subsequent versions.
          */
         static updatePushPreferences(pushPreferences: PushPreferences): Promise<PushPreferences>;
+        /**
+            * Function to update preferences for the logged-in user.
+            * @param {NotificationPreferences} notificationPreferences
+            * @returns {Promise<NotificationPreferences>}
+            * @memberof CometChatNotifications
+         */
+        static updatePreferences(notificationPreferences: NotificationPreferences): Promise<NotificationPreferences>;
         /**
             * Function to reset preferences for the logged-in user.
             * @returns {Promise<PushPreferences>}
             * @memberof CometChatNotifications
+            * @deprecated
+            *
+            * This method is deprecated as of version 4.0.8 due to newer method 'resetPreferences'. It will be removed in subsequent versions.
          */
         static resetPushPreferences(): Promise<PushPreferences>;
+        /**
+            * Function to reset preferences for the logged-in user.
+            * @returns {Promise<NotificationPreferences>}
+            * @memberof CometChatNotifications
+         */
+        static resetPreferences(): Promise<NotificationPreferences>;
         /**
             * Function to register push token for the current authToken of the logged-in user.
             * @returns {Promise<string>}
@@ -2049,6 +2088,21 @@ export class CometChatNotifications {
             * @memberof CometChatNotifications
          */
         static getMutedConversations(): Promise<MutedConversation[]>;
+        /**
+            * Function to update timezone for the logged-in user.
+            * @returns {Promise<string>}
+            * @param {string} timezone
+            * @memberof CometChatNotifications
+         */
+        static updateTimezone(timezone: String): Promise<string>;
+        /**
+            * Function to get timezone for the logged-in user.
+            * @returns {Promise<{timezone: string} | string>} A promise that resolves to an object containing the timezone or a string in case of an error.
+            * @memberof CometChatNotifications
+         */
+        static getTimezone(): Promise<{
+                timezone: string;
+        } | string>;
 }
 
 /**
@@ -4423,6 +4477,8 @@ export class CallController {
         /** @internal */
         onCallStarted(call: Call): Promise<Call>;
         /** @internal */
+        clearActiveCall(): void;
+        /** @internal */
         endCallSession(): void;
         /** @internal */
         startCall(callsettings: CallSettings, view: HTMLElement): void;
@@ -5188,8 +5244,8 @@ export class ConversationsRequestBuilder {
         /** @private */ WithTags: boolean;
         /** @private */ groupTags: Array<String>;
         /** @private */ userTags: Array<String>;
-        /** @private */ includeBlockedUsers: boolean;
-        /** @private */ withBlockedInfo: boolean;
+        /** @private */ IncludeBlockedUsers: boolean;
+        /** @private */ WithBlockedInfo: boolean;
         /**
             *
             * @param {number} limit
@@ -5237,16 +5293,33 @@ export class ConversationsRequestBuilder {
         setUserTags(userTags: Array<String>): this;
         /**
             * A method to include blocked users in the list of conversations.
-            * @param {boolean} userTags
+            * @param {boolean} _includeBlockedUsers
+            * @returns
+            * @deprecated This method is deprecated as of version 4.0.8 due to newer method 'includeBlockedUsers'.
+            * It will be removed in subsequent versions.
+         */
+        setIncludeBlockedUsers(_includeBlockedUsers: boolean): this;
+        /**
+            * A method to include blocked users in the list of conversations.
+            * @param {boolean} _includeBlockedUsers
             * @returns
          */
-        setIncludeBlockedUsers(_includeBlockedUsers: any): this;
+        includeBlockedUsers(_includeBlockedUsers: boolean): this;
         /**
             * A method to include blocked users information in the list of conversations.
-            * @param {boolean} userTags
+            * @param {boolean} _withBlockedInfo
+            * @returns
+            *
+            * @deprecated This method is deprecated as of version 4.0.8 due to newer method 'withBlockedInfo'.
+            * It will be removed in subsequent versions.
+         */
+        setWithBlockedInfo(_withBlockedInfo: boolean): this;
+        /**
+            * A method to include blocked users information in the list of conversations.
+            * @param {boolean} _withBlockedInfo
             * @returns
          */
-        setWithBlockedInfo(_withBlockedInfo: any): this;
+        withBlockedInfo(_withBlockedInfo: boolean): this;
         /**
             * This method will return an object of the ConversationsRequest class.
             * @returns {ConversationsRequest}
@@ -7060,6 +7133,8 @@ export const APIConstants: {
     KEY_MUTED_CONVERSATIONS: string;
     KEY_FROM: string;
     KEY_TO: string;
+    KEY_GET_TIMEZONE: string;
+    KEY_UPDATE_TIMEZONE: string;
 };
 export const APIResponseConstants: {
     TOKEN_REGISTER_SUCCESS: string;
@@ -7070,6 +7145,9 @@ export const APIResponseConstants: {
     MUTE_CONVERSATION_ERROR: string;
     UNMUTE_CONVERSATION_SUCCESS: string;
     UNMUTE_CONVERSATION_ERROR: string;
+    TIMEZONE_UPDATE_SUCCESS: string;
+    TIMEZONE_UPDATE_ERROR: string;
+    TIMEZONE_FETCH_ERROR: string;
 };
 export const DEFAULT_PROVIDER_ID = "default";
 
@@ -7291,6 +7369,54 @@ export class MutePreferences {
         static fromJSON(jsonData: Object): MutePreferences;
 }
 
+export class NotificationPreferences {
+        /**
+            * Get the OneOnOne preferences.
+            * @returns {OneOnOnePreferences}
+         */
+        getOneOnOnePreferences(): OneOnOnePreferences;
+        /**
+            * @param {OneOnOnePreferences} oneOnOnePreferences
+            * Set the OneOnOne preferences.
+         */
+        setOneOnOnePreferences(oneOnOnePreferences: OneOnOnePreferences): void;
+        /**
+            * Get the Muted preferences.
+            * @returns {MutePreferences}
+         */
+        getMutePreferences(): MutePreferences;
+        /**
+            * @param {MutePreferences} mutePreferences
+            * Set the Mute preferences.
+         */
+        setMutePreferences(mutePreferences: MutePreferences): void;
+        /**
+            * Get the Group preferences.
+            * @returns {GroupPreferences}
+         */
+        getGroupPreferences(): GroupPreferences;
+        /**
+            * @param {GroupPreferences} groupPreferences
+            * Set the Group preferences.
+         */
+        setGroupPreferences(groupPreferences: GroupPreferences): void;
+        /**
+            * Returns whether to use privacy template or not.
+            * @returns {boolean}
+         */
+        getUsePrivacyTemplate(): boolean;
+        /**
+            * @param {boolean} usePrivacyTemplate
+            * Set whether to use privacy template or not.
+         */
+        setUsePrivacyTemplate(usePrivacyTemplate: boolean): void;
+        /**
+            * @param {Object} jsonData
+            * Convert JSON object to NotificationPreferences.
+         */
+        static fromJSON(jsonData: Object): NotificationPreferences;
+}
+
 export class OneOnOnePreferences {
         /**
             * Get the reactions preferences for groups.
@@ -7329,6 +7455,10 @@ export class OneOnOnePreferences {
         static fromJSON(jsonData: Object): OneOnOnePreferences;
 }
 
+/**
+    * @deprecated This class is deprecated as of version 4.0.8 due to newer class 'NotificationPreferences'.
+    * It will be removed in subsequent versions.
+    */
 export class PushPreferences {
         /**
             * Get the OneOnOne preferences.
