@@ -4475,6 +4475,11 @@ export class CallController {
          */
         initiateCall(call: Call): Promise<Call>;
         /**
+            * @internal
+            * Method to clear timer.
+         */
+        clearTimer(): void;
+        /**
             *End the onGoing call
             *
             * @internal
