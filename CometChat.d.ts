@@ -483,7 +483,19 @@ export class CometChat {
                         ENDED: string;
                 };
         };
+        /**
+            * @deprecated Use `PresenceConstants` instead.
+            */
         static PresenceConstatnts: {
+                STATUS: {
+                        ONLINE: string;
+                        AVAILABLE: string;
+                        OFFLINE: string;
+                        JOINED: string;
+                        LEFT: string;
+                };
+        };
+        static PresenceConstants: {
                 STATUS: {
                         ONLINE: string;
                         AVAILABLE: string;
@@ -1099,6 +1111,7 @@ export class CometChat {
                 PROTECTED: string;
                 PASSWORD: string;
         };
+        static MessageReceipt: typeof MessageReceipt;
         /**
             * Setter method for CometChat authToken.
             * @internal
@@ -3662,7 +3675,19 @@ export const FeatureRestrictionErrors: {
         details: {};
     };
 };
+/**
+  * @deprecated Use `PresenceConstants` instead.
+  */
 export const PresenceConstatnts: {
+    STATUS: {
+        ONLINE: string;
+        AVAILABLE: string;
+        OFFLINE: string;
+        JOINED: string;
+        LEFT: string;
+    };
+};
+export const PresenceConstants: {
     STATUS: {
         ONLINE: string;
         AVAILABLE: string;
@@ -7070,6 +7095,99 @@ export class ConversationUpdateSettings {
     static fromJSON(jsonData: Object): ConversationUpdateSettings;
 }
 
+/**
+    *
+    * @module MessageReceipt
+    */
+export class MessageReceipt {
+        RECEIPT_TYPE: {
+                READ_RECEIPT: string;
+                DELIVERY_RECEIPT: string;
+                READ_BY_ALL_RECEIPT: string;
+                DELIVERED_TO_ALL_RECEIPT: string;
+        };
+        /**
+            * Method to get receiver type of the message receipt.
+            * @returns {string}
+         */
+        getReceiverType(): string;
+        /**
+            * Method to set receiver type of the message receipt.
+            * @param {string} receiverType
+         */
+        setReceiverType(receiverType: string): void;
+        /**
+            * Method to get sender of the message receipt.
+            * @returns {User}
+         */
+        getSender(): User;
+        /**
+            * Method to set sender of the message receipt.
+            * @param {User} sender
+         */
+        setSender(sender: User): void;
+        /**
+            * Method to get receiver of the message receipt.
+            * @returns {string}
+         */
+        getReceiver(): string;
+        /**
+            * Method to set receiver of the message receipt.
+            * @param {string} receiver
+         */
+        setReceiver(receiver: string): void;
+        /**
+            * Method to get timestamp of the message receipt.
+            * @returns {string}
+         */
+        getTimestamp(): string;
+        /**
+            * Method to set timestamp of the message receipt.
+            * @param {string} timestamp
+         */
+        setTimestamp(timestamp: string): void;
+        /**
+            * Method to set readAt timestamp of the message receipt.
+            * @param {number} readAt
+         */
+        setReadAt(readAt: number): void;
+        /**
+            * Method to get readAt timestamp of the message receipt.
+            * @returns {number}
+         */
+        getReadAt(): number;
+        /**
+            * Method to set deliveredAt timestamp of the message receipt.
+            * @param {number} deliveredAt
+         */
+        setDeliveredAt(deliveredAt: number): void;
+        /**
+            * Method to get deliveredAt timestamp of the message receipt.
+            * @returns {number}
+         */
+        getDeliveredAt(): number;
+        /**
+            * Method to get the message ID.
+            * @returns {string}
+         */
+        getMessageId(): string;
+        /**
+            * Method to set the message ID.
+            * @param {string} messageId
+         */
+        setMessageId(messageId: string): void;
+        /**
+            * Method to get the receipt type of message receipt.
+            * @returns {string}
+         */
+        getReceiptType(): string;
+        /**
+            * Method to set the receipt type of message receipt.
+            * @param {string} receiptType
+         */
+        setReceiptType(receiptType?: string): void;
+}
+
 /** Push Notification Preferences Enums */
 export enum MessagesOptions {
     DONT_SUBSCRIBE,
@@ -7554,99 +7672,6 @@ export interface ErrorModel {
     name?: string;
     message?: string;
     details?: string;
-}
-
-/**
-    *
-    * @module MessageReceipt
-    */
-export class MessageReceipt {
-        RECEIPT_TYPE: {
-                READ_RECEIPT: string;
-                DELIVERY_RECEIPT: string;
-                READ_BY_ALL_RECEIPT: string;
-                DELIVERED_TO_ALL_RECEIPT: string;
-        };
-        /**
-            * Method to get receiver type of the message receipt.
-            * @returns {string}
-         */
-        getReceiverType(): string;
-        /**
-            * Method to set receiver type of the message receipt.
-            * @param {string} receiverType
-         */
-        setReceiverType(receiverType: string): void;
-        /**
-            * Method to get sender of the message receipt.
-            * @returns {User}
-         */
-        getSender(): User;
-        /**
-            * Method to set sender of the message receipt.
-            * @param {User} sender
-         */
-        setSender(sender: User): void;
-        /**
-            * Method to get receiver of the message receipt.
-            * @returns {string}
-         */
-        getReceiver(): string;
-        /**
-            * Method to set receiver of the message receipt.
-            * @param {string} receiver
-         */
-        setReceiver(receiver: string): void;
-        /**
-            * Method to get timestamp of the message receipt.
-            * @returns {string}
-         */
-        getTimestamp(): string;
-        /**
-            * Method to set timestamp of the message receipt.
-            * @param {string} timestamp
-         */
-        setTimestamp(timestamp: string): void;
-        /**
-            * Method to set readAt timestamp of the message receipt.
-            * @param {number} readAt
-         */
-        setReadAt(readAt: number): void;
-        /**
-            * Method to get readAt timestamp of the message receipt.
-            * @returns {number}
-         */
-        getReadAt(): number;
-        /**
-            * Method to set deliveredAt timestamp of the message receipt.
-            * @param {number} deliveredAt
-         */
-        setDeliveredAt(deliveredAt: number): void;
-        /**
-            * Method to get deliveredAt timestamp of the message receipt.
-            * @returns {number}
-         */
-        getDeliveredAt(): number;
-        /**
-            * Method to get the message ID.
-            * @returns {string}
-         */
-        getMessageId(): string;
-        /**
-            * Method to set the message ID.
-            * @param {string} messageId
-         */
-        setMessageId(messageId: string): void;
-        /**
-            * Method to get the receipt type of message receipt.
-            * @returns {string}
-         */
-        getReceiptType(): string;
-        /**
-            * Method to set the receipt type of message receipt.
-            * @param {string} receiptType
-         */
-        setReceiptType(receiptType?: string): void;
 }
 
 export class RTCUser {
