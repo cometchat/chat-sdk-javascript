@@ -12,6 +12,27 @@
   export as namespace CometChatNotifications;
 
 export class CometChat {
+        static AIAssistantBaseEvent: typeof AIAssistantBaseEvent;
+        static AIAssistantRunStartedEvent: typeof AIAssistantRunStartedEvent;
+        static AIAssistantRunFinishedEvent: typeof AIAssistantRunFinishedEvent;
+        static AIAssistantMessageStartedEvent: typeof AIAssistantMessageStartedEvent;
+        static AIAssistantMessageEndedEvent: typeof AIAssistantMessageEndedEvent;
+        static AIAssistantContentReceivedEvent: typeof AIAssistantContentReceivedEvent;
+        static AIAssistantToolStartedEvent: typeof AIAssistantToolStartedEvent;
+        static AIAssistantToolEndedEvent: typeof AIAssistantToolEndedEvent;
+        static AIAssistantToolArgumentEvent: typeof AIAssistantToolArgumentEvent;
+        static AIAssistantToolResultEvent: typeof AIAssistantToolResultEvent;
+        static AI_ASSISTANT_EVENTS: {
+                RUN_STARTED: string;
+                RUN_FINISHED: string;
+                TEXT_MESSAGE_START: string;
+                TEXT_MESSAGE_END: string;
+                TEXT_MESSAGE_CONTENT: string;
+                TOOL_CALL_STARTED: string;
+                TOOL_CALL_ENDED: string;
+                TOOL_CALL_RESULT: string;
+                TOOL_CALL_ARGUMENT: string;
+        };
         static GroupType: typeof GroupType;
         static GroupMemberScope: typeof GroupMemberScope;
         static ResponseConstants: {
@@ -305,6 +326,9 @@ export class CometChat {
                         AUDIO: string;
                         FILE: string;
                         CUSTOM: string;
+                        ASSISTANT: string;
+                        TOOL_RESULT: string;
+                        TOOL_ARGUMENTS: string;
                 };
                 CATEGORY: {
                         MESSAGE: string;
@@ -312,6 +336,7 @@ export class CometChat {
                         CALL: string;
                         CUSTOM: string;
                         INTERACTIVE: string;
+                        AGENTIC: string;
                 };
                 RECEIVER_TYPE: {
                         USER: string;
@@ -348,6 +373,15 @@ export class CometChat {
                         ELEMENT_ID: string;
                         INTERACTED_AT: string;
                         ELEMENT_IDS: string;
+                        RUN_ID: string;
+                        THREAD_ID: string;
+                        TOOL_CALLS: string;
+                        FUNCTION: string;
+                        NAME: string;
+                        ARGUMENTS: string;
+                        TOOL_CALL_ID: string;
+                        DISPLAY_NAME: string;
+                        EXECUTION_TEXT: string;
                 };
                 KNOWN_MEDIA_TYPE: {
                         IMAGE: any[];
@@ -398,6 +432,7 @@ export class CometChat {
                                 HAS_REACTIONS: string;
                                 MENTIONED_UIDS: string;
                                 ATTACHMENT_TYPES: string;
+                                WITH_PARENT: string;
                         };
                 };
         };
@@ -996,6 +1031,14 @@ export class CometChat {
         static Interaction: typeof Interaction;
         static InteractionReceipt: typeof InteractionReceipt;
         static MessageReceipt: typeof MessageReceipt;
+        static AIAssistantMessage: typeof AIAssistantMessage;
+        static AIToolCall: typeof AIToolCall;
+        static AIToolCallFunction: typeof AIToolCallFunction;
+        static AIAssistantMessageData: typeof AIAssistantMessageData;
+        static AIToolResultMessage: typeof AIToolResultMessage;
+        static AIToolResultMessageData: typeof AIToolResultMessageData;
+        static AIToolArgumentMessage: typeof AIToolArgumentMessage;
+        static AIToolArgumentMessageData: typeof AIToolArgumentMessageData;
         static Group: typeof Group;
         static User: typeof User;
         static GroupMember: typeof GroupMember;
@@ -1037,6 +1080,7 @@ export class CometChat {
         static CallListener: typeof CallListener;
         static ConnectionListener: typeof ConnectionListener;
         static LoginListener: typeof LoginListener;
+        static AIAssistantListener: typeof AIAssistantListener;
         static CallController: typeof CallController;
         static CometChatHelper: typeof CometChatHelper;
         static Attachment: typeof Attachment;
@@ -1049,6 +1093,9 @@ export class CometChat {
                 AUDIO: string;
                 FILE: string;
                 CUSTOM: string;
+                ASSISTANT: string;
+                TOOL_RESULT: string;
+                TOOL_ARGUMENTS: string;
         };
         static CATEGORY_MESSAGE: string;
         static CATEGORY_ACTION: string;
@@ -1770,6 +1817,21 @@ export class CometChat {
         static removeCallListener(name: string): void;
         /**
             *
+            * Function to add an AI Assistant Listener.
+            * @param {string} name
+            * @param {AIAssistantListener} aiAssistantListener
+            * @memberof CometChat
+         */
+        static addAIAssistantListener(name: string, aiAssistantListener: AIAssistantListener): void;
+        /**
+            *
+            * Function to remove an AI Assistant Listener.
+            * @param {string} name
+            * @memberof CometChat
+         */
+        static removeAIAssistantListener(name: string): void;
+        /**
+            *
             * Function to add a User Listener.
             * @param {string} name
             * @param {UserListener} userListener
@@ -2312,6 +2374,9 @@ export class MediaMessage extends BaseMessage implements Message {
                 AUDIO: string;
                 FILE: string;
                 CUSTOM: string;
+                ASSISTANT: string;
+                TOOL_RESULT: string;
+                TOOL_ARGUMENTS: string;
         };
         /** @private */ static readonly RECEIVER_TYPE: {
                 USER: string;
@@ -2323,6 +2388,7 @@ export class MediaMessage extends BaseMessage implements Message {
                 CALL: string;
                 CUSTOM: string;
                 INTERACTIVE: string;
+                AGENTIC: string;
         };
         private url;
         private file;
@@ -2962,6 +3028,9 @@ export const MessageConstatnts: {
         AUDIO: string;
         FILE: string;
         CUSTOM: string;
+        ASSISTANT: string;
+        TOOL_RESULT: string;
+        TOOL_ARGUMENTS: string;
     };
     CATEGORY: {
         MESSAGE: string;
@@ -2969,6 +3038,7 @@ export const MessageConstatnts: {
         CALL: string;
         CUSTOM: string;
         INTERACTIVE: string;
+        AGENTIC: string;
     };
     RECEIVER_TYPE: {
         USER: string;
@@ -3005,6 +3075,15 @@ export const MessageConstatnts: {
         ELEMENT_ID: string;
         INTERACTED_AT: string;
         ELEMENT_IDS: string;
+        RUN_ID: string;
+        THREAD_ID: string;
+        TOOL_CALLS: string;
+        FUNCTION: string;
+        NAME: string;
+        ARGUMENTS: string;
+        TOOL_CALL_ID: string;
+        DISPLAY_NAME: string;
+        EXECUTION_TEXT: string;
     };
     KNOWN_MEDIA_TYPE: {
         IMAGE: any[];
@@ -3055,6 +3134,7 @@ export const MessageConstatnts: {
             HAS_REACTIONS: string;
             MENTIONED_UIDS: string;
             ATTACHMENT_TYPES: string;
+            WITH_PARENT: string;
         };
     };
 };
@@ -3072,7 +3152,8 @@ export enum MessageCategory {
     MESSAGE = "message",
     CALL = "call",
     CUSTOM = "custom",
-    INTERACTIVE = "interactive"
+    INTERACTIVE = "interactive",
+    AGENTIC = "agentic"
 }
 export enum GoalType {
     ANY_ACTION = "anyAction",
@@ -3856,6 +3937,17 @@ export enum AttachmentType {
     AUDIO = "audio",
     FILE = "file"
 }
+export const AI_ASSISTANT_EVENTS: {
+    RUN_STARTED: string;
+    RUN_FINISHED: string;
+    TEXT_MESSAGE_START: string;
+    TEXT_MESSAGE_END: string;
+    TEXT_MESSAGE_CONTENT: string;
+    TOOL_CALL_STARTED: string;
+    TOOL_CALL_ENDED: string;
+    TOOL_CALL_RESULT: string;
+    TOOL_CALL_ARGUMENT: string;
+};
 
 /**
     *
@@ -4119,174 +4211,194 @@ export class MessageListener {
             * This event is triggered when a message is read by all members in a group.
          */
         onMessagesReadByAll?: Function;
+        /**
+            * This event is triggered when an AI tool result is received.
+            */
+        onAIToolResultReceived?: Function;
+        /**
+            * This event is triggered when an AI tool argument is received.
+            */
+        onAIToolArgumentsReceived?: Function;
+        /**
+            * This event is triggered when an AI assistant message is received.
+            */
+        onAIAssistantMessageReceived?: Function;
         constructor(...args: any[]);
 }
 export class CallListener {
         /**
             * This event is triggered when an incoming call is received.
-         */
+            */
         onIncomingCallReceived?: Function;
         /**
             * This event is triggered when an outgoing call is accepted.
-         */
+            */
         onOutgoingCallAccepted?: Function;
         /**
             * This event is triggered when an outgoing call is rejected.
-         */
+            */
         onOutgoingCallRejected?: Function;
         /**
             * This event is triggered when an incoming call is cancelled.
-         */
+            */
         onIncomingCallCancelled?: Function;
         /**
             * This event is triggered when call is ended.
-         */
+            */
         onCallEndedMessageReceived?: Function;
+        constructor(...args: any[]);
+}
+export class AIAssistantListener {
+        /**
+            * This event is triggered when an AI assistant event is received.
+            * @param event - The AI assistant event that was received
+            */
+        onAIAssistantEventReceived?: (event: AIAssistantBaseEvent) => void;
         constructor(...args: any[]);
 }
 export class UserListener {
         /**
             * This event is triggered when a user comes online.
-         */
+            */
         onUserOnline?: Function;
         /**
             * This event is triggered when a user goes offline.
-         */
+            */
         onUserOffline?: Function;
         constructor(...args: any[]);
 }
 export class GroupListener {
         /**
             * This event is triggered when a user joins a group.
-         */
+            */
         onGroupMemberJoined?: Function;
         /**
             * This event is triggered when a group member leaves the group.
-         */
+            */
         onGroupMemberLeft?: Function;
         /**
             * This event is triggered when a group member is kicked from the group.
-         */
+            */
         onGroupMemberKicked?: Function;
         /**
             * This event is triggered when a group member is banned from the group.
-         */
+            */
         onGroupMemberBanned?: Function;
         /**
             * This event is triggered when a group member is unbanned from the group.
-         */
+            */
         onGroupMemberUnbanned?: Function;
         /**
             * This event is triggered when scope of a group member is changed.
-         */
+            */
         onGroupMemberScopeChanged?: Function;
         /**
             * This event is triggered when a user is added in the group.
-         */
+            */
         onGroupMemberAddedToGroup: Function;
         constructor(...args: any[]);
 }
 export class OngoingCallListener {
         /**
             * @internal
-         */
+            */
         onYouLeft?: Function;
         /**
             * @internal
-         */
+            */
         onYouJoined?: Function;
         /**
             * This event is triggered when a user joins the call.
-         */
+            */
         onUserJoined?: Function;
         /**
             * This event is triggered when a user leaves the call.
-         */
+            */
         onUserLeft?: Function;
         /**
             * This event is triggered when the participant list of the call changes.
-         */
+            */
         onUserListUpdated?: Function;
         /**
             * This event is triggered when the media device list changes.
-         */
+            */
         onMediaDeviceListUpdated?: Function;
         /**
             * This event is triggered when someone starts recording the call.
-         */
+            */
         onRecordingStarted?: Function;
         /**
             * This event is triggered when someone stops recording the call.
-         */
+            */
         onRecordingStopped?: Function;
         /**
             * This event is triggered when someone starts sharing their screen in the call.
-         */
+            */
         onScreenShareStarted?: Function;
         /**
             * This event is triggered when someone stops sharing their screen in the call.
-         */
+            */
         onScreenShareStopped?: Function;
         /**
             * This event is triggered when a user is muted.
-         */
+            */
         onUserMuted?: Function;
         /**
             * This event is triggered when an audio call is switched to a video call.
-         */
+            */
         onCallSwitchedToVideo?: Function;
         /**
             * This event is triggered when the call is ended.
-         */
+            */
         onCallEnded?: Function;
         /**
             * This event is triggered when an error occurs.
-         */
+            */
         onError?: Function;
         constructor(...args: any[]);
 }
 export class LoginListener {
         /**
             * This event is triggered when the user login is successful.
-         */
+            */
         loginSuccess?: Function;
         /**
             * This event is triggered when the user login fails.
-         */
+            */
         loginFailure?: Function;
         /**
             * This event is triggered when the user logout is successful.
-         */
+            */
         logoutSuccess?: Function;
         /**
             * This event is triggered when the user logout fails.
-         */
+            */
         logoutFailure?: Function;
         constructor(...args: any[]);
 }
 export class ConnectionListener {
         /**
             * This event is triggered when the WebSocket connection is in connected state.
-         */
+            */
         onConnected?: Function;
         /**
             * This event is triggered when the WebSocket connection is in connecting state.
-         */
+            */
         inConnecting?: Function;
         /**
             * This event is triggered when the WebSocket connection is in disconnected state.
-         */
+            */
         onDisconnected?: Function;
         /**
             * This event is triggered when the WebSocket connection is in feature throttled state.
-         */
+            */
         onFeatureThrottled?: Function;
         constructor(...args: any[]);
 }
 /** @internal */
 export interface EventListener {
         _name: string;
-        _eventListener?: MessageListener | UserListener | OngoingCallListener | CallListener | GroupListener | LoginListener | ConnectionListener;
+        _eventListener?: MessageListener | UserListener | OngoingCallListener | CallListener | GroupListener | LoginListener | ConnectionListener | AIAssistantListener;
 }
 /** @internal */
 export class Listener implements EventListener {
@@ -4331,6 +4443,12 @@ export class UserLoginListener extends Listener implements EventListener {
         constructor(name: string, loginEventHandler?: LoginListener, cursor?: number, callback?: Function);
 }
 /** @internal */
+export class AssistantsListener extends Listener implements EventListener {
+        _cursor?: number;
+        _eventListener: AIAssistantListener;
+        constructor(name: string, aiEventHandler?: AIAssistantListener, cursor?: number, callback?: Function);
+}
+/** @internal */
 export class WSConnectionListener extends Listener implements EventListener {
         _cursor?: number;
         _eventListener: ConnectionListener;
@@ -4350,6 +4468,9 @@ export class Call extends BaseMessage implements Message {
                 AUDIO: string;
                 FILE: string;
                 CUSTOM: string;
+                ASSISTANT: string;
+                TOOL_RESULT: string;
+                TOOL_ARGUMENTS: string;
         };
         static readonly RECEIVER_TYPE: {
                 USER: string;
@@ -4361,6 +4482,7 @@ export class Call extends BaseMessage implements Message {
                 CALL: string;
                 CUSTOM: string;
                 INTERACTIVE: string;
+                AGENTIC: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
@@ -4642,6 +4764,9 @@ export class Action extends BaseMessage implements Message {
                 AUDIO: string;
                 FILE: string;
                 CUSTOM: string;
+                ASSISTANT: string;
+                TOOL_RESULT: string;
+                TOOL_ARGUMENTS: string;
         };
         static readonly RECEIVER_TYPE: {
                 USER: string;
@@ -4653,6 +4778,7 @@ export class Action extends BaseMessage implements Message {
                 CALL: string;
                 CUSTOM: string;
                 INTERACTIVE: string;
+                AGENTIC: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
@@ -5583,6 +5709,10 @@ export class MessagesRequest {
          */
         getAttachmentTypes(): Array<AttachmentType>;
         /**
+            * Gets the flag indicating whether to fetch messages with parent message information.
+         */
+        isWithParent(): boolean;
+        /**
             * Get list of next messages based on the parameters specified in MessagesRequestBuilder class. The Developer need to call this method repeatedly using the same object of MessagesRequest class to get paginated list of message.
             * @returns {Promise<BaseMessage[] | []>}
          */
@@ -5623,6 +5753,7 @@ export class MessagesRequestBuilder {
         /** @private */ HasReactions?: boolean;
         /** @private */ mentionedUIDs?: Array<String>;
         /** @private */ attachmentTypes?: Array<AttachmentType>;
+        /** @private */ WithParent?: boolean;
         /**
             * A method to set limit for the number of messages returned in a single iteration. A maximum of 100 messages can fetched in a single iteration.
             * @param {number} limit
@@ -5791,6 +5922,12 @@ export class MessagesRequestBuilder {
             * @returns
          */
         setAttachmentTypes(attachmentTypes: Array<AttachmentType>): this;
+        /**
+            * This method will set the flag indicating whether to fetch messages with parent message information.
+            * @param {boolean} withParent
+            * @returns {this}
+         */
+        withParent(withParent?: boolean): this;
         /**
             * This method will return an object of the MessagesRequest class.
             * @returns {MessagesRequest}
@@ -6883,6 +7020,9 @@ export class InteractiveMessage extends BaseMessage implements Message {
                 AUDIO: string;
                 FILE: string;
                 CUSTOM: string;
+                ASSISTANT: string;
+                TOOL_RESULT: string;
+                TOOL_ARGUMENTS: string;
         };
         /** @private */ static readonly RECEIVER_TYPE: {
                 USER: string;
@@ -6894,6 +7034,7 @@ export class InteractiveMessage extends BaseMessage implements Message {
                 CALL: string;
                 CUSTOM: string;
                 INTERACTIVE: string;
+                AGENTIC: string;
         };
         private interactiveData;
         private interactionGoal;
@@ -7309,6 +7450,325 @@ export class MessageReceipt {
             * @param {string} receiptType
          */
         setReceiptType(receiptType?: string): void;
+}
+
+/**
+    *
+    * @module AIAssistantMessage
+    */
+export class AIAssistantMessageData {
+        runId: string;
+        threadId: string;
+        text: string;
+        constructor(runId: string, threadId: string, text: string);
+        getRunId(): string;
+        setRunId(runId: string): void;
+        getThreadId(): string;
+        setThreadId(threadId: string): void;
+        getText(): string;
+        setText(text: string): void;
+}
+export class AIAssistantMessage extends BaseMessage implements Message {
+        protected data?: any;
+        protected aiAssistantMessageData?: AIAssistantMessageData;
+        constructor(receiverId: string, receiverType: string);
+        /**
+            * Method to get sender of the message.
+            * @returns {User}
+            */
+        getSender(): User;
+        /**
+            * Method to get receiver of the message.
+            * @returns {User | Group}
+            */
+        getReceiver(): User | Group;
+        /**
+            * Method to get data of the message.
+            * @returns {AIAssistantMessageData}
+            */
+        getAssistantMessageData(): AIAssistantMessageData;
+        /**
+            * Method to set data of the message.
+            * @param {AIAssistantMessageData} data
+            */
+        setAssistantMessageData(data: AIAssistantMessageData): void;
+        /**
+            * Method to get data of the message.
+            * @returns {Object}
+            */
+        getData(): any;
+        /**
+            * Get the tags of the message.
+            * @returns {Array<String>}
+            */
+        getTags(): Array<String>;
+        /**
+            * @param {Array<String>} tags
+            * Set the tags for the message.
+            */
+        setTags(tags: Array<String>): void;
+}
+
+/**
+    *
+    * @module AIToolResultMessage
+    */
+export class AIToolResultMessageData {
+        runId: string;
+        threadId: string;
+        text: string;
+        toolCallId: string;
+        constructor(runId: string, threadId: string, text: string, toolCallId: string);
+        /**
+            * Get the run ID of the tool result message.
+            * @returns {string}
+            */
+        getRunId(): string;
+        /**
+            * Set the run ID of the tool result message.
+            * @param {string} runId
+            */
+        setRunId(runId: string): void;
+        /**
+            * Get the thread ID of the tool result message.
+            * @returns {string}
+            */
+        getThreadId(): string;
+        /**
+            * Set the thread ID of the tool result message.
+            * @param {string} threadId
+            */
+        setThreadId(threadId: string): void;
+        /**
+            * Get the text of the tool result message.
+            * @returns {string}
+            */
+        getText(): string;
+        /**
+            * Set the text of the tool result message.
+            * @param {string} text
+            */
+        setText(text: string): void;
+        /**
+            * Get the tool call ID of the tool result message.
+            * @returns {string}
+            */
+        getToolCallId(): string;
+        /**
+            * Set the tool call ID of the tool result message.
+            * @param {string} toolCallId
+            */
+        setToolCallId(toolCallId: string): void;
+}
+export class AIToolResultMessage extends BaseMessage implements Message {
+        protected data?: any;
+        protected toolMessageData?: AIToolResultMessageData;
+        constructor(receiverId: string, receiverType: string);
+        /**
+            * Method to get sender of the message.
+            * @returns {User}
+            */
+        getSender(): User;
+        /**
+            * Method to get receiver of the message.
+            * @returns {User | Group}
+            */
+        getReceiver(): User | Group;
+        /**
+            * Method to get data of the message.
+            * @returns {AIToolResultMessageData}
+            */
+        getToolResultMessageData(): AIToolResultMessageData;
+        /**
+            * Method to set data of the message.
+            * @param {AIAssistantMessageData} data
+            */
+        setToolResultMessageData(data: AIToolResultMessageData): void;
+        /**
+            * Method to get data of the message.
+            * @returns {Object}
+            */
+        getData(): any;
+        /**
+            * Get the tags of the message.
+            * @returns {Array<String>}
+            */
+        getTags(): Array<String>;
+        /**
+            * @param {Array<String>} tags
+            * Set the tags for the message.
+            */
+        setTags(tags: Array<String>): void;
+}
+
+/**
+    *
+    * @module AIToolArgumentMessage
+    */
+export class AIToolCallFunction {
+        name: string;
+        arguments: string;
+        constructor(name: string, args: string);
+        /**
+            * Get the name of the function.
+            * @returns {string}
+            */
+        getName(): string;
+        /**
+            * Set the name of the function.
+            * @param {string} name
+            */
+        setName(name: string): void;
+        /**
+            * Get the arguments of the function.
+            * @returns {string}
+            */
+        getArguments(): string;
+        /**
+            * Set the arguments of the function.
+            * @param {string} args
+            */
+        setArguments(args: string): void;
+}
+export class AIToolCall {
+        id: string;
+        type: string;
+        displayName?: string;
+        executionText?: string;
+        function: AIToolCallFunction;
+        constructor(id: string, type: string, functionObj: AIToolCallFunction, displayName?: string, executionText?: string);
+        /**
+            * Get the id of the tool call.
+            * @returns {string}
+            */
+        getId(): string;
+        /**
+            * Set the id of the tool call.
+            * @param {string} id
+            */
+        setId(id: string): void;
+        /**
+            * Get the type of the tool call.
+            * @returns {string}
+            */
+        getType(): string;
+        /**
+            * Set the type of the tool call.
+            * @param {string} type
+            */
+        setType(type: string): void;
+        /**
+            * Get the function associated with the tool call.
+            * @returns {AIToolCallFunction}
+            */
+        getFunction(): AIToolCallFunction;
+        /**
+            * Set the function associated with the tool call.
+            * @param {AIToolCallFunction} functionObj
+            */
+        setFunction(functionObj: AIToolCallFunction): void;
+        /**
+            * Get the display name of the tool call.
+            * @returns {string | undefined}
+            */
+        getDisplayName(): string | undefined;
+        /**
+            * Set the display name of the tool call.
+            * @param {string} displayName
+            */
+        setDisplayName(displayName: string): void;
+        /**
+            * Get the execution text of the tool call.
+            * @returns {string | undefined}
+            */
+        getExecutionText(): string | undefined;
+        /**
+            * Set the execution text of the tool call.
+            * @param {string} executionText
+            */
+        setExecutionText(executionText: string): void;
+        /**
+            * Convert the tool call to a JSON object.
+            * @returns {Object}
+            */
+        static fromJSON(json: any): AIToolCall;
+        static fromArray(array: Array<any>): Array<AIToolCall>;
+}
+export class AIToolArgumentMessageData {
+        runId: string;
+        threadId: string;
+        toolCalls?: Array<AIToolCall>;
+        constructor(runId: string, threadId: string, toolCalls?: Array<AIToolCall>);
+        /**
+            * Get the run ID of the tool argument message.
+            * @returns {string}
+            */
+        getRunId(): string;
+        /**
+            * Set the run ID of the tool argument message.
+            * @param {string} runId
+            */
+        setRunId(runId: string): void;
+        /**
+            * Get the thread ID of the tool argument message.
+            * @returns {string}
+            */
+        getThreadId(): string;
+        /**
+            * Set the thread ID of the tool argument message.
+            * @param {string} threadId
+            */
+        setThreadId(threadId: string): void;
+        /**
+            * Get the tool calls associated with the tool argument message.
+            * @returns {Array<AIToolCall> | undefined}
+            */
+        getToolCalls(): Array<AIToolCall> | undefined;
+        /**
+            * Set the tool calls associated with the tool argument message.
+            * @param {Array<AIToolCall>} toolCalls
+            */
+        setToolCalls(toolCalls: Array<AIToolCall>): void;
+}
+export class AIToolArgumentMessage extends BaseMessage implements Message {
+        protected data?: any;
+        protected aiToolArgumentMessageData?: AIToolArgumentMessageData;
+        constructor(receiverId: string, receiverType: string);
+        /**
+            * Method to get sender of the message.
+            * @returns {User}
+            */
+        getSender(): User;
+        /**
+            * Method to get receiver of the message.
+            * @returns {User | Group}
+            */
+        getReceiver(): User | Group;
+        /**
+            * Method to get data of the message.
+            * @returns {AIToolArgumentMessageData}
+            */
+        getToolArgumentMessageData(): AIToolArgumentMessageData;
+        /**
+            * Method to set data of the message.
+            * @param {AIToolArgumentMessageData} data
+            */
+        setToolArgumentMessageData(data: AIToolArgumentMessageData): void;
+        /**
+            * Method to get data of the message.
+            * @returns {Object}
+            */
+        getData(): any;
+        /**
+            * Get the tags of the message.
+            * @returns {Array<String>}
+            */
+        getTags(): Array<String>;
+        /**
+            * @param {Array<String>} tags
+            * Set the tags for the message.
+            */
+        setTags(tags: Array<String>): void;
 }
 
 /** Push Notification Preferences Enums */
@@ -7810,3 +8270,391 @@ export class RTCUser {
     setResource(resource: string): void;
     getResource(): string;
 }
+
+/**
+    * Base interface for all assistant event data
+    * @internal
+    */
+export interface AssistantBaseEventData {
+        timestamp: number;
+        runId: string;
+        threadId: string;
+        [key: string]: any;
+}
+/**
+    * Base class for stream events in CometChat SDK
+    */
+export class AIAssistantBaseEvent<T extends AssistantBaseEventData = AssistantBaseEventData> {
+        /**
+            * The type of the stream event
+            */
+        type: string;
+        /**
+            * The conversation ID associated with the event
+            */
+        conversationId: string;
+        /**
+            * The message ID associated with the event
+            */
+        messageId: string;
+        /**
+            * The parent message ID (if applicable)
+            */
+        patentMessageId: string;
+        /**
+            * Additional data associated with the event
+            */
+        data: T;
+        /**
+            * Constructor for BaseStreamEvent
+            * @param type - The type of the stream event
+            * @param conversationId - The conversation ID
+            * @param messageId - The message ID
+            * @param patentMessageId - The parent message ID
+            * @param data - Additional data with timestamp
+            */
+        constructor(type: string, conversationId: string, messageId: string, patentMessageId: string, data: T);
+        /**
+            * Get the type of the stream event
+            * @returns The type as a string
+            */
+        getType(): string;
+        /**
+            * Set the type of the stream event
+            * @param type - The type to set
+            */
+        setType(type: string): void;
+        /**
+            * Get the conversation ID
+            * @returns The conversation ID as a string
+            */
+        getConversationId(): string;
+        /**
+            * Set the conversation ID
+            * @param conversationId - The conversation ID to set
+            */
+        setConversationId(conversationId: string): void;
+        /**
+            * Get the message ID
+            * @returns The message ID as a string
+            */
+        getMessageId(): string;
+        /**
+            * Set the message ID
+            * @param messageId - The message ID to set
+            */
+        setMessageId(messageId: string): void;
+        /**
+            * Get the parent message ID
+            * @returns The parent message ID as a string
+            */
+        getPatentMessageId(): string;
+        /**
+            * Set the parent message ID
+            * @param patentMessageId - The parent message ID to set
+            */
+        setPatentMessageId(patentMessageId: string): void;
+        /**
+            * Get the data object
+            * @returns The data object
+            */
+        getData(): T;
+        /**
+            * Set the data object
+            * @param data - The data object to set
+            */
+        setData(data: T): void;
+        /**
+            * Get the timestamp from the data object
+            * @returns The timestamp as a number
+            */
+        getTimestamp(): number;
+        /**
+            * Set the timestamp in the data object
+            * @param timestamp - The timestamp to set
+            */
+        setTimestamp(timestamp: number): void;
+        /**
+            * Get the run ID from the data object
+            * @returns The run ID as a string
+            */
+        getRunId(): string;
+        /**
+            * Set the run ID in the data object
+            * @param runId - The run ID to set
+            */
+        setRunId(runId: string): void;
+        /**
+            * Get the thread ID from the data object
+            * @returns The thread ID as a string
+            */
+        getThreadId(): string;
+        /**
+            * Set the thread ID in the data object
+            * @param threadId - The thread ID to set
+            */
+        setThreadId(threadId: string): void;
+        /**
+            * Convert the event to a JSON object
+            * @returns JSON representation of the event
+            */
+        toJSON(): object;
+        /**
+            * Create a BaseStreamEvent from a JSON object
+            * @param json - The JSON object to create the event from
+            * @returns A new BaseStreamEvent instance
+            */
+        static fromJSON(json: any): AIAssistantBaseEvent;
+}
+
+/**
+  * Data structure for run events (run_started, run_finished)
+  * @internal
+  */
+export interface AssistantRunStartedEventData extends AssistantBaseEventData {
+    [key: string]: any;
+}
+export class AIAssistantRunStartedEvent extends AIAssistantBaseEvent<AssistantRunStartedEventData> {
+    constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantRunStartedEventData);
+}
+
+/**
+  * Data structure for run events (run_started, run_finished)
+  * @internal
+  */
+export interface AssistantRunFinishedEventData extends AssistantBaseEventData {
+    [key: string]: any;
+}
+export class AIAssistantRunFinishedEvent extends AIAssistantBaseEvent<AssistantRunFinishedEventData> {
+    constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantRunFinishedEventData);
+}
+
+/**
+    * Data structure for message events (text_message_start, text_message_end)
+    * @internal
+    */
+export interface AssistantMessageStartedEventData extends AssistantBaseEventData {
+        role: string;
+        [key: string]: any;
+}
+export class AIAssistantMessageStartedEvent extends AIAssistantBaseEvent<AssistantMessageStartedEventData> {
+        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantMessageStartedEventData);
+        /**
+            * Returns the role of the event
+            * @returns {string | undefined} The role of the event
+            */
+        getRole(): string | undefined;
+        /**
+            * Sets the role of the event
+            * @param {string} role - The role to set
+            */
+        setRole(role: string): void;
+}
+
+/**
+  * Data structure for message events (text_message_start, text_message_end)
+  * @internal
+  */
+export interface AssistantMessageEndedEventData extends AssistantBaseEventData {
+    [key: string]: any;
+}
+export class AIAssistantMessageEndedEvent extends AIAssistantBaseEvent<AssistantMessageEndedEventData> {
+    constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantMessageEndedEventData);
+}
+
+/**
+    * Data structure for content events (text_message_content)
+    * @internal
+    */
+export interface AssistantContentEventData extends AssistantBaseEventData {
+        delta: string;
+        [key: string]: any;
+}
+/**
+    * Event class for text message content received from assistant
+    */
+export class AIAssistantContentReceivedEvent extends AIAssistantBaseEvent<AssistantContentEventData> {
+        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantContentEventData);
+        /**
+            * Gets the delta value for the content received event
+            * @returns The delta string
+            */
+        getDelta(): string;
+        /**
+            * Sets the delta value for the content received event
+            * @param delta - The delta string to set
+            */
+        setDelta(delta: string): void;
+}
+
+/**
+    * Data structure for tool call started events
+    * @internal
+    */
+export interface AssistantToolStartedEventData extends AssistantBaseEventData {
+        toolCallId: string;
+        toolCallName: string;
+        displayName: string;
+        executionText: string;
+        [key: string]: any;
+}
+/**
+    * Event class for tool call started events
+    */
+export class AIAssistantToolStartedEvent extends AIAssistantBaseEvent<AssistantToolStartedEventData> {
+        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantToolStartedEventData);
+        /**
+            * Gets the tool call ID for the tool started event
+            * @returns The tool call ID
+            */
+        getToolCallId(): string;
+        /**
+            * Sets the tool call ID for the tool started event
+            * @param toolCallId - The tool call ID to set
+            */
+        setToolCallId(toolCallId: string): void;
+        /**
+            * Gets the tool call name for the tool started event
+            * @returns The tool call name
+            */
+        getToolCallName(): string;
+        /**
+            * Sets the tool call name for the tool started event
+            * @param toolCallName - The tool call name to set
+            */
+        setToolCallName(toolCallName: string): void;
+        /**
+            * Gets the display name for the tool started event
+            * @returns The display name
+            */
+        getDisplayName(): string;
+        /**
+            * Sets the display name for the tool started event
+            * @param displayName - The display name to set
+            */
+        setDisplayName(displayName: string): void;
+        /**
+            * Gets the execution text for the tool started event
+            * @returns The execution text
+            */
+        getExecutionText(): string;
+        /**
+            * Sets the execution text for the tool started event
+            * @param executionText - The execution text to set
+            */
+        setExecutionText(executionText: string): void;
+}
+
+/**
+    * Data structure for tool call argument events
+    * @internal
+    */
+export interface AssistantToolArgumentEventData extends AssistantBaseEventData {
+        toolCallId: string;
+        delta: string;
+        [key: string]: any;
+}
+/**
+    * Event class for tool call argument events
+    */
+export class AIAssistantToolArgumentEvent extends AIAssistantBaseEvent<AssistantToolArgumentEventData> {
+        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantToolArgumentEventData);
+        /**
+            * Gets the tool call ID for the tool argument event
+            * @returns The tool call ID
+            */
+        getToolCallId(): string;
+        /**
+            * Sets the tool call ID for the tool argument event
+            * @param toolCallId - The tool call ID to set
+            */
+        setToolCallId(toolCallId: string): void;
+        /**
+            * Gets the delta value for the tool argument event
+            * @returns The delta string
+            */
+        getDelta(): string;
+        /**
+            * Sets the delta value for the tool argument event
+            * @param delta - The delta string to set
+            */
+        setDelta(delta: string): void;
+}
+
+/**
+    * Data structure for tool call ended events
+    * @internal
+    */
+export interface AssistantToolEndedEventData extends AssistantBaseEventData {
+        toolCallId: string;
+        [key: string]: any;
+}
+/**
+    * Event class for tool call ended events
+    */
+export class AIAssistantToolEndedEvent extends AIAssistantBaseEvent<AssistantToolEndedEventData> {
+        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantToolEndedEventData);
+        /**
+            * Gets the tool call ID for the tool ended event
+            * @returns The tool call ID
+            */
+        getToolCallId(): string;
+        /**
+            * Sets the tool call ID for the tool ended event
+            * @param toolCallId - The tool call ID to set
+            */
+        setToolCallId(toolCallId: string): void;
+        /**
+            * Converts the event to a JSON representation
+            * @returns The JSON representation of the event
+            */
+        static fromJSON(json: any): AIAssistantToolEndedEvent;
+}
+
+/**
+    * Data structure for tool call result events
+    * @internal
+    */
+export interface AssistantToolResultEventData extends AssistantBaseEventData {
+        toolCallId: string;
+        content: string;
+        role: string;
+        [key: string]: any;
+}
+/**
+    * Event class for tool call result events
+    */
+export class AIAssistantToolResultEvent extends AIAssistantBaseEvent<AssistantToolResultEventData> {
+        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantToolResultEventData);
+        /**
+            * Gets the tool call ID for the tool result event
+            * @returns The tool call ID
+            */
+        getToolCallId(): string;
+        /**
+            * Sets the tool call ID for the tool result event
+            * @param toolCallId - The tool call ID to set
+            */
+        setToolCallId(toolCallId: string): void;
+        /**
+            * Gets the content of the tool result event
+            * @returns The content string
+            */
+        getContent(): string;
+        /**
+            * Sets the content of the tool result event
+            * @param content - The content string to set
+            */
+        setContent(content: string): void;
+        /**
+            * Returns the role of the event
+            * @returns {string | undefined} The role of the event
+            */
+        getRole(): string;
+        /**
+            * Sets the role of the event
+            * @param {string} role - The role to set
+            */
+        setRole(role: string): void;
+}
+
