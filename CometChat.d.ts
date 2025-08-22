@@ -1017,6 +1017,7 @@ export class CometChat {
         };
         static GoalType: typeof GoalType;
         static AttachmentType: typeof AttachmentType;
+        static ModerationStatus: typeof ModerationStatus;
         static CometChatException: typeof CometChatException;
         static TextMessage: typeof TextMessage;
         static MediaMessage: typeof MediaMessage;
@@ -2473,6 +2474,13 @@ export class MediaMessage extends BaseMessage implements Message {
             * Set the tags for the message.
          */
         setTags(tags: Array<String>): void;
+        /**
+            * Gets the moderation status of the message.
+            * @description If the message is not moderated, it returns "unmoderated".
+            * If the message is moderated, it returns the status of the moderation.
+            * @returns {ModerationStatus}
+         */
+        getModerationStatus(): ModerationStatus;
 }
 
 /**
@@ -2864,6 +2872,13 @@ export class TextMessage extends BaseMessage implements Message {
             * Set the tags for the message.
          */
         setTags(tags: Array<String>): void;
+        /**
+            * Gets the moderation status of the message.
+            * @description If the message is not moderated, it returns "unmoderated".
+            * If the message is moderated, it returns the status of the moderation.
+            * @returns {ModerationStatus}
+            */
+        getModerationStatus(): ModerationStatus;
 }
 
 export const constants: {
@@ -3937,6 +3952,12 @@ export enum AttachmentType {
     AUDIO = "audio",
     FILE = "file"
 }
+export enum ModerationStatus {
+    PENDING = "pending",
+    APPROVED = "approved",
+    DISAPPROVED = "disapproved",
+    UNMODERATED = "unmoderated"
+}
 export const AI_ASSISTANT_EVENTS: {
     RUN_STARTED: string;
     RUN_FINISHED: string;
@@ -4211,6 +4232,10 @@ export class MessageListener {
             * This event is triggered when a message is read by all members in a group.
          */
         onMessagesReadByAll?: Function;
+        /**
+            * This event is triggered when a message is moderated.
+         */
+        onMessageModerated?: Function;
         /**
             * This event is triggered when an AI tool result is received.
             */
