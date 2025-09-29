@@ -433,6 +433,7 @@ export class CometChat {
                                 MENTIONED_UIDS: string;
                                 ATTACHMENT_TYPES: string;
                                 WITH_PARENT: string;
+                                HIDE_QUOTED_MESSAGES: string;
                         };
                 };
         };
@@ -2527,6 +2528,8 @@ export class BaseMessage implements Message {
         protected unreadRepliesCount: number;
         protected mentionedUsers?: User[];
         protected mentionedMe?: boolean;
+        protected quotedMessageId?: number;
+        protected quotedMessage?: BaseMessage;
         constructor(receiverId: string, messageType: string, receiverType: string, category: MessageCategory);
         /**
             * Get unread replies count of the message
@@ -2786,12 +2789,32 @@ export class BaseMessage implements Message {
             * set the array of reactions in message
             * @param {ReactionCount[]} reactions
             */
-        setReactions(reactions: any): ReactionCount[];
+        setReactions(reactions: ReactionCount[]): void;
         /**
             * Get the array of reactions in message
             * @returns {ReactionCount[]}
             */
         getReactions(): ReactionCount[];
+        /**
+            * Get quoted message ID of the message.
+            * @returns {number}
+            */
+        getQuotedMessageId(): number;
+        /**
+            * @param {number} value
+            * Set quoted message ID of the message.
+            */
+        setQuotedMessageId(value: number): void;
+        /**
+            * Get quoted message of the message.
+            * @returns {BaseMessage}
+            */
+        getQuotedMessage(): BaseMessage;
+        /**
+            * @param {BaseMessage} value
+            * Set quoted message of the message.
+            */
+        setQuotedMessage(value: BaseMessage): void;
 }
 
 /**
@@ -3150,6 +3173,7 @@ export const MessageConstatnts: {
             MENTIONED_UIDS: string;
             ATTACHMENT_TYPES: string;
             WITH_PARENT: string;
+            HIDE_QUOTED_MESSAGES: string;
         };
     };
 };
@@ -5738,6 +5762,12 @@ export class MessagesRequest {
          */
         isWithParent(): boolean;
         /**
+            * Gets the flag indicating whether to hide quoted messages when fetching messages.
+            *
+            * @return {boolean}
+            */
+        isHideQuotedMessages(): boolean;
+        /**
             * Get list of next messages based on the parameters specified in MessagesRequestBuilder class. The Developer need to call this method repeatedly using the same object of MessagesRequest class to get paginated list of message.
             * @returns {Promise<BaseMessage[] | []>}
          */
@@ -5779,6 +5809,7 @@ export class MessagesRequestBuilder {
         /** @private */ mentionedUIDs?: Array<String>;
         /** @private */ attachmentTypes?: Array<AttachmentType>;
         /** @private */ WithParent?: boolean;
+        /** @private */ HideQuotedMessages?: boolean;
         /**
             * A method to set limit for the number of messages returned in a single iteration. A maximum of 100 messages can fetched in a single iteration.
             * @param {number} limit
@@ -5953,6 +5984,12 @@ export class MessagesRequestBuilder {
             * @returns {this}
          */
         withParent(withParent?: boolean): this;
+        /**
+            * A method to hide quoted messages.
+            * @param {boolean} hideQuotedMessages
+            * @returns
+         */
+        hideQuotedMessages(hideQuotedMessages: boolean): this;
         /**
             * This method will return an object of the MessagesRequest class.
             * @returns {MessagesRequest}
@@ -8325,7 +8362,7 @@ export class AIAssistantBaseEvent<T extends AssistantBaseEventData = AssistantBa
         /**
             * The parent message ID (if applicable)
             */
-        patentMessageId: string;
+        parentMessageId: string;
         /**
             * Additional data associated with the event
             */
@@ -8335,10 +8372,10 @@ export class AIAssistantBaseEvent<T extends AssistantBaseEventData = AssistantBa
             * @param type - The type of the stream event
             * @param conversationId - The conversation ID
             * @param messageId - The message ID
-            * @param patentMessageId - The parent message ID
+            * @param parentMessageId - The parent message ID
             * @param data - Additional data with timestamp
             */
-        constructor(type: string, conversationId: string, messageId: string, patentMessageId: string, data: T);
+        constructor(type: string, conversationId: string, messageId: string, parentMessageId: string, data: T);
         /**
             * Get the type of the stream event
             * @returns The type as a string
@@ -8371,14 +8408,26 @@ export class AIAssistantBaseEvent<T extends AssistantBaseEventData = AssistantBa
         setMessageId(messageId: string): void;
         /**
             * Get the parent message ID
+            * @deprecated Use getParentMessageId() instead
             * @returns The parent message ID as a string
             */
         getPatentMessageId(): string;
         /**
-            * Set the parent message ID
-            * @param patentMessageId - The parent message ID to set
+            * Get the parent message ID
+            * @returns The parent message ID as a string
             */
-        setPatentMessageId(patentMessageId: string): void;
+        getParentMessageId(): string;
+        /**
+            * Set the parent message ID
+            * @deprecated Use setParentMessageId() instead
+            * @param parentMessageId - The parent message ID to set
+            */
+        setPatentMessageId(parentMessageId: string): void;
+        /**
+            * Set the parent message ID
+            * @param parentMessageId - The parent message ID to set
+            */
+        setParentMessageId(parentMessageId: string): void;
         /**
             * Get the data object
             * @returns The data object
@@ -8440,7 +8489,7 @@ export interface AssistantRunStartedEventData extends AssistantBaseEventData {
     [key: string]: any;
 }
 export class AIAssistantRunStartedEvent extends AIAssistantBaseEvent<AssistantRunStartedEventData> {
-    constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantRunStartedEventData);
+    constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantRunStartedEventData);
 }
 
 /**
@@ -8451,7 +8500,7 @@ export interface AssistantRunFinishedEventData extends AssistantBaseEventData {
     [key: string]: any;
 }
 export class AIAssistantRunFinishedEvent extends AIAssistantBaseEvent<AssistantRunFinishedEventData> {
-    constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantRunFinishedEventData);
+    constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantRunFinishedEventData);
 }
 
 /**
@@ -8463,7 +8512,7 @@ export interface AssistantMessageStartedEventData extends AssistantBaseEventData
         [key: string]: any;
 }
 export class AIAssistantMessageStartedEvent extends AIAssistantBaseEvent<AssistantMessageStartedEventData> {
-        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantMessageStartedEventData);
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantMessageStartedEventData);
         /**
             * Returns the role of the event
             * @returns {string | undefined} The role of the event
@@ -8484,7 +8533,7 @@ export interface AssistantMessageEndedEventData extends AssistantBaseEventData {
     [key: string]: any;
 }
 export class AIAssistantMessageEndedEvent extends AIAssistantBaseEvent<AssistantMessageEndedEventData> {
-    constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantMessageEndedEventData);
+    constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantMessageEndedEventData);
 }
 
 /**
@@ -8499,7 +8548,7 @@ export interface AssistantContentEventData extends AssistantBaseEventData {
     * Event class for text message content received from assistant
     */
 export class AIAssistantContentReceivedEvent extends AIAssistantBaseEvent<AssistantContentEventData> {
-        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantContentEventData);
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantContentEventData);
         /**
             * Gets the delta value for the content received event
             * @returns The delta string
@@ -8527,7 +8576,7 @@ export interface AssistantToolStartedEventData extends AssistantBaseEventData {
     * Event class for tool call started events
     */
 export class AIAssistantToolStartedEvent extends AIAssistantBaseEvent<AssistantToolStartedEventData> {
-        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantToolStartedEventData);
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantToolStartedEventData);
         /**
             * Gets the tool call ID for the tool started event
             * @returns The tool call ID
@@ -8583,7 +8632,7 @@ export interface AssistantToolArgumentEventData extends AssistantBaseEventData {
     * Event class for tool call argument events
     */
 export class AIAssistantToolArgumentEvent extends AIAssistantBaseEvent<AssistantToolArgumentEventData> {
-        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantToolArgumentEventData);
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantToolArgumentEventData);
         /**
             * Gets the tool call ID for the tool argument event
             * @returns The tool call ID
@@ -8618,7 +8667,7 @@ export interface AssistantToolEndedEventData extends AssistantBaseEventData {
     * Event class for tool call ended events
     */
 export class AIAssistantToolEndedEvent extends AIAssistantBaseEvent<AssistantToolEndedEventData> {
-        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantToolEndedEventData);
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantToolEndedEventData);
         /**
             * Gets the tool call ID for the tool ended event
             * @returns The tool call ID
@@ -8650,7 +8699,7 @@ export interface AssistantToolResultEventData extends AssistantBaseEventData {
     * Event class for tool call result events
     */
 export class AIAssistantToolResultEvent extends AIAssistantBaseEvent<AssistantToolResultEventData> {
-        constructor(conversationId: string, messageId: string, patentMessageId: string, data: AssistantToolResultEventData);
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantToolResultEventData);
         /**
             * Gets the tool call ID for the tool result event
             * @returns The tool call ID
@@ -8682,4 +8731,3 @@ export class AIAssistantToolResultEvent extends AIAssistantBaseEvent<AssistantTo
             */
         setRole(role: string): void;
 }
-
