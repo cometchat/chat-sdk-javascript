@@ -300,7 +300,7 @@ export class CometChat {
                 };
                 SESSION_ID_REQUIRED: {
                         code: string;
-                        name: string;
+                        /** @internal */ name: string;
                         message: string;
                         details: {};
                 };
@@ -1087,6 +1087,7 @@ export class CometChat {
         static CometChatHelper: typeof CometChatHelper;
         static Attachment: typeof Attachment;
         static MediaDevice: typeof MediaDevice;
+        static StorageMode: typeof StorageMode;
         static MESSAGE_TYPE: {
                 TEXT: string;
                 MEDIA: string;
@@ -1216,6 +1217,10 @@ export class CometChat {
             * @memberof CometChat
          */
         static getSessionId(): string;
+        /**
+            * Initialize the storage with the current storage mode from AppSettings
+            */
+        static initializeStorage(): Promise<void>;
         /**
             * Storage event when a key is added/updated in localstorage.
             * @internal
@@ -2946,6 +2951,10 @@ export enum GroupMemberScope {
     Admin = "admin",
     Moderator = "moderator",
     Member = "member"
+}
+export enum StorageMode {
+    LOCAL = "local",
+    SESSION = "session"
 }
 export const GROUP_MEMBER_SCOPE: {
     ADMIN: string;
@@ -5040,6 +5049,10 @@ export class GroupsRequestBuilder {
 }
 
 export class GroupMembersRequest {
+        static USER_STATUS: {
+                ONLINE: string;
+                OFFLINE: string;
+        };
         constructor(builder: GroupMembersRequestBuilder);
         /**
             * Get list of next set of group members based on the parameters specified in GroupMembersRequestBuilder class. The Developer need to call this method repeatedly using the same object of GroupMembersRequest class to get paginated list of group members.
@@ -5072,6 +5085,12 @@ export class GroupMembersRequest {
             */
         getScopes(): String[];
         /**
+            * Gets the status filter used to fetch members based on their online or offline status.
+            *
+            * @return {string}
+            */
+        getStatus(): string;
+        /**
             * @internal
             */
         getNextData(): any;
@@ -5081,6 +5100,7 @@ export class GroupMembersRequestBuilder {
         /** @private */ searchKeyword: string;
         /** @private */ guid: string;
         /** @private */ scopes?: Array<String>;
+        /** @private */ status: string;
         constructor(guid: string);
         /**
             * Set the unique identifier of the group.
@@ -5110,6 +5130,12 @@ export class GroupMembersRequestBuilder {
             * @returns
          */
         setScopes(scopes: Array<String>): this;
+        /**
+            * A method to get the members belonging to a specific status.
+            * @param {string} status
+            * @returns
+         */
+        setStatus(status: string): this;
         /**
             * This method will return an object of the GroupMembersRequest class.
             * @returns {GroupMembersRequest}
@@ -5478,6 +5504,18 @@ export class ConversationsRequest {
             * @returns {boolean}
          */
         getUnread(): boolean;
+        /**
+            * Determines whether agentic conversations should be hidden.
+            *
+            * @returns {boolean}
+         */
+        getHideAgentic(): boolean;
+        /**
+            * Determines whether only agentic conversations should be fetched.
+            *
+            * @returns {boolean}
+         */
+        getOnlyAgentic(): boolean;
 }
 export class ConversationsRequestBuilder {
         /** @private */ conversationType: string;
@@ -5491,6 +5529,8 @@ export class ConversationsRequestBuilder {
         /** @private */ WithBlockedInfo: boolean;
         /** @private */ searchKeyword: string;
         /** @private */ unreadOnly: boolean;
+        /** @private */ hideAgentic: boolean;
+        /** @private */ onlyAgentic: boolean;
         /**
             *
             * @param {number} limit
@@ -5579,6 +5619,18 @@ export class ConversationsRequestBuilder {
             * @returns
          */
         setUnread(unread: boolean): this;
+        /**
+            * A method to hide agentic conversations from the list.
+            * @param {boolean} hideAgentic
+            * @returns
+         */
+        setHideAgentic(hideAgentic: boolean): this;
+        /**
+            * A method to fetch only agentic conversations.
+            * @param {boolean} onlyAgentic
+            * @returns
+         */
+        setOnlyAgentic(onlyAgentic: boolean): this;
         /**
             * This method will return an object of the ConversationsRequest class.
             * @returns {ConversationsRequest}
@@ -6262,6 +6314,10 @@ export class BlockedUsersRequestBuilder {
         build(): BlockedUsersRequest;
 }
 
+/**
+    *
+    * @module AppSettings
+    */
 export class AppSettings {
         static SUBSCRIPTION_TYPE_NONE: string;
         static SUBSCRIPTION_TYPE_ALL_USERS: string;
@@ -6275,6 +6331,9 @@ export class AppSettings {
         static REGION_IN: string;
         /** @private */
         static REGION_PRIVATE: string;
+        /** Storage modes */
+        static STORAGE_MODE_LOCAL: StorageMode;
+        static STORAGE_MODE_SESSION: StorageMode;
         /** @private */
         subscriptionType: string;
         /** @private */
@@ -6289,6 +6348,8 @@ export class AppSettings {
         adminHost: string;
         /** @private */
         clientHost: string;
+        /** @private */
+        storageMode: StorageMode;
         /**
             * @private
             * @param {AppSettingsBuilder}
@@ -6326,9 +6387,14 @@ export class AppSettings {
         getAdminHost(): string;
         /**
             * This method returns the client host to which the SDK should connect.
-            * @returns {boolean}
+            * @returns {string}
          */
         getClientHost(): string;
+        /**
+            * This method returns the storage mode (local or session) set using the `setStorageMode()` of the AppSettingsBuilder.
+            * @returns {StorageMode}
+         */
+        getStorageMode(): StorageMode;
 }
 export class AppSettingsBuilder {
         /** @private */
@@ -6345,6 +6411,8 @@ export class AppSettingsBuilder {
         adminHost: string;
         /** @private */
         clientHost: string;
+        /** @private */
+        storageMode: StorageMode;
         /**
             * A method to subscribe presence for all users.
             * @returns
@@ -6391,6 +6459,13 @@ export class AppSettingsBuilder {
             * @returns
          */
         overrideClientHost(clientHost: string): this;
+        /**
+            * @param {StorageMode} storageMode
+            * This method is used to set the storage mode for the SDK. Default is 'local' (localStorage).
+            * Use 'session' for sessionStorage.
+            * @returns {this}
+         */
+        setStorageMode(storageMode: StorageMode): this;
         /**
             * This method will return an object of the AppSettings class.
             * @returns {AppSettings}
