@@ -300,7 +300,7 @@ export class CometChat {
                 };
                 SESSION_ID_REQUIRED: {
                         code: string;
-                        /** @internal */ name: string;
+                        name: string;
                         message: string;
                         details: {};
                 };
@@ -493,6 +493,7 @@ export class CometChat {
                         CORE_CONVERSATIONS_UPDATE_ON_GROUP_ACTIONS: string;
                         CORE_CONVERSATIONS_UPDATE_ON_CUSTOM_MESSAGES: string;
                         CORE_CONVERSATIONS_UPDATE_ON_REPLIES: string;
+                        FLAG_REASONS: string;
                 };
         };
         static GroupConstants: {
@@ -2072,6 +2073,26 @@ export class CometChat {
             * @return A ConversationUpdateSettings object that holds the settings for updating the conversation.
          */
         static getConversationUpdateSettings(): Promise<ConversationUpdateSettings>;
+        /**
+            * Fetches the list of flag reasons configured in the CometChat Dashboard.
+            * @returns {Promise<FlagReason[]>}
+            * @memberof CometChat
+            */
+        static getFlagReasons(): Promise<FlagReason[]>;
+        /**
+            * Allows users to flag a message with a specific reason and an optional remark.
+            * @param {string} messageId
+            * @param {{ reasonId?: string; remark?: string }} payload
+            * @returns {Promise<{ success: boolean; message: string }>}
+            * @memberof CometChat
+            */
+        static flagMessage(messageId: string, payload: {
+                reasonId: string;
+                remark?: string;
+        }): Promise<{
+                success: boolean;
+                message: string;
+        }>;
 }
 
 export class CometChatNotifications {
@@ -3894,6 +3915,7 @@ export const APP_SETTINGS: {
         CORE_CONVERSATIONS_UPDATE_ON_GROUP_ACTIONS: string;
         CORE_CONVERSATIONS_UPDATE_ON_CUSTOM_MESSAGES: string;
         CORE_CONVERSATIONS_UPDATE_ON_REPLIES: string;
+        FLAG_REASONS: string;
     };
 };
 export const COMMON_UTILITY_CONSTANTS: {
@@ -4002,6 +4024,14 @@ export const AI_ASSISTANT_EVENTS: {
     TOOL_CALL_RESULT: string;
     TOOL_CALL_ARGUMENT: string;
 };
+export interface FlagReason {
+    id: string;
+    name: string;
+    description: string;
+    default?: boolean;
+    createdAt: number;
+    updatedAt: number;
+}
 
 /**
     *
@@ -4523,12 +4553,6 @@ export class Call extends BaseMessage implements Message {
                 MEDIA: string;
                 IMAGE: string;
                 VIDEO: string;
-                AUDIO: string;
-                FILE: string;
-                CUSTOM: string;
-                ASSISTANT: string;
-                TOOL_RESULT: string;
-                TOOL_ARGUMENTS: string;
         };
         static readonly RECEIVER_TYPE: {
                 USER: string;
@@ -4540,7 +4564,6 @@ export class Call extends BaseMessage implements Message {
                 CALL: string;
                 CUSTOM: string;
                 INTERACTIVE: string;
-                AGENTIC: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
