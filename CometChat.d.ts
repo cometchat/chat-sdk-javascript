@@ -1386,12 +1386,36 @@ export class CometChat {
          */
         static markAsDelivered(...args: any): any;
         /**
+            * Mark entire conversation as read for a user or group.
+            * @param {string} conversationWith - User ID or Group ID
+            * @param {string} conversationType - Conversation type (user or group)
+            * @returns {Promise<string>}
+            * @memberof CometChat
+         */
+        static markConversationAsRead(conversationWith: string, conversationType: string): Promise<string>;
+        /**
+            * Mark entire conversation as delivered for a user or group.
+            * @param {string} conversationWith - User ID or Group ID
+            * @param {string} conversationType - Receiver type (user or group)
+            * @returns {Promise<string>}
+            * @memberof CometChat
+         */
+        static markConversationAsDelivered(conversationWith: string, conversationType: string): Promise<string>;
+        /**
+            * @deprecated Please use markMessageAsUnread() instead.
             * Mark all the messages after the specified message id as unread.
             * @param {TextMessage | MediaMessage | CustomMessage | BaseMessage | any} message
             * @returns {Promise<string>}
             * @memberof CometChat
          **/
         static markAsUnread(message: TextMessage | MediaMessage | CustomMessage | any): Promise<string | CometChatException>;
+        /**
+            * Mark all the messages after the specified message id as unread.
+            * @param {TextMessage | MediaMessage | CustomMessage | BaseMessage | any} message
+            * @returns {Promise<string>}
+            * @memberof CometChat
+         **/
+        static markMessageAsUnread(message: TextMessage | MediaMessage | CustomMessage | any): Promise<Conversation>;
         /**
             * Send a transient message.
             * @param {string} uid
@@ -6613,8 +6637,9 @@ export class Conversation {
         protected unreadMessageCount: number;
         protected unreadMentionsCount: number;
         protected lastReadMessageId: string;
+        protected latestMessageId: string;
         protected tags: Array<String>;
-        constructor(conversationId: string, conversationType: string, lastMessage: TextMessage | MediaMessage | CustomMessage | any, conversationWith: User | Group, unreadMessageCount: number, tags: Array<String>, unreadMentionsCount: number | any, lastReadMessageId: string | any);
+        constructor(conversationId: string, conversationType: string, lastMessage: TextMessage | MediaMessage | CustomMessage | any, conversationWith: User | Group, unreadMessageCount: number, tags: Array<String>, unreadMentionsCount: number | any, lastReadMessageId: string | any, latestMessageId?: string | any);
         /**
             * Method to set conversation ID of the conversation.
             * @param {string} conversationId
@@ -6640,6 +6665,16 @@ export class Conversation {
             * @param {string}
          */
         setLastReadMessageId(id: string): void;
+        /**
+            * Method to get latestMessageId of the conversation.
+            * @returns {string}
+         */
+        getLatestMessageId(): string;
+        /**
+            * Method to set latestMessageId of the conversation.
+            * @param {string}
+         */
+        setLatestMessageId(id: string): void;
         /**
             * Method to set conversation type of the conversation.
             * @param {string} conversationId
