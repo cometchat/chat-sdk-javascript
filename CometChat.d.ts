@@ -22,7 +22,6 @@ export class CometChat {
         static AIAssistantToolEndedEvent: typeof AIAssistantToolEndedEvent;
         static AIAssistantToolArgumentEvent: typeof AIAssistantToolArgumentEvent;
         static AIAssistantToolResultEvent: typeof AIAssistantToolResultEvent;
-        static SecureMediaMode: typeof SecureMediaMode;
         static AI_ASSISTANT_EVENTS: {
                 RUN_STARTED: string;
                 RUN_FINISHED: string;
@@ -2118,17 +2117,6 @@ export class CometChat {
                 success: boolean;
                 message: string;
         }>;
-        /**
-            * Returns the decoded File Access Token (FAT) for the currently logged-in user, or null if unavailable.
-            * @returns {string | null}
-            */
-        static getFat(): string | null;
-        /**
-            * Resolves a presigned URL for the given secure media URL using the FAT header approach. Returns the original URL unchanged if header mode is not enabled or the URL does not require secure access.
-            * @param {string} url - The original media URL to resolve.
-            * @returns {Promise<string>}
-            */
-        static fetchPresignedUrl(url: string): Promise<string>;
 }
 
 export class CometChatNotifications {
@@ -3012,10 +3000,6 @@ export enum GroupMemberScope {
 export enum StorageMode {
     LOCAL = "local",
     SESSION = "session"
-}
-export enum SecureMediaMode {
-    EMBEDDED = 0,
-    HEADER_BASED = 1
 }
 export const GROUP_MEMBER_SCOPE: {
     ADMIN: string;
@@ -4603,7 +4587,7 @@ export class Call extends BaseMessage implements Message {
                 ACTION: string;
                 CALL: string;
                 CUSTOM: string;
-                INTERACTIVE: string; 
+                INTERACTIVE: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
@@ -6495,8 +6479,6 @@ export class AppSettings {
         clientHost: string;
         /** @private */
         storageMode: StorageMode;
-        /** @private */
-        secureMediaMode: SecureMediaMode;
         /**
             * @private
             * @param {AppSettingsBuilder}
@@ -6542,11 +6524,6 @@ export class AppSettings {
             * @returns {StorageMode}
          */
         getStorageMode(): StorageMode;
-        /**
-            * Returns the secure media mode (embedded or header-based) set using the `setSecureMediaMode()` of the AppSettingsBuilder.
-            * @returns {SecureMediaMode}
-            */
-        getSecureMediaMode(): SecureMediaMode;
 }
 export class AppSettingsBuilder {
         /** @private */
@@ -6565,8 +6542,6 @@ export class AppSettingsBuilder {
         clientHost: string;
         /** @private */
         storageMode: StorageMode;
-        /** @private */
-        secureMediaMode: SecureMediaMode;
         /**
             * A method to subscribe presence for all users.
             * @returns
@@ -6621,12 +6596,6 @@ export class AppSettingsBuilder {
          */
         setStorageMode(storageMode: StorageMode): this;
         /**
-            * Sets the secure media mode for the app settings.
-            * @param {SecureMediaMode} secureMediaMode - The secure media mode to use.
-            * @returns {this}
-            */
-        setSecureMediaMode(secureMediaMode: SecureMediaMode): this;
-        /**
             * This method will return an object of the AppSettings class.
             * @returns {AppSettings}
          */
@@ -6654,17 +6623,6 @@ export class CometChatHelper {
             */
         static getConversationFromMessage(message: TextMessage | MediaMessage | CustomMessage | InteractiveMessage | any): Promise<Conversation>;
         static updateMessageWithReactionInfo(baseMessage: BaseMessage, messageReaction: Reaction, action: REACTION_ACTION): BaseMessage | CometChatException;
-        /**
-            * Returns true if header-based secure media mode is active, a valid FAT exists, and the secure media host is configured.
-            * @returns {boolean}
-            */
-        static isHeaderModeEnabled(): boolean;
-        /**
-            * Returns true if the given URL points to the configured secure media host and requires authenticated access.
-            * @param {string | null} url - The URL to check.
-            * @returns {boolean}
-            */
-        static requiresSecureAccess(url: string | null): boolean;
 }
 
 /**
@@ -8988,4 +8946,3 @@ export class AIAssistantToolResultEvent extends AIAssistantBaseEvent<AssistantTo
             */
         setRole(role: string): void;
 }
-
