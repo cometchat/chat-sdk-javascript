@@ -11,6 +11,7 @@
   export as namespace CometChat;
   export as namespace CometChatNotifications;
 
+export const DEFAULT_TIMEOUT = 45;
 export class CometChat {
         static AIAssistantBaseEvent: typeof AIAssistantBaseEvent;
         static AIAssistantRunStartedEvent: typeof AIAssistantRunStartedEvent;
@@ -1736,10 +1737,11 @@ export class CometChat {
         /**
             * Function to initiate a user/group call.
             * @param {Call} call
+            * @param {number} [timeout] - Optional call timeout in seconds. Defaults to {@link DEFAULT_TIMEOUT} seconds.
             * @returns {Promise<Call>}
             * @memberof CometChat
          */
-        static initiateCall(call: Call | any): Promise<Call>;
+        static initiateCall(call: Call | any, timeout?: number): Promise<Call>;
         /**
             * Function to accept an incoming user/group call.
             * @param {string} sessionid
@@ -4741,10 +4743,11 @@ export class CallController {
             *
             * @internal
             * @param {Call} call
-            * @returns
+            * @param {number} [timeout] - Optional call timeout in seconds. Defaults to {@link DEFAULT_TIMEOUT} seconds.
+            * @returns {Promise<Call>}
             * @memberof CallController
          */
-        initiateCall(call: Call): Promise<Call>;
+        initiateCall(call: Call, timeout?: number): Promise<Call>;
         /**
             * @internal
             * Method to clear timer.
