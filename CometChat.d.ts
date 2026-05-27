@@ -7,9 +7,9 @@
   * @param {string} appId appId generted at the time of perchase. unique for each client.
   * @returns {CometChat}
   */
-  export function init(appId: string): CometChat;
-  export as namespace CometChat;
-  export as namespace CometChatNotifications;
+export function init(appId: string): CometChat;
+  export as namespace CometChat;
+  export as namespace CometChatNotifications;
 
 export const DEFAULT_TIMEOUT = 45;
 export class CometChat {
@@ -1070,6 +1070,56 @@ export class CometChat {
         static GroupMembersRequestBuilder: typeof GroupMembersRequestBuilder;
         static BannedMembersRequest: typeof BannedMembersRequest;
         static BannedMembersRequestBuilder: typeof BannedMembersRequestBuilder;
+        static CAMPAIGN_ENDPOINTS: {
+                readonly NOTIFICATION_FEED_LIST: "notificationFeedList";
+                readonly NOTIFICATION_FEED_ITEM: "notificationFeedItem";
+                readonly NOTIFICATION_FEED_UNREAD_COUNT: "notificationFeedUnreadCount";
+                readonly NOTIFICATION_FEED_MARK_DELIVERED: "notificationFeedMarkDelivered";
+                readonly NOTIFICATION_FEED_MARK_READ: "notificationFeedMarkRead";
+                readonly NOTIFICATION_FEED_ENGAGEMENT: "notificationFeedEngagement";
+                readonly PUSH_NOTIFICATION_MARK_DELIVERED: "pushNotificationMarkDelivered";
+                readonly PUSH_NOTIFICATION_MARK_CLICKED: "pushNotificationMarkClicked";
+                readonly NOTIFICATION_CATEGORIES_LIST: "notificationCategoriesList";
+        };
+        static CAMPAIGN_DEFAULTS: {
+                readonly NOTIFICATION_FEED_LIMIT: 20;
+                readonly NOTIFICATION_FEED_MAX_LIMIT: 100;
+                readonly CATEGORIES_LIMIT: 50;
+                readonly CATEGORIES_MAX_LIMIT: 100;
+        };
+        static CAMPAIGN_ERRORS: {
+                readonly FEED_ITEM_NOT_FOUND: "FEED_ITEM_NOT_FOUND";
+                readonly PUSH_NOTIFICATION_NOT_FOUND: "PUSH_NOTIFICATION_NOT_FOUND";
+                readonly VALIDATION_ERROR: "VALIDATION_ERROR";
+                readonly RATE_LIMITED: "RATE_LIMITED";
+                readonly UNAUTHORIZED: "UNAUTHORIZED";
+        };
+        static CAMPAIGN_PAGINATION: {
+                readonly KEYS: {
+                        readonly LIMIT: "limit";
+                        readonly CURSOR: "cursor";
+                        readonly READ_STATE: "readState";
+                        readonly CATEGORY: "templateCategory";
+                        readonly CHANNEL_ID: "channelId";
+                        readonly TAGS: "tags";
+                        readonly TAG_MATCH: "tagMatch";
+                        readonly DATE_FROM: "dateFrom";
+                        readonly DATE_TO: "dateTo";
+                        readonly AFFIX: "affix";
+                };
+                readonly AFFIX: {
+                        readonly APPEND: "append";
+                        readonly PREPEND: "prepend";
+                };
+        };
+        static NotificationFeedItem: typeof NotificationFeedItem;
+        static NotificationCategory: typeof NotificationCategory;
+        static PushNotification: typeof PushNotification;
+        static NotificationFeedRequest: typeof NotificationFeedRequest;
+        static NotificationFeedRequestBuilder: typeof NotificationFeedRequestBuilder;
+        static NotificationCategoriesRequest: typeof NotificationCategoriesRequest;
+        static NotificationCategoriesRequestBuilder: typeof NotificationCategoriesRequestBuilder;
+        static NotificationFeedListener: typeof NotificationFeedListener;
         static CallSettings: typeof CallSettings;
         static CallSettingsBuilder: typeof CallSettingsBuilder;
         static MainVideoContainerSetting: typeof MainVideoContainerSetting;
@@ -2119,6 +2169,73 @@ export class CometChat {
                 success: boolean;
                 message: string;
         }>;
+        /**
+            * Mark a single notification feed item as delivered.
+            * @param {NotificationFeedItem} feedItem - The feed item to mark as delivered
+            * @returns {Promise<void>}
+            */
+        static markFeedItemAsDelivered(feedItem: NotificationFeedItem): Promise<void>;
+        /**
+            * Mark multiple notification feed items as delivered (batch).
+            * Calls the delivered endpoint for each item.
+            * @param {NotificationFeedItem[]} feedItems - Array of feed items to mark as delivered
+            * @returns {Promise<void>}
+            */
+        static markFeedItemsAsDelivered(feedItems: NotificationFeedItem[]): Promise<void>;
+        /**
+            * Mark a single notification feed item as read.
+            * Also stamps deliveredAt if not yet set.
+            * @param {NotificationFeedItem} feedItem - The feed item to mark as read
+            * @returns {Promise<void>}
+            */
+        static markFeedItemAsRead(feedItem: NotificationFeedItem): Promise<void>;
+        /**
+            * Report an engagement event for a notification feed item.
+            * @param {NotificationFeedItem} feedItem - The feed item to report engagement for
+            * @param {string} interactionString - Engagement type (e.g., "delivered", "clicked", or any custom value)
+            * @returns {Promise<void>}
+            */
+        static reportFeedEngagement(feedItem: NotificationFeedItem, interactionString: string): Promise<void>;
+        /**
+            * Get the total unread count for notification feed items.
+            * @returns {Promise<{ count: number }>}
+            */
+        static getNotificationFeedUnreadCount(): Promise<{
+                count: number;
+        }>;
+        /**
+            * Fetch a single notification feed item by ID (for deep linking).
+            * @param {string} id - The feed item ID
+            * @returns {Promise<NotificationFeedItem>}
+            */
+        static getNotificationFeedItem(id: string): Promise<NotificationFeedItem>;
+        /**
+            * Mark a push notification as delivered.
+            * @param {PushNotification} pushNotification - The push notification object
+            * @returns {Promise<void>}
+            */
+        static markPushNotificationDelivered(pushNotification: PushNotification): Promise<void>;
+        /**
+            * Mark a push notification as clicked.
+            * Also stamps deliveredAt if not yet set.
+            * @param {PushNotification} pushNotification - The push notification object
+            * @returns {Promise<void>}
+            */
+        static markPushNotificationClicked(pushNotification: PushNotification): Promise<void>;
+        /**
+            * Register a NotificationFeedListener for real-time notification feed events.
+            * The listener's onFeedItemReceived callback fires when a new feed item arrives via WebSocket.
+            *
+            * @param {string} listenerId - Unique identifier for this listener
+            * @param {NotificationFeedListener} listener - The listener instance
+            */
+        static addNotificationFeedListener(listenerId: string, listener: NotificationFeedListener): void;
+        /**
+            * Remove a previously registered NotificationFeedListener.
+            *
+            * @param {string} listenerId - The listener ID to remove
+            */
+        static removeNotificationFeedListener(listenerId: string): void;
 }
 
 export class CometChatNotifications {
@@ -4579,6 +4696,12 @@ export class Call extends BaseMessage implements Message {
                 MEDIA: string;
                 IMAGE: string;
                 VIDEO: string;
+                AUDIO: string;
+                FILE: string;
+                CUSTOM: string;
+                ASSISTANT: string;
+                TOOL_RESULT: string;
+                TOOL_ARGUMENTS: string;
         };
         static readonly RECEIVER_TYPE: {
                 USER: string;
@@ -4590,6 +4713,7 @@ export class Call extends BaseMessage implements Message {
                 CALL: string;
                 CUSTOM: string;
                 INTERACTIVE: string;
+                AGENTIC: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
@@ -7733,6 +7857,379 @@ export class MessageReceipt {
 }
 
 /**
+    * @module NotificationFeedItem
+    *
+    * Represents a single notification feed item from the CometChat Campaigns service.
+    * Maps from the backend "Announcement" entity. The backend `subCategory` field
+    * is exposed as `category` to consumers.
+    *
+    * The `content` field contains fully rendered Card_Schema JSON — the SDK does NOT
+    * perform any template fetching or client-side rendering.
+    */
+export class NotificationFeedItem {
+        /**
+            * Creates an instance of NotificationFeedItem.
+            * @param {Record<string, any>} feedItemJson - Raw JSON from the server response
+            */
+        constructor(feedItemJson: Record<string, any>);
+        /**
+            * Get the unique ID of the feed item.
+            * @returns {string}
+            */
+        getId(): string;
+        /**
+            * Set the unique ID of the feed item.
+            * @param {string} id
+            */
+        setId(id: string): void;
+        /**
+            * Get the category of the feed item (e.g., "promotions", "updates").
+            * @returns {string}
+            */
+        getCategory(): string;
+        /**
+            * Set the category of the feed item.
+            * @param {string} category
+            */
+        setCategory(category: string): void;
+        /**
+            * Get the fully rendered Card_Schema JSON content.
+            * This is ready to be passed to CometChatCardsRenderer.
+            * @returns {Record<string, unknown>}
+            */
+        getContent(): Record<string, unknown>;
+        /**
+            * Set the content of the feed item.
+            * @param {Record<string, unknown>} content
+            */
+        setContent(content: Record<string, unknown>): void;
+        /**
+            * Get the Unix timestamp when the item was read, or null if unread.
+            * @returns {number | null}
+            */
+        getReadAt(): number | null;
+        /**
+            * Set the read timestamp.
+            * @param {number | null} readAt
+            */
+        setReadAt(readAt: number | null): void;
+        /**
+            * Get the Unix timestamp when the item was delivered, or null if not yet delivered.
+            * @returns {number | null}
+            */
+        getDeliveredAt(): number | null;
+        /**
+            * Set the delivered timestamp.
+            * @param {number | null} deliveredAt
+            */
+        setDeliveredAt(deliveredAt: number | null): void;
+        /**
+            * Get the Unix timestamp when the item was sent.
+            * @returns {number}
+            */
+        getSentAt(): number;
+        /**
+            * Set the sent timestamp.
+            * @param {number} sentAt
+            */
+        setSentAt(sentAt: number): void;
+        /**
+            * Get the custom metadata key-value pairs.
+            * @returns {Record<string, any>}
+            */
+        getMetadata(): Record<string, any>;
+        /**
+            * Set the custom metadata.
+            * @param {Record<string, any>} metadata
+            */
+        setMetadata(metadata: Record<string, any>): void;
+        /**
+            * Get the tags associated with this feed item.
+            * @returns {string[]}
+            */
+        getTags(): string[];
+        /**
+            * Set the tags for this feed item.
+            * @param {string[]} tags
+            */
+        setTags(tags: string[]): void;
+        /**
+            * Get the sender of the feed item (typically "server" for campaign items).
+            * @returns {string}
+            */
+        getSender(): string;
+        /**
+            * Set the sender.
+            * @param {string} sender
+            */
+        setSender(sender: string): void;
+        /**
+            * Get the receiver (target user ID).
+            * @returns {string}
+            */
+        getReceiver(): string;
+        /**
+            * Set the receiver.
+            * @param {string} receiver
+            */
+        setReceiver(receiver: string): void;
+        /**
+            * Get the receiver type ("user" in Phase 1).
+            * @returns {string}
+            */
+        getReceiverType(): string;
+        /**
+            * Set the receiver type.
+            * @param {string} receiverType
+            */
+        setReceiverType(receiverType: string): void;
+        /**
+            * Check if the feed item has been read.
+            * @returns {boolean}
+            */
+        getIsRead(): boolean;
+}
+
+/**
+    * @module NotificationCategory
+    *
+    * Represents a notification category used for filtering feed items.
+    * Categories are fetched via NotificationCategoriesRequestBuilder and
+    * displayed as filter chips in the UI Kit.
+    */
+export class NotificationCategory {
+        /**
+            * Creates an instance of NotificationCategory.
+            * @param {Record<string, any>} categoryJson - Raw JSON from the server response
+            */
+        constructor(categoryJson: Record<string, any>);
+        /**
+            * Get the unique identifier of the category.
+            * Used in NotificationFeedRequestBuilder.setCategory() filter.
+            * @returns {string}
+            */
+        getId(): string;
+        /**
+            * Set the category ID.
+            * @param {string} id
+            */
+        setId(id: string): void;
+        /**
+            * Get the display label for the category (used as filter chip text).
+            * @returns {string}
+            */
+        getLabel(): string;
+        /**
+            * Set the display label.
+            * @param {string} label
+            */
+        setLabel(label: string): void;
+}
+
+/**
+    * @module PushNotification
+    *
+    * Represents a push notification object from the CometChat Push Notification SDK.
+    * The Chat SDK's markPushNotificationDelivered and markPushNotificationClicked
+    * methods accept this object as-is from the push SDK's payload parsing.
+    *
+    * Note: This object is typically constructed by the CometChat Push Notification SDK
+    * from the APNs/FCM payload — not by the Chat SDK directly.
+    */
+export class PushNotification {
+        /**
+            * Creates an instance of PushNotification.
+            * @param {Record<string, any>} pushJson - Raw JSON from the push notification payload
+            */
+        constructor(pushJson: Record<string, any>);
+        /**
+            * Get the unique ID of the push notification (announcement ID from push payload).
+            * @returns {string}
+            */
+        getId(): string;
+        /**
+            * Set the push notification ID.
+            * @param {string} id
+            */
+        setId(id: string): void;
+        /**
+            * Get the announcement ID (same as id — for clarity).
+            * @returns {string}
+            */
+        getAnnouncementId(): string;
+        /**
+            * Set the announcement ID.
+            * @param {string} announcementId
+            */
+        setAnnouncementId(announcementId: string): void;
+        /**
+            * Get the campaign ID if this push was sent from a campaign, or null.
+            * @returns {string | null}
+            */
+        getCampaignId(): string | null;
+        /**
+            * Set the campaign ID.
+            * @param {string | null} campaignId
+            */
+        setCampaignId(campaignId: string | null): void;
+        /**
+            * Get the source of the push notification (always "campaign" for notification feed pushes).
+            * @returns {string}
+            */
+        getSource(): string;
+        /**
+            * Set the source.
+            * @param {string} source
+            */
+        setSource(source: string): void;
+}
+
+/**
+    * @module NotificationFeedRequest
+    *
+    * Provides NotificationFeedRequestBuilder for constructing paginated, filtered
+    * requests to fetch notification feed items from the campaigns-service.
+    *
+    * Follows the existing CometChat SDK builder pattern (cursor-based pagination, fluent API).
+    */
+export class NotificationFeedRequest {
+        constructor(builder: NotificationFeedRequestBuilder);
+        /**
+            * Fetches the next page of notification feed items.
+            * Manages cursor internally. When server returns no cursor,
+            * subsequent calls return an empty array without making a network request.
+            *
+            * @returns {Promise<NotificationFeedItem[]>}
+            */
+        fetchNext(): Promise<NotificationFeedItem[]>;
+}
+export class NotificationFeedRequestBuilder {
+        /**
+            * Set the number of feed items to fetch per page.
+            * @param {number} limit - Page size (default: 20, max: 100)
+            * @returns {NotificationFeedRequestBuilder}
+            */
+        setLimit(limit: number): NotificationFeedRequestBuilder;
+        /**
+            * Filter feed items by read state.
+            * @param {FeedReadState} state - "read", "unread", or "all"
+            * @returns {NotificationFeedRequestBuilder}
+            */
+        setReadState(state: FeedReadState): NotificationFeedRequestBuilder;
+        /**
+            * Filter feed items by category.
+            * @param {string} category - Category name to filter by
+            * @returns {NotificationFeedRequestBuilder}
+            */
+        setCategory(category: string): NotificationFeedRequestBuilder;
+        /**
+            * Filter feed items by channel ID.
+            * @param {string} channelId - Channel ID to filter by
+            * @returns {NotificationFeedRequestBuilder}
+            */
+        setChannelId(channelId: string): NotificationFeedRequestBuilder;
+        /**
+            * Filter feed items by tags.
+            * @param {string[]} tags - Array of tags to filter by
+            * @returns {NotificationFeedRequestBuilder}
+            */
+        setTags(tags: string[]): NotificationFeedRequestBuilder;
+        /**
+            * Filter feed items sent after this date.
+            * @param {string} date - ISO 8601 date string
+            * @returns {NotificationFeedRequestBuilder}
+            */
+        setDateFrom(date: string): NotificationFeedRequestBuilder;
+        /**
+            * Filter feed items sent before this date.
+            * @param {string} date - ISO 8601 date string
+            * @returns {NotificationFeedRequestBuilder}
+            */
+        setDateTo(date: string): NotificationFeedRequestBuilder;
+        /**
+            * Build the NotificationFeedRequest instance.
+            * Validates the configuration before returning.
+            * @returns {NotificationFeedRequest}
+            */
+        build(): NotificationFeedRequest;
+        /** @internal */
+        getLimit(): number;
+        /** @internal */
+        getReadState(): FeedReadState;
+        /** @internal */
+        getCategoryFilter(): string | null;
+        /** @internal */
+        getChannelId(): string | null;
+        /** @internal */
+        getTagsFilter(): string[] | null;
+        /** @internal */
+        getDateFrom(): string | null;
+        /** @internal */
+        getDateTo(): string | null;
+}
+
+/**
+    * @module NotificationCategoriesRequest
+    *
+    * Provides NotificationCategoriesRequestBuilder for fetching available notification
+    * categories from the campaigns-service. Used by the UI Kit to populate category
+    * filter chips.
+    *
+    * Follows the same cursor-based pagination pattern as NotificationFeedRequestBuilder.
+    */
+export class NotificationCategoriesRequest {
+        constructor(builder: NotificationCategoriesRequestBuilder);
+        /**
+            * Fetches the next page of notification categories.
+            * Manages cursor internally. When server returns no cursor,
+            * subsequent calls return an empty array without making a network request.
+            *
+            * @returns {Promise<NotificationCategory[]>}
+            */
+        fetchNext(): Promise<NotificationCategory[]>;
+}
+export class NotificationCategoriesRequestBuilder {
+        /**
+            * Set the number of categories to fetch per page.
+            * @param {number} limit - Page size (default: 50, max: 100)
+            * @returns {NotificationCategoriesRequestBuilder}
+            */
+        setLimit(limit: number): NotificationCategoriesRequestBuilder;
+        /**
+            * Build the NotificationCategoriesRequest instance.
+            * Validates the configuration before returning.
+            * @returns {NotificationCategoriesRequest}
+            */
+        build(): NotificationCategoriesRequest;
+        /** @internal */
+        getLimit(): number;
+}
+
+/**
+    * @module NotificationFeedListener
+    *
+    * Listener interface for real-time notification feed events received via WebSocket.
+    * Independent from MessageListener, GroupListener, and CallListener.
+    *
+    * Filters WebSocket messages where type === "notification_feed_item".
+    * Only body.action === "sent" triggers onFeedItemReceived in Phase 1.
+    */
+export class NotificationFeedListener {
+        /**
+            * Triggered when a new notification feed item is received in real-time.
+            * The feedItem.content is already fully rendered (Card_Schema JSON).
+            */
+        onFeedItemReceived?: (feedItem: NotificationFeedItem) => void;
+        constructor(...args: any[]);
+}
+/** @internal */
+export class NotificationFeedListenerWrapper {
+        _name: string;
+        _eventListener: NotificationFeedListener;
+        constructor(name: string, listener: NotificationFeedListener);
+}
+
+/**
     *
     * @module AIAssistantMessage
     */
@@ -8552,6 +9049,91 @@ export class RTCUser {
 }
 
 /**
+    * Campaign API path prefix. Appended after the apiVersion in the gateway URL.
+    * Example: /v3.0/ + campaigns/ + notification-feed
+    */
+export const CAMPAIGN_PATH_PREFIX = "campaigns";
+/** GET - Paginated list of notification feed items */
+export const NOTIFICATION_FEED_LIST = "campaigns/notification-feed";
+/** GET - Single feed item by ID */
+export const NOTIFICATION_FEED_ITEM = "campaigns/notification-feed/{{feedItemId}}";
+/** GET - Unread count (optional ?category= query param) */
+export const NOTIFICATION_FEED_UNREAD_COUNT = "campaigns/notification-feed/unread-count";
+/** POST - Mark a feed item as delivered */
+export const NOTIFICATION_FEED_MARK_DELIVERED = "campaigns/notification-feed/{{feedItemId}}/delivered";
+/** POST - Mark a feed item as read */
+export const NOTIFICATION_FEED_MARK_READ = "campaigns/notification-feed/{{feedItemId}}/read";
+/** POST - Report engagement event (body: { type: "viewed"|"clicked"|"interacted" }) */
+export const NOTIFICATION_FEED_ENGAGEMENT = "campaigns/notification-feed/{{feedItemId}}/engagement";
+/** PUT - Mark push notification as delivered */
+export const PUSH_NOTIFICATION_MARK_DELIVERED = "campaigns/push-notifications/{{pushNotificationId}}/delivered";
+/** PUT - Mark push notification as clicked */
+export const PUSH_NOTIFICATION_MARK_CLICKED = "campaigns/push-notifications/{{pushNotificationId}}/clicked";
+/** GET - List available notification categories (paginated) */
+export const NOTIFICATION_CATEGORIES_LIST = "campaigns/templates/categories";
+/** WebSocket message type for notification feed items */
+export const WS_TYPE_NOTIFICATION_FEED_ITEM = "notification_feed_item";
+/** WebSocket action: new feed item sent */
+export const WS_ACTION_SENT = "sent";
+/** WebSocket action: feed item delivered (future) */
+export const WS_ACTION_DELIVERED = "delivered";
+/** WebSocket action: feed item read (future) */
+export const WS_ACTION_READ = "read";
+/** WebSocket action: feed item deleted (future) */
+export const WS_ACTION_DELETED = "deleted";
+/** Valid read state filter values for NotificationFeedRequestBuilder */
+export type FeedReadState = "read" | "unread" | "all";
+/**
+    * Endpoint names used with makeApiCall(). These map to entries in EndpointFactory.
+    */
+export const CAMPAIGN_ENDPOINTS: {
+        readonly NOTIFICATION_FEED_LIST: "notificationFeedList";
+        readonly NOTIFICATION_FEED_ITEM: "notificationFeedItem";
+        readonly NOTIFICATION_FEED_UNREAD_COUNT: "notificationFeedUnreadCount";
+        readonly NOTIFICATION_FEED_MARK_DELIVERED: "notificationFeedMarkDelivered";
+        readonly NOTIFICATION_FEED_MARK_READ: "notificationFeedMarkRead";
+        readonly NOTIFICATION_FEED_ENGAGEMENT: "notificationFeedEngagement";
+        readonly PUSH_NOTIFICATION_MARK_DELIVERED: "pushNotificationMarkDelivered";
+        readonly PUSH_NOTIFICATION_MARK_CLICKED: "pushNotificationMarkClicked";
+        readonly NOTIFICATION_CATEGORIES_LIST: "notificationCategoriesList";
+};
+export const CAMPAIGN_DEFAULTS: {
+        /** Default page size for notification feed requests */
+        readonly NOTIFICATION_FEED_LIMIT: 20;
+        /** Maximum page size for notification feed requests */
+        readonly NOTIFICATION_FEED_MAX_LIMIT: 100;
+        /** Default page size for categories requests */
+        readonly CATEGORIES_LIMIT: 50;
+        /** Maximum page size for categories requests */
+        readonly CATEGORIES_MAX_LIMIT: 100;
+};
+export const CAMPAIGN_ERRORS: {
+        readonly FEED_ITEM_NOT_FOUND: "FEED_ITEM_NOT_FOUND";
+        readonly PUSH_NOTIFICATION_NOT_FOUND: "PUSH_NOTIFICATION_NOT_FOUND";
+        readonly VALIDATION_ERROR: "VALIDATION_ERROR";
+        readonly RATE_LIMITED: "RATE_LIMITED";
+        readonly UNAUTHORIZED: "UNAUTHORIZED";
+};
+export const CAMPAIGN_PAGINATION: {
+        readonly KEYS: {
+                readonly LIMIT: "limit";
+                readonly CURSOR: "cursor";
+                readonly READ_STATE: "readState";
+                readonly CATEGORY: "templateCategory";
+                readonly CHANNEL_ID: "channelId";
+                readonly TAGS: "tags";
+                readonly TAG_MATCH: "tagMatch";
+                readonly DATE_FROM: "dateFrom";
+                readonly DATE_TO: "dateTo";
+                readonly AFFIX: "affix";
+        };
+        readonly AFFIX: {
+                readonly APPEND: "append";
+                readonly PREPEND: "prepend";
+        };
+};
+
+/**
     * Base interface for all assistant event data
     * @internal
     */
@@ -8949,3 +9531,4 @@ export class AIAssistantToolResultEvent extends AIAssistantBaseEvent<AssistantTo
             */
         setRole(role: string): void;
 }
+
