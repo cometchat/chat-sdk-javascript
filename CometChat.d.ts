@@ -755,6 +755,7 @@ export class CometChat {
                 KEY_APP_ID: string;
                 KEY_DEVICE_ID: string;
                 KEY_SESSION_ID: string;
+                KEY_INTEGRATION_SOURCE: string;
                 KEY_MESSAGE_LISTENER_LIST: string;
         };
         static SDKHeader: {
@@ -1321,6 +1322,16 @@ export class CometChat {
             * @memberof CometChat
             */
         static init(appId: any, appSettings: AppSettings): Promise<boolean>;
+        /**
+            * Initialize CometChat from a cometchat-settings.json object.
+            * Used by AI agent skills for file-based integration.
+            * Persists integrationSource = "ai-agent" for telemetry attribution.
+            * @internal
+            * @param {CometChatSettings} settings - Parsed cometchat-settings.json object
+            * @returns {Promise<boolean>}
+            * @memberof CometChat
+            */
+        static initFromSettings(settings: CometChatSettings): Promise<boolean>;
         /**
             * Function to check whether CometChat class initialized before.
             * @returns {boolean}
@@ -2359,6 +2370,35 @@ export class CometChatNotifications {
 }
 
 /**
+  * Interface representing the shape of the `cometchat-settings.json` file.
+  * Used by the file-based init overload for skills-driven integrations.
+  *
+  * The Chat SDK reads `appId`, `region`, and `chatSDK` fields.
+  * The `credentials`, `callsSDK`, and `uiKit` fields are reserved for other layers.
+  *
+  * @internal
+  * @module CometChatSettings
+  */
+export interface CometChatSettings {
+    appId: string;
+    region: string;
+    credentials?: {
+        authKey?: string;
+    };
+    chatSDK?: {
+        presenceSubscription?: {
+            type?: string;
+            roles?: string[];
+        };
+        autoEstablishSocketConnection?: boolean;
+        adminHost?: string | null;
+        clientHost?: string | null;
+    };
+    callsSDK?: Record<string, unknown>;
+    uiKit?: Record<string, unknown>;
+}
+
+/**
   *
   * @module CometChatException
   * @implements {ErrorModel}
@@ -3161,7 +3201,12 @@ export const LOCAL_STORE: {
     KEY_APP_ID: string;
     KEY_DEVICE_ID: string;
     KEY_SESSION_ID: string;
+    KEY_INTEGRATION_SOURCE: string;
     KEY_MESSAGE_LISTENER_LIST: string;
+};
+export const INTEGRATION_SOURCE: {
+    AI_AGENT: string;
+    MANUAL: string;
 };
 export const ResponseConstants: {
     RESPONSE_KEYS: {
@@ -7433,6 +7478,10 @@ export class InteractiveMessage extends BaseMessage implements Message {
                 GROUP: string;
         };
         /** @private */ static readonly CATEGORY: {
+                /**
+                    * Method to set interaction goal of interactive message.
+                    * @param {InteractionGoal} interactionGoal
+                 */
                 MESSAGE: string;
                 ACTION: string;
                 CALL: string;
@@ -7440,12 +7489,7 @@ export class InteractiveMessage extends BaseMessage implements Message {
                 INTERACTIVE: string;
                 AGENTIC: string;
         };
-        private interactiveData;
-        private interactionGoal;
         protected data?: Object;
-        private interactions?;
-        private tags?;
-        private allowSenderInteraction?;
         constructor(...args: any[]);
         /**
             * Method to get sender of the message.
