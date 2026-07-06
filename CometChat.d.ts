@@ -23,6 +23,9 @@ export class CometChat {
         static AIAssistantToolEndedEvent: typeof AIAssistantToolEndedEvent;
         static AIAssistantToolArgumentEvent: typeof AIAssistantToolArgumentEvent;
         static AIAssistantToolResultEvent: typeof AIAssistantToolResultEvent;
+        static AIAssistantCardStartedEvent: typeof AIAssistantCardStartedEvent;
+        static AIAssistantCardReceivedEvent: typeof AIAssistantCardReceivedEvent;
+        static AIAssistantCardEndedEvent: typeof AIAssistantCardEndedEvent;
         static AI_ASSISTANT_EVENTS: {
                 RUN_STARTED: string;
                 RUN_FINISHED: string;
@@ -33,6 +36,9 @@ export class CometChat {
                 TOOL_CALL_ENDED: string;
                 TOOL_CALL_RESULT: string;
                 TOOL_CALL_ARGUMENT: string;
+                CARD_START: string;
+                CARD: string;
+                CARD_END: string;
         };
         static GroupType: typeof GroupType;
         static GroupMemberScope: typeof GroupMemberScope;
@@ -338,6 +344,7 @@ export class CometChat {
                         CUSTOM: string;
                         INTERACTIVE: string;
                         AGENTIC: string;
+                        CARD: string;
                 };
                 RECEIVER_TYPE: {
                         USER: string;
@@ -383,6 +390,9 @@ export class CometChat {
                         TOOL_CALL_ID: string;
                         DISPLAY_NAME: string;
                         EXECUTION_TEXT: string;
+                        CARD: string;
+                        CARD_ID: string;
+                        ELEMENTS: string;
                 };
                 KNOWN_MEDIA_TYPE: {
                         IMAGE: any[];
@@ -459,6 +469,11 @@ export class CometChat {
                         WEBRTC_HTTPS_BIND_PORT: string;
                         EXTENSION_LIST: string;
                         EXTENSION_KEYS: {
+                                /**
+                                    * This method removes data from the session storage.
+                                    * @internal
+                                    * @memberof CometChat
+                                 */
                                 ID: string;
                                 NAME: string;
                         };
@@ -540,6 +555,11 @@ export class CometChat {
                 };
         };
         static PresenceConstants: {
+                /**
+                    * This method checks if Analytics Ping has started.
+                    * @internal
+                    * @returns {boolean}
+                    */
                 STATUS: {
                         ONLINE: string;
                         AVAILABLE: string;
@@ -629,7 +649,7 @@ export class CometChat {
                         code: string;
                         name: string;
                         message: string;
-                        details: {};
+                        /** @internal */ details: {};
                 };
                 MUST_BE_A_POSITIVE_NUMBER: {
                         code: string;
@@ -804,7 +824,11 @@ export class CometChat {
                         details: {};
                 };
                 FEATURE_NOT_FOUND: {
-                        code: string;
+                        code: string; /**
+                            * This method triggers before a page unloads.
+                            * @internal
+                            * @memberof CometChat
+                         */
                         name: string;
                         message: string;
                         details: {};
@@ -1037,6 +1061,8 @@ export class CometChat {
         static InteractionReceipt: typeof InteractionReceipt;
         static MessageReceipt: typeof MessageReceipt;
         static AIAssistantMessage: typeof AIAssistantMessage;
+        static AIAssistantElement: typeof AIAssistantElement;
+        static CardMessage: typeof CardMessage;
         static AIToolCall: typeof AIToolCall;
         static AIToolCallFunction: typeof AIToolCallFunction;
         static AIAssistantMessageData: typeof AIAssistantMessageData;
@@ -2600,6 +2626,7 @@ export class MediaMessage extends BaseMessage implements Message {
                 CUSTOM: string;
                 INTERACTIVE: string;
                 AGENTIC: string;
+                CARD: string;
         };
         private url;
         private file;
@@ -3295,6 +3322,7 @@ export const MessageConstatnts: {
         CUSTOM: string;
         INTERACTIVE: string;
         AGENTIC: string;
+        CARD: string;
     };
     RECEIVER_TYPE: {
         USER: string;
@@ -3340,6 +3368,9 @@ export const MessageConstatnts: {
         TOOL_CALL_ID: string;
         DISPLAY_NAME: string;
         EXECUTION_TEXT: string;
+        CARD: string;
+        CARD_ID: string;
+        ELEMENTS: string;
     };
     KNOWN_MEDIA_TYPE: {
         IMAGE: any[];
@@ -3410,7 +3441,8 @@ export enum MessageCategory {
     CALL = "call",
     CUSTOM = "custom",
     INTERACTIVE = "interactive",
-    AGENTIC = "agentic"
+    AGENTIC = "agentic",
+    CARD = "card"
 }
 export enum GoalType {
     ANY_ACTION = "anyAction",
@@ -4211,6 +4243,9 @@ export const AI_ASSISTANT_EVENTS: {
     TOOL_CALL_ENDED: string;
     TOOL_CALL_RESULT: string;
     TOOL_CALL_ARGUMENT: string;
+    CARD_START: string;
+    CARD: string;
+    CARD_END: string;
 };
 export interface FlagReason {
     id: string;
@@ -4499,6 +4534,10 @@ export class MessageListener {
             * This event is triggered when an AI assistant message is received.
             */
         onAIAssistantMessageReceived?: Function;
+        /**
+            * This event is triggered when a card message is received.
+            */
+        onCardMessageReceived?: Function;
         constructor(...args: any[]);
 }
 export class CallListener {
@@ -4759,6 +4798,7 @@ export class Call extends BaseMessage implements Message {
                 CUSTOM: string;
                 INTERACTIVE: string;
                 AGENTIC: string;
+                CARD: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
@@ -5056,6 +5096,7 @@ export class Action extends BaseMessage implements Message {
                 CUSTOM: string;
                 INTERACTIVE: string;
                 AGENTIC: string;
+                CARD: string;
         };
         static readonly ACTION_TYPE: {
                 TYPE_MEMBER_JOINED: string;
@@ -7488,6 +7529,7 @@ export class InteractiveMessage extends BaseMessage implements Message {
                 CUSTOM: string;
                 INTERACTIVE: string;
                 AGENTIC: string;
+                CARD: string;
         };
         protected data?: Object;
         constructor(...args: any[]);
@@ -8328,6 +8370,19 @@ export class AIAssistantMessage extends BaseMessage implements Message {
             * Set the tags for the message.
             */
         setTags(tags: Array<String>): void;
+        /**
+            * Method to get the ordered list of content blocks (`data.elements`).
+            * Returns an empty array when the field is absent (e.g. older messages),
+            * in which case the renderer should fall back to getText().
+            * @returns {Array<AIAssistantElement>}
+            */
+        getElements(): Array<AIAssistantElement>;
+        /**
+            * Method to set the ordered list of content blocks. Called by the factory
+            * to populate the field from `data.elements`.
+            * @param {Array<AIAssistantElement>} elements
+            */
+        setElements(elements: Array<AIAssistantElement>): void;
 }
 
 /**
@@ -8590,6 +8645,97 @@ export class AIToolArgumentMessage extends BaseMessage implements Message {
             * Set the tags for the message.
             */
         setTags(tags: Array<String>): void;
+}
+
+/**
+    *
+    * @module CardMessage
+    */
+export class CardMessage extends BaseMessage implements Message {
+        protected data?: any;
+        constructor(receiverId: string, receiverType: string);
+        /**
+            * Method to get the raw card JSON object.
+            * @returns {Object | undefined}
+            */
+        getCard(): Object | undefined;
+        /**
+            * Method to get the text content of the card message.
+            * @returns {string}
+            */
+        getText(): string;
+        /**
+            * Method to get the fallback text from the card object.
+            * @returns {string}
+            */
+        getFallbackText(): string;
+        /**
+            * Method to get sender of the message.
+            * @returns {User}
+            */
+        getSender(): User;
+        /**
+            * Method to get receiver of the message.
+            * @returns {User | Group}
+            */
+        getReceiver(): User | Group;
+        /**
+            * Method to get data of the message.
+            * @returns {any}
+            */
+        getData(): any;
+        /**
+            * Get the tags of the message.
+            * @returns {Array<String>}
+            */
+        getTags(): Array<String>;
+        /**
+            * @param {Array<String>} tags
+            * Set the tags for the message.
+            */
+        setTags(tags: Array<String>): void;
+}
+
+/**
+    * A single ordered content block from an AIAssistantMessage's `data.elements`
+    * array. Each entry is a `{ type, value }` envelope; the SDK never parses the
+    * value — the caller branches on getType() to interpret what getData() returns.
+    *
+    *  - type "text"  → getData() is the block's text string
+    *  - type "card"  → getData() is `{ card, cardId }`
+    *  - other types  → getData() is that type's raw JSON value
+    */
+export class AIAssistantElement {
+        constructor(type: string, data: any);
+        /**
+            * Method to get the element's type string ("text" | "card" | "graph" | ...).
+            * @returns {string}
+            */
+        getType(): string;
+        /**
+            * Method to set the element's type string.
+            * @param {string} type
+            */
+        setType(type: string): void;
+        /**
+            * Method to get the element's body data (the entry's `value`), returned raw
+            * and typed by getType(). The SDK never interprets the body.
+            * @returns {any}
+            */
+        getData(): any;
+        /**
+            * Method to set the element's body data.
+            * @param {any} data
+            */
+        setData(data: any): void;
+        /**
+            * Build an ordered list of AIAssistantElement from a raw `data.elements`
+            * array. Returns an empty array when the field is absent (e.g. older
+            * messages). The `value` of each entry is preserved raw.
+            * @param {any[]} elements
+            * @returns {AIAssistantElement[]}
+            */
+        static fromArray(elements: any[]): AIAssistantElement[];
 }
 
 /** Push Notification Preferences Enums */
@@ -9574,5 +9720,89 @@ export class AIAssistantToolResultEvent extends AIAssistantBaseEvent<AssistantTo
             * @param {string} role - The role to set
             */
         setRole(role: string): void;
+}
+
+/**
+    * Data interface for card started events
+    */
+export interface AssistantCardStartedEventData extends AssistantBaseEventData {
+        streamMessageId?: string;
+        cardId?: string;
+        executionText?: string;
+}
+/**
+    * Event fired when AI assistant card generation starts
+    */
+export class AIAssistantCardStartedEvent extends AIAssistantBaseEvent<AssistantCardStartedEventData> {
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantCardStartedEventData);
+        /**
+            * Get the stream message ID for the card event.
+            * @returns {string}
+            */
+        getStreamMessageId(): string;
+        /**
+            * Get the card ID for the card event.
+            * @returns {string}
+            */
+        getCardId(): string;
+        /**
+            * Get the execution text shown while the card is being generated.
+            * @returns {string}
+            */
+        getExecutionText(): string;
+}
+
+/**
+    * Data interface for card received events
+    */
+export interface AssistantCardReceivedEventData extends AssistantBaseEventData {
+        streamMessageId?: string;
+        cardId?: string;
+        card?: any;
+}
+/**
+    * Event fired when AI assistant card payload is delivered
+    */
+export class AIAssistantCardReceivedEvent extends AIAssistantBaseEvent<AssistantCardReceivedEventData> {
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantCardReceivedEventData);
+        /**
+            * Get the stream message ID for the card event.
+            * @returns {string}
+            */
+        getStreamMessageId(): string;
+        /**
+            * Get the card ID for the card event.
+            * @returns {string}
+            */
+        getCardId(): string;
+        /**
+            * Get the raw card object from the event data.
+            * @returns {any} The card object or undefined
+            */
+        getCard(): any;
+}
+
+/**
+    * Data interface for card ended events
+    */
+export interface AssistantCardEndedEventData extends AssistantBaseEventData {
+        streamMessageId?: string;
+        cardId?: string;
+}
+/**
+    * Event fired when AI assistant card generation finishes
+    */
+export class AIAssistantCardEndedEvent extends AIAssistantBaseEvent<AssistantCardEndedEventData> {
+        constructor(conversationId: string, messageId: string, parentMessageId: string, data: AssistantCardEndedEventData);
+        /**
+            * Get the stream message ID for the card event.
+            * @returns {string}
+            */
+        getStreamMessageId(): string;
+        /**
+            * Get the card ID for the card event.
+            * @returns {string}
+            */
+        getCardId(): string;
 }
 
