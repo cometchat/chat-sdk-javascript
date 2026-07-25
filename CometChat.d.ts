@@ -469,11 +469,6 @@ export class CometChat {
                         WEBRTC_HTTPS_BIND_PORT: string;
                         EXTENSION_LIST: string;
                         EXTENSION_KEYS: {
-                                /**
-                                    * This method removes data from the session storage.
-                                    * @internal
-                                    * @memberof CometChat
-                                 */
                                 ID: string;
                                 NAME: string;
                         };
@@ -510,6 +505,8 @@ export class CometChat {
                         CORE_CONVERSATIONS_UPDATE_ON_CUSTOM_MESSAGES: string;
                         CORE_CONVERSATIONS_UPDATE_ON_REPLIES: string;
                         FLAG_REASONS: string;
+                        FILE_SIZE_MAX: string;
+                        FILE_COUNT_MAX: string;
                 };
         };
         static GroupConstants: {
@@ -555,11 +552,6 @@ export class CometChat {
                 };
         };
         static PresenceConstants: {
-                /**
-                    * This method checks if Analytics Ping has started.
-                    * @internal
-                    * @returns {boolean}
-                    */
                 STATUS: {
                         ONLINE: string;
                         AVAILABLE: string;
@@ -649,7 +641,7 @@ export class CometChat {
                         code: string;
                         name: string;
                         message: string;
-                        /** @internal */ details: {};
+                        details: {};
                 };
                 MUST_BE_A_POSITIVE_NUMBER: {
                         code: string;
@@ -824,11 +816,7 @@ export class CometChat {
                         details: {};
                 };
                 FEATURE_NOT_FOUND: {
-                        code: string; /**
-                            * This method triggers before a page unloads.
-                            * @internal
-                            * @memberof CometChat
-                         */
+                        code: string;
                         name: string;
                         message: string;
                         details: {};
@@ -1161,6 +1149,9 @@ export class CometChat {
         static CallListener: typeof CallListener;
         static ConnectionListener: typeof ConnectionListener;
         static LoginListener: typeof LoginListener;
+        static UploadFileListener: typeof UploadFileListener;
+        static UploadFileRequest: typeof UploadFileRequest;
+        static UploadStatus: typeof UploadStatus;
         static AIAssistantListener: typeof AIAssistantListener;
         static CallController: typeof CallController;
         static CometChatHelper: typeof CometChatHelper;
@@ -1422,6 +1413,46 @@ export class CometChat {
             * @memberof CometChat
          */
         static sendMediaMessage(message: Object): Promise<TextMessage | BaseMessage | MediaMessage | CustomMessage>;
+        /**
+            * Creates an {@link UploadFileRequest} scoped to one destination and one upload batch. This is
+            * the entry point for the multi-attachment upload flow: configure the request
+            * (`setParentMessageId`/`setBatchId`/`setConcurrency`), upload files through it
+            * (`uploadAttachment`/`uploadAttachments`), read the batch (`getAttachments`/`getStatus`/…),
+            * then build a `MediaMessage` from its attachments and call {@link CometChat.sendMediaMessage}.
+            *
+            * @param {string} receiverId Intended recipient id (uid or guid). Sent in the presign call for role-based access control.
+            * @param {string} receiverType Recipient type (`user` or `group`). Sent in the presign call for role-based access control.
+            * @returns {UploadFileRequest} A request object scoped to this destination + one batch.
+            * @memberof CometChat
+            *
+            * @example
+            * // 1) Upload files through the request.
+            * const request = CometChat.createUploadFileRequest(receiverId, receiverType);
+            * request.uploadAttachments(files.map(f => ({ fileId: f.id, file: f })), new CometChat.UploadFileListener({
+            *   onFileUploaded: (fileId, attachment) => { ... },
+            *   onComplete: (result) => { ... },  // fires when the batch settles
+            * }));
+            *
+            * // 2) When ready, build the MediaMessage and send it.
+            * // IMPORTANT: pass `null` as the file argument and attach the uploaded attachments with
+            * // setAttachments(). Do NOT pass request.getAttachments() as the constructor's file argument —
+            * // that sets the raw-file field and the message silently falls back to the legacy upload path.
+            * const message = new CometChat.MediaMessage(receiverId, null, CometChat.MESSAGE_TYPE.IMAGE, receiverType);
+            * message.setAttachments(request.getAttachments());   // pre-uploaded attachments
+            * message.setCaption("Optional caption");
+            * CometChat.sendMediaMessage(message).then(sent => { ... });
+            * request.clearAll();   // release the batch after sending
+            */
+        static createUploadFileRequest(receiverId: string, receiverType: string): UploadFileRequest;
+        /**
+            * Returns the maximum number of attachments allowed per message, as configured
+            * in app settings (`file.count.max`). Falls back to `UPLOAD_CONSTANTS.DEFAULT_FILE_COUNT_MAX`
+            * if the setting is not available.
+            *
+            * @returns {Promise<number>}
+            * @memberof CometChat
+            */
+        static getMaxAttachmentCount(): Promise<number>;
         /**
             *
             * Function to send a custom message.
@@ -2422,6 +2453,286 @@ export interface CometChatSettings {
     };
     callsSDK?: Record<string, unknown>;
     uiKit?: Record<string, unknown>;
+}
+
+/**
+    *
+    * @module UploadFileListener
+    */
+/**
+    * Callback bundle for an upload batch. Passed per call to
+    * {@link UploadFileRequest.uploadAttachment}/{@link UploadFileRequest.uploadAttachments}, and also
+    * registered as the batch-wide global listener via {@link UploadFileRequest.addUploadListener}.
+    * Every callback is optional; override only the ones you need. Unlike `MessageListener`/
+    * `CallListener`, this is not registered globally with a string id — it lives for the duration of
+    * the upload batch.
+    *
+    * @example
+    * const request = CometChat.createUploadFileRequest(receiverId, receiverType);
+    * // Each item pairs a file with a required, caller-supplied fileId (echoed back on every event).
+    * request.uploadAttachments(files.map(f => ({ fileId: f.id, file: f })), new CometChat.UploadFileListener({
+    *   onFileProgress: (fileId, loaded, total, percent) => {},
+    *   onFileUploaded: (fileId, attachment) => {},
+    *   onFileError: (fileId, error) => {},
+    *   onFileFailure: (fileId, error) => {},
+    *   onComplete: (result) => {}
+    * }));
+    */
+export class UploadFileListener {
+        /** Per-file upload progress. */
+        onFileProgress?: (fileId: string, loaded: number, total: number, percent: number) => void;
+        /** Per-file success. */
+        onFileUploaded?: (fileId: string, attachment: Attachment) => void;
+        /** Per-file rejected — not retryable (fix input / permission). */
+        onFileError?: (fileId: string, error: CometChatException) => void;
+        /** Per-file transfer failure — retryable via `retryAttachment`. */
+        onFileFailure?: (fileId: string, error: CometChatException) => void;
+        /** Fires once each time the batch drains (no files in-flight). */
+        onComplete?: (result: UploadResult) => void;
+        constructor(callbacks?: {
+                onFileProgress?: (fileId: string, loaded: number, total: number, percent: number) => void;
+                onFileUploaded?: (fileId: string, attachment: Attachment) => void;
+                onFileError?: (fileId: string, error: CometChatException) => void;
+                onFileFailure?: (fileId: string, error: CometChatException) => void;
+                onComplete?: (result: UploadResult) => void;
+        });
+}
+
+/**
+    *
+    * @module UploadFileRequest
+    */
+/**
+    * A request object scoped to one destination (`receiverId`/`receiverType`) and one upload **batch**.
+    * The request owns the batch id (auto-generated as a UUID unless the app sets one) and forwards all
+    * operations to the {@link UploadManager}. Obtain one via {@link CometChat.createUploadFileRequest}.
+    *
+    * Upload is decoupled from sending: upload files through the request, then build a `MediaMessage`
+    * with the request's attachments (`getAttachments()` / `getAttachmentsByType()`) and call
+    * {@link CometChat.sendMediaMessage}.
+    */
+export class UploadFileRequest {
+        /**
+            * @param {string} receiverId Recipient id (uid/guid). Sent in the presign call for RBAC/SBAC.
+            * @param {string} receiverType Recipient type (`user`/`group`). Sent in the presign call.
+            */
+        constructor(receiverId: string, receiverType: string);
+        /**
+            * Mark this batch as belonging to a thread. The id is sent with `receiverId`/`receiverType` in
+            * the presign call. Omit for a top-level (non-thread) message.
+            * @param {string | number} messageId
+            * @returns {UploadFileRequest}
+            */
+        setParentMessageId(messageId: string | number): UploadFileRequest;
+        /**
+            * Set the batch id all files in this request share. If never called, the SDK keeps the
+            * auto-generated UUID. Has no effect once files have been uploaded through the request.
+            * @param {string} batchId
+            * @returns {UploadFileRequest}
+            */
+        setBatchId(batchId: string): UploadFileRequest;
+        /**
+            * @returns {string} The effective batch id (app-set or auto-generated UUID).
+            */
+        getBatchId(): string;
+        /**
+            * Set how many files upload concurrently for this batch. Default 1 (sequential). Applies from
+            * the next drain onward.
+            * @param {number} count
+            * @returns {UploadFileRequest}
+            */
+        setConcurrency(count: number): UploadFileRequest;
+        /**
+            * Upload multiple files into this batch. Each entry pairs the file with a **required**
+            * caller-supplied `fileId` (echoed back on every event). A `fileId` already present in the batch
+            * is skipped (deduped).
+            * @param {UploadItem[]} files `{ fileId, file }[]`
+            * @param {UploadFileListener} [listener] Per-call events for these files.
+            */
+        uploadAttachments(files: UploadItem[], listener?: UploadFileListener): void;
+        /**
+            * Upload a single file into this batch under a **required** caller-supplied `fileId`.
+            * @param {string} fileId Caller-supplied id (required; echoed back on every event).
+            * @param {UploadFileInput} file Platform-native file (`File`/`Blob`).
+            * @param {UploadFileListener} [listener] Per-call events for this file.
+            */
+        uploadAttachment(fileId: string, file: UploadFileInput, listener?: UploadFileListener): void;
+        /**
+            * @param {string} fileId
+            * @returns {Attachment | null} The uploaded attachment for `fileId`, or null if unknown / not yet uploaded.
+            */
+        getAttachment(fileId: string): Attachment | null;
+        /**
+            * @returns {Attachment[]} All uploaded attachments in the batch.
+            */
+        getAttachments(): Attachment[];
+        /**
+            * @param {string} type One of `image`/`video`/`audio`/`file`.
+            * @returns {Attachment[]} Uploaded attachments of that kind — always an array (empty when none).
+            */
+        getAttachmentsByType(type: string): Attachment[];
+        /**
+            * @returns {number} Total files in the batch, any state (in-progress/failed/succeeded).
+            */
+        getAttachmentCount(): number;
+        /**
+            * @returns {UploadStatus} `IN_PROGRESS` while any upload is running, else `IDLE`.
+            */
+        getStatus(): UploadStatus;
+        /**
+            * Add a batch-wide global listener that fires for every file across all upload calls on this
+            * request. A later call overrides the previous global listener (single slot).
+            * @param {UploadFileListener} listener
+            */
+        addUploadListener(listener: UploadFileListener): void;
+        /**
+            * Remove the batch-wide global listener.
+            */
+        removeUploadListener(): void;
+        /**
+            * Re-upload one FAILED file (`onFileFailure`) using its retained bytes, re-presigning if the
+            * prior presign expired. No-op for rejected/uploaded files.
+            * @param {string} fileId
+            */
+        retryAttachment(fileId: string): void;
+        /**
+            * Remove one file from the batch. Aborts its in-flight upload (silently) if still uploading, or
+            * drops it from the set if already uploaded.
+            * @param {string} fileId
+            */
+        removeAttachment(fileId: string): void;
+        /**
+            * Clear all files and release this batch from SDK memory, aborting any in-flight uploads. Call
+            * after a successful send, or to abandon a composer.
+            */
+        clearAll(): void;
+}
+
+/**
+    *
+    * @module UploadTypes
+    */
+/**
+    * Per-file upload lifecycle status (internal).
+    * @private
+    */
+export enum UploadFileStatus {
+        QUEUED = "queued",
+        REQUESTING_URL = "requesting_url",
+        UPLOADING = "uploading",
+        UPLOADED = "uploaded",
+        FAILED = "failed",
+        REJECTED = "rejected",
+        CANCELLED = "cancelled"
+}
+/**
+    * Public batch-level status returned by {@link UploadFileRequest.getStatus}.
+    * `IN_PROGRESS` while any file is still non-terminal; `IDLE` when nothing is in flight — i.e. the
+    * batch is empty or every file has settled.
+    */
+export enum UploadStatus {
+        IN_PROGRESS = "in_progress",
+        IDLE = "idle"
+}
+/**
+    * Platform-native file input accepted by the upload pipeline. The pipeline needs a numeric
+    * `size`, so inputs must be web `File`/`Blob` objects.
+    */
+export type UploadFileInput = File | Blob;
+/**
+    * A single file to upload. `fileId` is **caller-supplied and required** — the SDK does not generate
+    * one; it is echoed back unchanged on every per-file event and used to dedupe within the batch.
+    */
+export interface UploadItem {
+        file: UploadFileInput;
+        fileId: string;
+}
+/**
+    * Options accepted internally by the upload manager, supplied by {@link UploadFileRequest}.
+    * @private
+    */
+export interface UploadOptions {
+        /** Number of simultaneous uploads. Defaults to 1 (sequential). */
+        concurrency?: number;
+        /** The batch id all files share (request-owned; auto-generated when the app omits one). */
+        batchId?: string;
+        /** Recipient id, forwarded to the presign endpoint. */
+        receiverId?: string;
+        /** Recipient type (`user`/`group`), forwarded to the presign endpoint. */
+        receiverType?: string;
+        /** Thread parent message id, forwarded to the presign endpoint for thread batches. */
+        parentMessageId?: string | number;
+}
+/**
+    * Recipient context forwarded to the presign endpoint so it can apply role-based access control.
+    * @private
+    */
+export interface PresignContext {
+        receiverId?: string;
+        receiverType?: string;
+        parentMessageId?: string | number;
+}
+/** A successfully uploaded file entry in {@link UploadResult}. */
+export interface UploadResultSuccessItem {
+        fileId: string;
+        attachment: Attachment;
+}
+/** A non-successful file entry in {@link UploadResult}. */
+export interface UploadResultErrorItem {
+        fileId: string;
+        error: CometChatException;
+}
+/**
+    * Aggregate result for an upload group, delivered through `onComplete`.
+    * Reflects the whole group's current settled state.
+    */
+export interface UploadResult {
+        batchId: string;
+        successful: UploadResultSuccessItem[];
+        /** Files reported via `onFileError` — not retryable. */
+        rejected: UploadResultErrorItem[];
+        /** Files reported via `onFileFailure` — retryable. */
+        failed: UploadResultErrorItem[];
+}
+/**
+    * Pre-signed upload form for a single file, returned by the presign endpoint.
+    */
+export interface PresignForm {
+        request: {
+                url: string;
+                method: string;
+                body: {
+                        [key: string]: any;
+                };
+        };
+        attachment: {
+                [key: string]: any;
+        };
+        expiresAt?: number;
+}
+/**
+    * Internal per-file state tracked by the upload manager.
+    * @private
+    */
+export interface UploadFileState {
+        fileId: string;
+        file: any;
+        name: string;
+        size: number;
+        mimeType: string;
+        status: UploadFileStatus;
+        attachment?: Attachment;
+        error?: CometChatException;
+        presign?: PresignForm;
+        presignedAt?: number;
+        lastPercent?: number;
+        request?: {
+                abort: () => void;
+        } | null;
+        stallTimer?: any;
+        settled?: boolean;
+        /** Per-call listener supplied for the upload call that added this file (may be undefined). */
+        listener?: any;
 }
 
 /**
@@ -4136,7 +4447,17 @@ export const APP_SETTINGS: {
         CORE_CONVERSATIONS_UPDATE_ON_CUSTOM_MESSAGES: string;
         CORE_CONVERSATIONS_UPDATE_ON_REPLIES: string;
         FLAG_REASONS: string;
+        FILE_SIZE_MAX: string;
+        FILE_COUNT_MAX: string;
     };
+};
+export const UPLOAD_CONSTANTS: {
+    DEFAULT_FILE_SIZE_MAX: number;
+    DEFAULT_FILE_COUNT_MAX: number;
+    DEFAULT_CONCURRENCY: number;
+    STALL_TIMEOUT_MS: number;
+    PROGRESS_THROTTLE_PERCENT: number;
+    PRESIGN_TTL_MS: number;
 };
 export const COMMON_UTILITY_CONSTANTS: {
     TYPE_CONSTANTS: {
