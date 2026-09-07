@@ -1135,6 +1135,22 @@ export class CometChat {
         static NotificationCategoriesRequest: typeof NotificationCategoriesRequest;
         static NotificationCategoriesRequestBuilder: typeof NotificationCategoriesRequestBuilder;
         static NotificationFeedListener: typeof NotificationFeedListener;
+        static MessageThread: typeof MessageThread;
+        static ThreadsRequest: typeof ThreadsRequest;
+        static ThreadsRequestBuilder: typeof ThreadsRequestBuilder;
+        static PIN_SAVE_ERROR_CODES: {
+                ACTION_NOT_ALLOWED: string;
+        };
+        static PIN_SAVE_DEFAULTS: {
+                LIMIT: number;
+                MIN_LIMIT: number;
+                MAX_LIMIT: number;
+        };
+        static PINNED_BY: {
+                SYSTEM: string;
+                ME: string;
+        };
+        static ConversationListener: typeof ConversationListener;
         static CallSettings: typeof CallSettings;
         static CallSettingsBuilder: typeof CallSettingsBuilder;
         static MainVideoContainerSetting: typeof MainVideoContainerSetting;
@@ -1397,7 +1413,7 @@ export class CometChat {
             * @returns
             * @memberof CometChat
             */
-        static sendDirectMessage(message: Object): Promise<TextMessage | BaseMessage | MediaMessage | CustomMessage>;
+        static sendDirectMessage(message: Object): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
         /**
             * Function to send a message to group.
             * @internal
@@ -1405,14 +1421,14 @@ export class CometChat {
             * @returns
             * @memberof CometChat
             */
-        static sendGroupMessage(message: any): Promise<TextMessage | BaseMessage | MediaMessage | CustomMessage>;
+        static sendGroupMessage(message: any): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
         /**
             * Function to send a media message.
             * @param {MediaMessage} message
             * @returns {Message | any}
             * @memberof CometChat
          */
-        static sendMediaMessage(message: Object): Promise<TextMessage | BaseMessage | MediaMessage | CustomMessage>;
+        static sendMediaMessage(message: Object): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
         /**
             * Creates an {@link UploadFileRequest} scoped to one destination and one upload batch. This is
             * the entry point for the multi-attachment upload flow: configure the request
@@ -1460,7 +1476,7 @@ export class CometChat {
             * @returns {Message | any}
             * @memberof CometChat
          */
-        static sendCustomMessage(message: CustomMessage): Promise<TextMessage | BaseMessage | MediaMessage | CustomMessage>;
+        static sendCustomMessage(message: CustomMessage): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
         /**
             *
             * Function to send a interactive message.
@@ -1468,7 +1484,7 @@ export class CometChat {
             * @returns {Message | any}
             * @memberof CometChat
          */
-        static sendInteractiveMessage(message: InteractiveMessage): Promise<TextMessage | BaseMessage | MediaMessage | CustomMessage>;
+        static sendInteractiveMessage(message: InteractiveMessage): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
         /**
             *
             * Function to get the last delivered message id from local storage.
@@ -2304,12 +2320,201 @@ export class CometChat {
             * @param {string} listenerId - The listener ID to remove
             */
         static removeNotificationFeedListener(listenerId: string): void;
+        /**
+            * Subscribe to (follow) a message thread, identified by its parent/root message id.
+            * Allowed even on a message with zero replies (A9 — no reply-count guard). The POST
+            * carries no body and is idempotent: a duplicate subscribe still returns 200.
+            *
+            * The SDK keeps NO subscription state: the resolved promise IS the acknowledgement,
+            * and the consumer owns the resulting UI state. The server-side truth reappears on
+            * the next message fetch as `BaseMessage.isThreadSubscribed()`.
+            *
+            * @param {number} parentMessageId - The root message id of the thread to follow.
+            * @returns {Promise<string>} the server ack message (`{data:{success,message}}`, A9).
+            * @memberof CometChat
+            */
+        static subscribeToThread(parentMessageId: number): Promise<string>;
+        /**
+            * Unsubscribe from (unfollow) a message thread. Idempotent — a DELETE on a
+            * non-subscribed thread still returns 200 (A9). Server-side this hard-deletes the
+            * subscription row (A1), so a consumer showing a thread list must ALSO remove that
+            * row from its own list (documented in the guide; the SDK ships no list).
+            *
+            * The SDK keeps NO subscription state: the resolved promise IS the acknowledgement,
+            * and the consumer owns the resulting UI state.
+            *
+            * @param {number} parentMessageId - The root message id of the thread to unfollow.
+            * @returns {Promise<string>} the server ack message.
+            * @memberof CometChat
+            */
+        static unsubscribeFromThread(parentMessageId: number): Promise<string>;
+        /**
+            * Pin a message to its conversation. The pin is conversation-wide and visible to
+            * everyone; only an Admin/Moderator (group owner included) may pin, and the server
+            * is the authority — a member's call is rejected with `ERR_ACTION_NOT_ALLOWED`.
+            *
+            * A conversation holds a capped number of pins; read it from app settings via
+            * `CometChat.getPinnedMessagesLimit()` rather than hard-coding a number. Pinning is
+            * idempotent, and a message has a single pinner: re-pinning updates
+            * `pinnedBy`/`pinnedAt` to the most recent one.
+            *
+            * @param {string | number} messageId - the message to pin.
+            * @returns {Promise<BaseMessage>} the full updated message, with `pinnedAt`/`pinnedBy` set.
+            * @memberof CometChat
+            */
+        static pinMessage(messageId: string | number | any): Promise<BaseMessage>;
+        /**
+            * Unpin a message from its conversation. Role-gated like `pinMessage`, and NOT
+            * restricted to the original pinner — any Admin/Moderator may unpin. Idempotent.
+            *
+            * @param {string | number} messageId - the message to unpin.
+            * @returns {Promise<BaseMessage>} the full updated message, with the pin attributes cleared.
+            * @memberof CometChat
+            */
+        static unpinMessage(messageId: string | number | any): Promise<BaseMessage>;
+        /**
+            * Save ("bookmark") a message for the logged-in user. Private and cross-conversation:
+            * no one else can see it, no role is required, and it syncs to the user's other
+            * devices via `MessageListener.onMessageSaved`. Idempotent.
+            *
+            * A user may save a capped number of messages; read it from app settings via
+            * `CometChat.getSavedMessagesLimit()`.
+            *
+            * @param {string | number} messageId - the message to save.
+            * @returns {Promise<BaseMessage>} the full updated message, with `savedAt` set.
+            * @memberof CometChat
+            */
+        static saveMessage(messageId: string | number | any): Promise<BaseMessage>;
+        /**
+            * Remove a message from the logged-in user's saved list. Private, no role required,
+            * idempotent, and mirrored to the user's other devices via
+            * `MessageListener.onMessageUnsaved`.
+            *
+            * @param {string | number} messageId - the message to unsave.
+            * @returns {Promise<BaseMessage>} the full updated message, with `savedAt` cleared.
+            * @memberof CometChat
+            */
+        static unsaveMessage(messageId: string | number | any): Promise<BaseMessage>;
+        /**
+            * Pin a conversation to the top of the logged-in user's conversation list. The pin
+            * is PRIVATE to that user — nobody else sees it — and syncs to their other devices
+            * via `ConversationListener.onConversationPinned`.
+            *
+            * A user may pin a limited number of conversations; read it from app settings via
+            * `CometChat.getPinnedConversationsLimit()` rather than hard-coding a number.
+            * Idempotent.
+            *
+            * Separate from an admin-global pin, which is managed from the dashboard and shows
+            * for every user; those cannot be created or removed from the SDK.
+            *
+            * @param {string} conversationWith - the peer's UID, or the group's GUID.
+            * @param {string} conversationType - "user" or "group".
+            * @returns {Promise<Conversation>} the full updated conversation, with `pinnedAt`/`pinnedBy` set.
+            * @memberof CometChat
+            */
+        static pinConversation(conversationWith: string, conversationType: string): Promise<Conversation>;
+        /**
+            * Remove the logged-in user's own pin from a conversation. Idempotent.
+            *
+            * A user CANNOT unpin an admin-global pin — the server rejects that with
+            * `ERR_ACTION_NOT_ALLOWED`. Check `conversation.isSystemPinned()` and hide the
+            * unpin affordance rather than letting the call fail.
+            *
+            * @param {string} conversationWith - the peer's UID, or the group's GUID.
+            * @param {string} conversationType - "user" or "group".
+            * @returns {Promise<Conversation>} the full updated conversation, with the pin attributes cleared.
+            * @memberof CometChat
+            */
+        static unpinConversation(conversationWith: string, conversationType: string): Promise<Conversation>;
+        /**
+            * Register a ConversationListener for conversation pin/unpin events.
+            *
+            * @param {string} listenerId - Unique identifier for this listener.
+            * @param {ConversationListener} listener - The listener instance.
+            * @memberof CometChat
+            */
+        static addConversationListener(listenerId: string, listener: ConversationListener): void;
+        /**
+            * Remove a previously registered ConversationListener.
+            *
+            * @param {string} listenerId - The listener ID to remove.
+            * @memberof CometChat
+            */
+        static removeConversationListener(listenerId: string): void;
+        /**
+            * Whether Pin Conversation is enabled for this app's plan. Resolves `false` rather
+            * than rejecting — see `isPinMessageEnabled`.
+            *
+            * @returns {Promise<boolean>}
+            * @memberof CometChat
+            */
+        static isPinConversationEnabled(): Promise<boolean>;
+        /**
+            * Whether Pin Message is enabled for this app's plan (§7.3). Resolves `false` rather
+            * than rejecting when the flag is missing or settings are unavailable, so a consumer
+            * can gate UI with a plain `if` and an unavailable setting degrades to "hidden"
+            * rather than to an unhandled rejection.
+            *
+            * @returns {Promise<boolean>}
+            * @memberof CometChat
+            */
+        static isPinMessageEnabled(): Promise<boolean>;
+        /**
+            * Whether Save Message is enabled for this app's plan (§7.3). Resolves `false`
+            * rather than rejecting — see `isPinMessageEnabled`.
+            *
+            * @returns {Promise<boolean>}
+            * @memberof CometChat
+            */
+        static isSaveMessageEnabled(): Promise<boolean>;
+        /**
+            * Max pinned messages allowed in one conversation, per user (§7.3). `null` when the
+            * app settings carry no value — show generic copy then rather than guessing a number.
+            *
+            * Use this to disable a pin control at the cap, rather than letting the user
+            * discover it by rejection.
+            *
+            * @returns {Promise<number | null>}
+            * @memberof CometChat
+            */
+        static getPinnedMessagesLimit(): Promise<number | null>;
+        /**
+            * Max admin/system (`app_system`) pinned messages in one conversation (§7.3).
+            * Enforced independently of the per-user cap. `null` when unset.
+            *
+            * @returns {Promise<number | null>}
+            * @memberof CometChat
+            */
+        static getSystemPinnedMessagesLimit(): Promise<number | null>;
+        /**
+            * Max saved messages per user, across all conversations (§7.3). `null` when unset.
+            *
+            * @returns {Promise<number | null>}
+            * @memberof CometChat
+            */
+        static getSavedMessagesLimit(): Promise<number | null>;
+        /**
+            * Max pinned conversations per user (§7.3). `null` when unset.
+            *
+            * @returns {Promise<number | null>}
+            * @memberof CometChat
+            */
+        static getPinnedConversationsLimit(): Promise<number | null>;
+        /**
+            * Max admin/system (`app_system`) pinned conversations for the app (§7.3). Enforced
+            * independently of the per-user cap. `null` when unset.
+            *
+            * @returns {Promise<number | null>}
+            * @memberof CometChat
+            */
+        static getSystemPinnedConversationsLimit(): Promise<number | null>;
 }
 
 export class CometChatNotifications {
         static MessagesOptions: typeof MessagesOptions;
         static RepliesOptions: typeof RepliesOptions;
         static ReactionsOptions: typeof ReactionsOptions;
+        static QuotedRepliesOptions: typeof QuotedRepliesOptions;
         static MemberActionsOptions: typeof MemberActionsOptions;
         static DayOfWeek: typeof DayOfWeek;
         static DNDOptions: typeof DNDOptions;
@@ -2453,6 +2658,344 @@ export interface CometChatSettings {
     };
     callsSDK?: Record<string, unknown>;
     uiKit?: Record<string, unknown>;
+}
+
+/**
+    * @module MessageThread
+    *
+    * A thread is the root message decorated with a few extra keys, produced by the
+    * SAME transformer as `/v3/messages` (A2). Identity is `parentMessageId` (the root
+    * message id); there is no separate thread resource id, and `threadId` is
+    * deliberately NOT used as a symbol (it is already taken by AI-assistant run
+    * threads on all five platforms).
+    *
+    * This class is a pure typed holder. ALL JSON-key extraction and nested-message
+    * parsing happens in `ThreadParser` (the single chokepoint, §4.1) — `ThreadParser`
+    * constructs `MessageThread` from already-parsed values, so no wire-key string
+    * ever appears here.
+    *
+    * Note the receiver naming: the raw id is exposed as `receiverId` (JS/RN spelling),
+    * NOT `receiver` — because `BaseMessage.receiver` is the hydrated `User | Group`
+    * entity, and a String `receiver` one dot away would be a silent-cast landmine
+    * (§5.4). The untouched wire key stays available via `rawData`.
+    */
+/** @internal — the already-parsed values ThreadParser hands to the constructor. */
+export interface MessageThreadParams {
+        parentMessageId: number;
+        parentMessage: BaseMessage | null;
+        replyCount: number;
+        lastReply: BaseMessage | null;
+        updatedAt: number;
+        conversationId: string;
+        receiverType: string;
+        receiverId: string;
+        subscribed: boolean;
+        unreadReplyCount: number | null;
+        rawData: Record<string, any>;
+}
+export class MessageThread {
+        constructor(params: MessageThreadParams);
+        /** @returns {number} the root message id — the thread's identity. */
+        getParentMessageId(): number;
+        /** @returns {BaseMessage | null} the root message. */
+        getParentMessage(): BaseMessage | null;
+        /** @returns {number} the reply count. */
+        getReplyCount(): number;
+        /** @param {number} replyCount */
+        setReplyCount(replyCount: number): void;
+        /** @returns {BaseMessage | null} the last reply, or null on a zero-reply thread. */
+        getLastReply(): BaseMessage | null;
+        /**
+            * @returns {number} the opaque cursor value (unix seconds). Do NOT sort a UI on
+            * this (A17); sort on `lastReply?.sentAt ?? parentMessage.sentAt` instead.
+            */
+        getUpdatedAt(): number;
+        /** @returns {string} the conversation id. */
+        getConversationId(): string;
+        /** @returns {string} "user" | "group" (open string). */
+        getReceiverType(): string;
+        /** @returns {string} the raw `guid`/`uid`. Hydrate name/avatar lazily on a cache miss. */
+        getReceiverId(): string;
+        /** @returns {boolean} whether the logged-in user follows this thread. */
+        isSubscribed(): boolean;
+        /** @param {boolean} subscribed */
+        setSubscribed(subscribed: boolean): void;
+        /** @returns {number | null} `null` = unknown (A5), never `0`. */
+        getUnreadReplyCount(): number | null;
+        /** @returns {Record<string, any>} the untouched raw wire object — the escape hatch. */
+        getRawData(): Record<string, any>;
+}
+
+export class ThreadsRequest {
+        /** @private */
+        constructor(builder?: ThreadsRequestBuilder);
+        /**
+            * Get the next page of threads. The developer calls this repeatedly on the SAME
+            * object to page through the list, using `hasMore()` to know when to stop.
+            *
+            * `hasMore()` is the end-of-list signal, not the length of the returned page. The
+            * server's cursor is inclusive, so each page repeats the previous boundary row;
+            * that duplicate is filtered out, which can make a returned page shorter than the
+            * requested limit without meaning the list has ended.
+            * @returns {Promise<MessageThread[]>}
+            */
+        fetchNext(): Promise<MessageThread[]>;
+        /** @returns {number} the page size. */
+        getLimit(): number;
+        /** @returns {boolean} */
+        isParticipatedByMe(): boolean;
+        /** @returns {string} the group id this request is scoped to, if any (A14). */
+        getGuid(): string;
+        /** @returns {string} the user id this request is scoped to, if any (A14). */
+        getUid(): string;
+        /**
+            * Whether more pages remain. This is the loop condition to page on, rather than the
+            * size of the last returned page.
+            * @returns {boolean}
+            */
+        hasMore(): boolean;
+}
+export class ThreadsRequestBuilder {
+        /** @private */ limit: number;
+        /** @private */ participatedByMe: boolean;
+        /** @private */ guid: string;
+        /** @private */ uid: string;
+        /**
+            * Set the page size. Default 30; server max is 1000 (A8) — a thread row is heavy
+            * (root + last reply, both hydrated).
+            *
+            * The setter only assigns, matching every other request builder in the SDK. The
+            * 1…1000 range and the type are checked on the first `fetchNext()`, which rejects
+            * with INVALID_SET_LIMIT — an out-of-range value is never silently clamped.
+            * @param {number} limit
+            * @returns {this}
+            */
+        setLimit(limit: number): this;
+        /**
+            * Fetch threads the logged-in user participates in (started / replied / mentioned /
+            * subscribed). Default true; always sent on the wire (A1).
+            * @param {boolean} participatedByMe
+            * @returns {this}
+            */
+        setParticipatedByMe(participatedByMe: boolean): this;
+        /**
+            * Scope the list to a single group's threads (`/groups/{guid}/threads`, A14).
+            * Mutually exclusive with `setUid`.
+            * @param {string} guid
+            * @returns {this}
+            */
+        setGuid(guid: string): this;
+        /**
+            * Scope the list to a single 1-1 conversation's threads (`/users/{uid}/threads`, A14).
+            * Mutually exclusive with `setGuid`.
+            * @param {string} uid
+            * @returns {this}
+            */
+        setUid(uid: string): this;
+        /**
+            * @returns {ThreadsRequest}
+            */
+        build(): ThreadsRequest;
+}
+
+/** Registered endpoint names (see EndpointFactory.uriEndpoints). */
+export const PIN_SAVE_ENDPOINTS: {
+        PIN_MESSAGE: string;
+        UNPIN_MESSAGE: string;
+        SAVE_MESSAGE: string;
+        UNSAVE_MESSAGE: string;
+        /** §8-Q5: the pinned list is the ordinary conversation message list, filtered. */
+        USER_MESSAGES: string;
+        GROUP_MESSAGES: string;
+        /** The saved list is user-level and cross-conversation — the bare messages route. */
+        MESSAGES: string;
+        /**
+            * Pin Conversation. Addressed by the conversation's peer — `users/{uid}` for a 1-1,
+            * `groups/{guid}` for a group — NOT by `conversationId`: the backend moved off the
+            * `/conversations/{conversationId}/pin` shape because that route 404s without a
+            * `conversation_user` row (you could not pin a conversation before its first
+            * message).
+            */
+        PIN_USER_CONVERSATION: string;
+        UNPIN_USER_CONVERSATION: string;
+        PIN_GROUP_CONVERSATION: string;
+        UNPIN_GROUP_CONVERSATION: string;
+};
+/** Pagination + validation bounds for both list builders (§5.3). */
+export const PIN_SAVE_DEFAULTS: {
+        /** Client default page size. */
+        LIMIT: number;
+        MIN_LIMIT: number;
+        /**
+            * Server-side cap on pins-per-conversation and saves-per-user is 100 (§3), so a
+            * list can never exceed 100 rows. `setLimit(100)` therefore always fetches the
+            * whole list in one hop — which is what the "fetch-all-and-count" title count
+            * (§6.3, Q10) needs.
+            */
+        MAX_LIMIT: number;
+};
+/**
+    * Tokens for `ConversationsRequestBuilder.setPinnedBy()`. A client may only ask for
+    * these two; anything else is rejected server-side.
+    */
+export const PINNED_BY: {
+        /** Conversations pinned globally by an admin, for every user. */
+        SYSTEM: string;
+        /** Conversations the logged-in user pinned themselves. */
+        ME: string;
+};
+/**
+    * Internal event type stamped on a parsed pin/save socket frame. NOT a wire value —
+    * the wire `type` is resolved by `PinSaveParser.resolveWsEventAction` and normalised
+    * to this, so the rest of the SDK switches on one stable string.
+    */
+export const PIN_SAVE_EVENT: {
+        TYPE: string;
+};
+/**
+    * The one wire VALUE that has to be readable outside the parse site: `BaseMessage`
+    * needs it for `isSystemPinned()` and cannot import `PinSaveParser` without a
+    * require cycle (the parser depends on the message transformer, which depends on
+    * BaseMessage). This file is a leaf with no imports, so it is the safe home.
+    * `PIN_SAVE_CONTRACT.SYSTEM_PINNER_SENTINEL` re-exports it — change it here only.
+    */
+export const PIN_SAVE_SENTINELS: {
+        /** `pinnedBy` value meaning "pinned by the app/admin", not by a member (§4.1). */
+        SYSTEM_PINNER: string;
+};
+/** The normalised actions carried by a pin/save event. */
+export const PIN_SAVE_ACTION: {
+        PINNED: string;
+        UNPINNED: string;
+        SAVED: string;
+        UNSAVED: string;
+        CONVERSATION_PINNED: string;
+        CONVERSATION_UNPINNED: string;
+};
+/**
+    * Feature flags (§7.3). Both are already part of the SDK settings cache-bust hash,
+    * so `CometChat.isFeatureEnabled` picks them up with no extra plumbing.
+    */
+export const PIN_SAVE_FEATURES: {
+        PIN_MESSAGE: string;
+        SAVE_MESSAGE: string;
+        /**
+            * ⚠️ Unlike the two message flags, this one is NOT yet in the backend's SDK
+            * settings cache-bust hash (flagged on the backend design doc). Until it is added
+            * there, flipping it will not invalidate a cached settings payload, so a client
+            * may keep reading the old value until the hash changes for another reason.
+            * `isPinConversationEnabled()` reads it correctly today; the staleness is
+            * server-side.
+            */
+        PIN_CONVERSATION: string;
+};
+/**
+    * The server-owned caps, read from the same `parameters` map as the feature flags
+    * above (§7.3).
+    *
+    * These make the caps knowable BEFORE the user hits one, which is what lets a UI
+    * disable a pin control at the cap instead of letting the user discover it by error.
+    * They are the ONLY supported source for a cap: the values ride the cached settings
+    * payload, so a tenant override applied mid-session is picked up on the next refresh.
+    *
+    * `.system.*` are the admin/app-level caps (`app_system` pins), separate from the
+    * per-user caps — the two are enforced independently server-side.
+    */
+export const PIN_SAVE_LIMITS: {
+        /** Max pinned messages in one conversation, per user. */
+        PINNED_MESSAGES: string;
+        /** Max admin/system pinned messages in one conversation. */
+        PINNED_MESSAGES_SYSTEM: string;
+        /** Max saved messages per user, across all conversations. */
+        SAVED_MESSAGES: string;
+        /** Max pinned conversations per user. */
+        PINNED_CONVERSATIONS: string;
+        /** Max admin/system pinned conversations for the app. */
+        PINNED_CONVERSATIONS_SYSTEM: string;
+};
+/**
+    * Backend error codes worth naming. Every other `ERR_*` the server returns passes
+    * through verbatim (§5.6) — do NOT enumerate codes here just to switch on them.
+    * The pin/save limit is never hard-coded, take it from
+    * app settings via `PIN_SAVE_LIMITS`, whatever the code.
+    */
+export const PIN_SAVE_ERROR_CODES: {
+        /** SBAC rejection — the acting user may not pin/unpin here (§8-Q4). */
+        ACTION_NOT_ALLOWED: string;
+};
+/**
+    * Client-side validation errors for the two request builders and the four facade
+    * methods. Mirrors the shape used by THREAD_ERROR / MESSAGES_REQUEST_ERRORS.
+    */
+export const PIN_SAVE_ERROR: {
+        REQUEST_IN_PROGRESS: {
+                code: string;
+                name: string;
+                message: string;
+                details: {};
+        };
+        LIMIT_NOT_A_NUMBER: {
+                code: string;
+                name: string;
+                message: string;
+                details: {};
+        };
+        LIMIT_OUT_OF_RANGE: {
+                code: string;
+                name: string;
+                message: string;
+                details: {};
+        };
+        UID_GUID_MUTUALLY_EXCLUSIVE: {
+                code: string;
+                name: string;
+                message: string;
+                details: {};
+        };
+        UID_OR_GUID_REQUIRED: {
+                code: string;
+                name: string;
+                message: string;
+                details: {};
+        };
+        INVALID_MESSAGE_ID: {
+                code: string;
+                name: string;
+                message: string;
+                details: {};
+        };
+        /**
+            * The write succeeded on the wire but its response body could not be parsed into a
+            * message/conversation. The parsers swallow their own throws and return null, so
+            * without this the facade would resolve `null` typed as a BaseMessage/Conversation
+            * and the TypeError would surface in consumer code with nothing pointing here.
+            */
+        UNPARSEABLE_RESPONSE: {
+                code: string;
+                name: string;
+                message: string;
+                details: {};
+        };
+};
+
+export class ConversationListener {
+        /**
+            * Triggered when a conversation is pinned — by this user on another device, or
+            * globally by an admin. Receives the full, updated `Conversation`.
+            */
+        onConversationPinned?: (conversation: Conversation) => void;
+        /**
+            * Triggered when a conversation is unpinned. Receives the full `Conversation`
+            * with the pin attributes cleared.
+            */
+        onConversationUnpinned?: (conversation: Conversation) => void;
+        constructor(...args: any[]);
+}
+/** @internal */
+export class ConversationListenerWrapper {
+        _name: string;
+        _eventListener: ConversationListener;
+        constructor(name: string, listener: ConversationListener);
 }
 
 /**
@@ -3077,6 +3620,28 @@ export class BaseMessage implements Message {
         protected mentionedMe?: boolean;
         protected quotedMessageId?: number;
         protected quotedMessage?: BaseMessage;
+        /**
+            * Pin & Save attributes (§5.4). Present ONLY when set — an unpinned/unsaved
+            * message has no key at all, so the presence of `pinnedAt` IS "is pinned" and the
+            * presence of `savedAt` IS "is saved". `pinnedAt`/`pinnedBy` are global (everyone
+            * in the conversation sees the same values); `savedAt` is per-viewer and only ever
+            * appears in the acting user's own context. Normalised at the single parse site by
+            * `PinSaveParser` — never assign these directly from a raw payload.
+            */
+        protected pinnedAt?: number;
+        protected pinnedBy?: string;
+        protected savedAt?: number;
+        /**
+            * Whether the LOGGED-IN user follows this message's thread. Per-viewer. Populated only when the request opted in with
+            * `withThreadSubscribed=true` — which every SDK message fetch does — so a
+            * socket-delivered message reads `false` until the next fetch. Normalised at the
+            * single parse site by `ThreadParser`; never assign it from a raw payload.
+            *
+            * The SDK keeps NO subscription state of its own: this flag, as the server sent
+            * it, is the whole truth. A consumer that needs certainty for a thread it has not
+            * fetched should fetch the parent message.
+            */
+        protected threadSubscribed?: boolean;
         constructor(receiverId: string, messageType: string, receiverType: string, category: MessageCategory);
         /**
             * Get unread replies count of the message
@@ -3362,6 +3927,87 @@ export class BaseMessage implements Message {
             * Set quoted message of the message.
             */
         setQuotedMessage(value: BaseMessage): void;
+        /**
+            * Get the timestamp at which the message was pinned to its conversation.
+            * Conversation-wide: the same value for every member. `undefined` when the
+            * message is not pinned — prefer `isPinned()` over comparing this to 0.
+            * @returns {number | undefined}
+            */
+        getPinnedAt(): number | undefined;
+        /**
+            * @param {number | null} [pinnedAt]
+            * Set the pin timestamp. Passing `null`/`undefined` CLEARS the attribute rather
+            * than leaving a stale value, which is what an unpin must do.
+            */
+        setPinnedAt(pinnedAt?: number | null): void;
+        /**
+            * Get the UID of the user who pinned the message. Only the MOST RECENT pinner is
+            * kept — a message has a single pinner. The sentinel `"app_system"` means the pin
+            * came from the app/admin rather than a member; check `isSystemPinned()`.
+            * @returns {string | undefined}
+            */
+        getPinnedBy(): string | undefined;
+        /**
+            * @param {string | null} [pinnedBy]
+            * Set the UID of the pinner. Passing `null`/`undefined` clears the attribute.
+            */
+        setPinnedBy(pinnedBy?: string | null): void;
+        /**
+            * Get the timestamp at which the LOGGED-IN user saved this message. Private and
+            * per-viewer: it is never populated for anyone else. `undefined` when the message
+            * is not saved — prefer `isSaved()`.
+            * @returns {number | undefined}
+            */
+        getSavedAt(): number | undefined;
+        /**
+            * @param {number | null} [savedAt]
+            * Set the save timestamp. Passing `null`/`undefined` CLEARS the attribute, which
+            * is what an unsave must do.
+            */
+        setSavedAt(savedAt?: number | null): void;
+        /**
+            * Whether the message is currently pinned in its conversation. The presence of a
+            * pin timestamp IS the boolean — there is no separate flag on the wire.
+            * @returns {boolean}
+            */
+        isPinned(): boolean;
+        /**
+            * Whether the logged-in user has saved this message. Private to that user.
+            * @returns {boolean}
+            */
+        isSaved(): boolean;
+        /**
+            * Whether the logged-in user follows this message's thread — read straight off the
+            * message as the server sent it, with no SDK-side cache behind it.
+            *
+            * On a thread's PARENT message this is the thread's subscription state. Because the
+            * flag only rides responses to requests that asked for it, a message delivered over
+            * the socket reads `false`; re-fetch to resolve.
+            * @returns {boolean}
+            */
+        isThreadSubscribed(): boolean;
+        /**
+            * @param {boolean} threadSubscribed
+            * Set whether the logged-in user follows this message's thread.
+            *
+            * This exists because the SDK holds NO subscription state. When a consumer learns a
+            * thread's state — a `subscribeToThread()` / `unsubscribeFromThread()` call
+            * resolving, or one of the auto-subscribe cases it owns — it propagates that to the
+            * message objects it is holding by calling this setter, rather than the SDK keeping
+            * a cache the consumer cannot correct.
+            *
+            * Purely local: writing it does NOT notify the server. Call
+            * `CometChat.subscribeToThread()` / `unsubscribeFromThread()` to change the actual
+            * subscription. Anything other than `true` is stored as `false`, so an absent or
+            * wrong-typed value can never make `isThreadSubscribed()` lie.
+            */
+        setThreadSubscribed(threadSubscribed: boolean): void;
+        /**
+            * Whether the pin was placed by the app/admin (`pinnedBy === "app_system"`)
+            * rather than by a member — render it as a system pin, not as a user.
+            * @returns {boolean}
+            */
+        isSystemPinned(): boolean;
 }
 
 /**
@@ -4825,7 +5471,7 @@ export class MessageListener {
         /**
                  * This event is triggered when a reaction is added.
          */
-        onMessageReactionAdded?: Function; /**
+        onMessageReactionAdded?: Function;
 
         /**
                  * This event is triggered when a reaction is removed.
@@ -4859,6 +5505,31 @@ export class MessageListener {
             * This event is triggered when a card message is received.
             */
         onCardMessageReceived?: Function;
+        /**
+            * This event is triggered when a message is pinned in a conversation. Broadcast:
+            * every member of the conversation receives it. The callback is passed the full,
+            * updated message, so `getPinnedAt()` / `getPinnedBy()` are ready to render.
+            */
+        onMessagePinned?: Function;
+        /**
+            * This event is triggered when a message is unpinned from a conversation.
+            * Broadcast. The callback is passed the full message with the pin attributes
+            * cleared.
+            */
+        onMessageUnpinned?: Function;
+        /**
+            * This event is triggered when the logged-in user saves a message. PRIVATE — it
+            * is delivered only to that user's own devices, so a save made on one device
+            * updates the others. The callback is passed the full message, with `getSavedAt()`
+            * populated.
+            */
+        onMessageSaved?: Function;
+        /**
+            * This event is triggered when the logged-in user unsaves a message. Private to
+            * that user's devices. The callback is passed the full message with the save
+            * attribute cleared.
+            */
+        onMessageUnsaved?: Function;
         constructor(...args: any[]);
 }
 export class CallListener {
@@ -6174,6 +6845,7 @@ export class ConversationsRequestBuilder {
         /** @private */ page: number;
         /** @private */ hideAgentic: boolean;
         /** @private */ onlyAgentic: boolean;
+        /** @private */ pinnedBy: string[];
         /**
             *
             * @param {number} limit
@@ -6275,8 +6947,24 @@ export class ConversationsRequestBuilder {
          */
         setHideAgentic(hideAgentic: boolean): this;
         /**
-            * A method to fetch only agentic conversations.
+            * Restrict the list to pinned conversations, by who pinned them. Accepts
+            * `CometChat.PINNED_BY.SYSTEM` (admin-global pins, shown to every user) and
+            * `CometChat.PINNED_BY.ME` (the logged-in user's own pins); a client may not ask
+            * for anyone else's.
+            *
+            * Most callers do NOT need this: the default conversation list is already
+            * pin-ordered by the server — admin-global pins first, then the user's own, then
+            * everything else — so a normal list renders correctly with no filter at all. Use
+            * this only for a dedicated "pinned" surface.
+            *
+            * @param {string[]} pinnedBy - PINNED_BY tokens.
+            * @returns {this}
+         */
+        setPinnedBy(pinnedBy: Array<string>): this;
+        /**
+            *
             * @param {boolean} onlyAgentic
+            * A method to fetch only agentic conversations.
             * @returns
          */
         setOnlyAgentic(onlyAgentic: boolean): this;
@@ -6498,6 +7186,8 @@ export class MessagesRequestBuilder {
         /** @private */ types?: Array<String>;
         /** @private */ HideReplies?: boolean;
         /** @private */ HideDeletedMessages?: boolean;
+        /** @private */ Pinned?: boolean;
+        /** @private */ Saved?: boolean;
         /** @private */ tags?: Array<String>;
         /** @private */ WithTags?: boolean;
         /** @private */ interactionGoalCompletedOnly?: boolean;
@@ -6637,6 +7327,38 @@ export class MessagesRequestBuilder {
             * @returns
          */
         hasReactions(hasReactions: boolean): this;
+        /**
+            * Fetch only the PINNED messages of a conversation, newest pin first.
+            *
+            * Conversation-scoped: combine with `setUID` or `setGUID`. A conversation is
+            * capped at 100 pins, so `setLimit(100)` returns the whole list in one call —
+            * which is what a "{n} Pinned Messages" title needs, since the server exposes no
+            * count field.
+            *
+            * Pagination follows the server: if the response carries a `meta.cursor`, keep
+            * calling to page through it as with ordinary history; if it does not, the list came
+            * back whole and the next fetch in the same direction resolves `[]`. Either way
+            * `setLimit(100)` reads the entire capped list in one call.
+            *
+            * @param {boolean} pinned
+            * @returns {this}
+         */
+        setPinned(pinned?: boolean): this;
+        /**
+            * Fetch only the messages the logged-in user has SAVED, newest save first.
+            *
+            * User-level and cross-conversation, so do NOT set a uid/guid — leaving both
+            * unset routes to the bare messages endpoint. Each row carries its own
+            * `conversationId` / `receiver`, so it can be rendered and deep-linked on its
+            * own. Capped at 100 per user, so `setLimit(100)` fetches everything in one call.
+            *
+            * As with `setPinned`, no cursor is required to call `fetchNext()` on it, and paging
+            * follows whatever the response carries — see `setPinned`.
+            *
+            * @param {boolean} saved
+            * @returns {this}
+         */
+        setSaved(saved?: boolean): this;
         /**
             * Method to only fetch messages which have the given mentioned UIDs.
             * @param {Array<String>} mentionedUIDs
@@ -7173,6 +7895,20 @@ export class Conversation {
         protected lastReadMessageId: string;
         protected latestMessageId: string;
         protected tags: Array<String>;
+        /**
+            * Pin Conversation attributes. Present ONLY when set — an unpinned conversation
+            * has no key at all, so the presence of `pinnedAt` IS "is pinned".
+            *
+            * A conversation can be pinned by the logged-in user OR globally by an admin for
+            * every user; `pinnedBy` distinguishes them (`"app_system"` = admin-global, see
+            * `isSystemPinned()`). When both exist the server resolves precedence — the
+            * admin-global pin wins — and sends only the winner, so nothing is inferred here.
+            *
+            * Normalised by `PinSaveParser.applyConversationPinAttributes` at the transform
+            * site; never assign these directly from a raw payload.
+            */
+        protected pinnedAt?: number;
+        protected pinnedBy?: string;
         constructor(conversationId: string, conversationType: string, lastMessage: TextMessage | MediaMessage | CustomMessage | any, conversationWith: User | Group, unreadMessageCount: number, tags: Array<String>, unreadMentionsCount: number | any, lastReadMessageId: string | any, latestMessageId?: string | any);
         /**
             * Method to set conversation ID of the conversation.
@@ -7255,9 +7991,41 @@ export class Conversation {
          */
         getUnreadMessageCount(): number;
         /**
-            * Method to get tags of conversation.
-            * @returns {Array<String>}
-         */
+            * Get the timestamp at which this conversation was pinned. `undefined` when it is
+            * not pinned — prefer `isPinned()` over comparing this to 0.
+            * @returns {number | undefined}
+            */
+        getPinnedAt(): number | undefined;
+        /**
+            * @param {number | null} [pinnedAt]
+            * Set the pin timestamp. Passing `null`/`undefined` CLEARS the attribute, which is
+            * what an unpin must do.
+            */
+        setPinnedAt(pinnedAt?: number | null): void;
+        /**
+            * Get the UID of whoever pinned this conversation, or `"app_system"` when it is an
+            * admin-global pin shown to every user (`isSystemPinned()`).
+            * @returns {string | undefined}
+            */
+        getPinnedBy(): string | undefined;
+        /**
+            * @param {string | null} [pinnedBy]
+            * Set the pinner. Passing `null`/`undefined` clears the attribute.
+            */
+        setPinnedBy(pinnedBy?: string | null): void;
+        /**
+            * Whether this conversation is pinned to the top of the list — by the logged-in
+            * user or globally by an admin. The presence of a pin timestamp IS the boolean.
+            * @returns {boolean}
+            */
+        isPinned(): boolean;
+        /**
+            * Whether the pin is an admin-global one (`pinnedBy === "app_system"`), shown to
+            * every user. A user cannot unpin these — attempting it is rejected server-side —
+            * so hide the unpin affordance when this is true.
+            * @returns {boolean}
+            */
+        isSystemPinned(): boolean;
         getTags(): Array<String>;
 }
 
@@ -7840,10 +8608,6 @@ export class InteractiveMessage extends BaseMessage implements Message {
                 GROUP: string;
         };
         /** @private */ static readonly CATEGORY: {
-                /**
-                    * Method to set interaction goal of interactive message.
-                    * @param {InteractionGoal} interactionGoal
-                 */
                 MESSAGE: string;
                 ACTION: string;
                 CALL: string;
@@ -7852,7 +8616,12 @@ export class InteractiveMessage extends BaseMessage implements Message {
                 AGENTIC: string;
                 CARD: string;
         };
+        private interactiveData;
+        private interactionGoal;
         protected data?: Object;
+        private interactions?;
+        private tags?;
+        private allowSenderInteraction?;
         constructor(...args: any[]);
         /**
             * Method to get sender of the message.
@@ -9068,7 +9837,14 @@ export enum MessagesOptions {
 export enum RepliesOptions {
     DONT_SUBSCRIBE,
     SUBSCRIBE_TO_ALL,
-    SUBSCRIBE_TO_MENTIONS
+    SUBSCRIBE_TO_MENTIONS,
+    SUBSCRIBE_TO_SUBSCRIBED_THREADS
+}
+export enum QuotedRepliesOptions {
+    DONT_SUBSCRIBE,
+    SUBSCRIBE_TO_ALL,
+    SUBSCRIBE_TO_MENTIONS,
+    SUBSCRIBE_TO_QUOTES_ON_OWN_MESSAGES
 }
 export enum ReactionsOptions {
     DONT_SUBSCRIBE,
@@ -9104,6 +9880,7 @@ export const APIConstants: {
     KEY_GROUP_MESSAGES: string;
     KEY_GROUP_REACTIONS: string;
     KEY_GROUP_REPLIES: string;
+    KEY_GROUP_QUOTED_REPLIES: string;
     KEY_GROUP_MEMBER_ADDED: string;
     KEY_GROUP_MEMBER_LEFT: string;
     KEY_GROUP_MEMBER_JOINED: string;
@@ -9118,6 +9895,7 @@ export const APIConstants: {
     KEY_ONE_ON_ONE_MESSAGES: string;
     KEY_ONE_ON_ONE_REACTIONS: string;
     KEY_ONE_ON_ONE_REPLIES: string;
+    KEY_ONE_ON_ONE_QUOTED_REPLIES: string;
     KEY_USE_PRIVACY_TEMPLATE: string;
     KEY_PROVIDER_ID: string;
     KEY_TIMEZONE: string;
@@ -9203,6 +9981,11 @@ export class GroupPreferences {
          */
         getRepliesPreference(): RepliesOptions;
         /**
+            * Get the quoted replies preferences for groups.
+            * @returns {QuotedRepliesOptions}
+         */
+        getQuotedRepliesPreference(): QuotedRepliesOptions;
+        /**
             * Get the reactions preferences for groups.
             * @returns {ReactionsOptions}
          */
@@ -9252,6 +10035,11 @@ export class GroupPreferences {
          * Set replies preference for groups.
          */
         setRepliesPreference(repliesPreference: RepliesOptions): void;
+        /**
+         * @param {QuotedRepliesOptions} quotedRepliesPreference
+         * Set quoted replies preference for groups.
+         */
+        setQuotedRepliesPreference(quotedRepliesPreference: QuotedRepliesOptions): void;
         /**
          * @param {ReactionsOptions} reactionsPreference
          * Set reactions preference for groups.
@@ -9440,6 +10228,16 @@ export class OneOnOnePreferences {
             * Set replies preference for groups.
          */
         setRepliesPreference(repliesPreference: RepliesOptions): void;
+        /**
+            * Get the quoted replies preferences for groups.
+            * @returns {QuotedRepliesOptions}
+         */
+        getQuotedRepliesPreference(): QuotedRepliesOptions;
+        /**
+            * @param {QuotedRepliesOptions} quotedRepliesPreference
+            * Set quoted replies preference for groups.
+         */
+        setQuotedRepliesPreference(quotedRepliesPreference: QuotedRepliesOptions): void;
         /**
             * Get the messages preferences for groups.
             * @returns {MessagesOptions}
