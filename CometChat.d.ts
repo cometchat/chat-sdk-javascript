@@ -8,8 +8,8 @@
   * @returns {CometChat}
   */
 export function init(appId: string): CometChat;
-  export as namespace CometChat;
-  export as namespace CometChatNotifications;
+  export as namespace CometChat;
+  export as namespace CometChatNotifications;
 
 export const DEFAULT_TIMEOUT = 45;
 export class CometChat {
@@ -155,6 +155,11 @@ export class CometChat {
                                 SWITCH_MODE: string;
                                 START_SCREENSHARE: string;
                                 STOP_SCREENSHARE: string;
+                                /**
+                                    * The conversation object inside a `markAsUnread` / `markMessageAsUnread` ack, as a `Conversation`
+                                    * model. Returns `null` for a body that does not carry one, so the cache write-back is simply skipped
+                                    * rather than throwing inside a success handler.
+                                    */
                                 END_CALL: string;
                                 START_RECORDING: string;
                                 STOP_RECORDING: string;
@@ -504,6 +509,7 @@ export class CometChat {
                         CORE_CONVERSATIONS_UPDATE_ON_GROUP_ACTIONS: string;
                         CORE_CONVERSATIONS_UPDATE_ON_CUSTOM_MESSAGES: string;
                         CORE_CONVERSATIONS_UPDATE_ON_REPLIES: string;
+                        CORE_THREADS_DECREMENT_REPLY_COUNT_ON_DELETE: string;
                         FLAG_REASONS: string;
                         FILE_SIZE_MAX: string;
                         FILE_COUNT_MAX: string;
@@ -953,6 +959,7 @@ export class CometChat {
                 MSGS_LIMIT: number;
                 REACTIONS_LIMIT: number;
                 MSGS_MAX_LIMIT: number;
+                MSGS_SYNC_MAX_LIMIT: number;
                 USERS_LIMIT: number;
                 USERS_MAX_LIMIT: number;
                 GROUPS_LIMIT: number;
@@ -1164,6 +1171,44 @@ export class CometChat {
         static OngoingCallListener: typeof OngoingCallListener;
         static CallListener: typeof CallListener;
         static ConnectionListener: typeof ConnectionListener;
+        static MessageSentListener: typeof MessageSentListener;
+        static MessageFetchListener: typeof MessageFetchListener;
+        static ConversationFetchListener: typeof ConversationFetchListener;
+        static ConversationDetailsListener: typeof ConversationDetailsListener;
+        static MessageDetailsListener: typeof MessageDetailsListener;
+        static UserFetchListener: typeof UserFetchListener;
+        static GroupFetchListener: typeof GroupFetchListener;
+        static GroupMemberFetchListener: typeof GroupMemberFetchListener;
+        static BannedMemberFetchListener: typeof BannedMemberFetchListener;
+        static ReactionFetchListener: typeof ReactionFetchListener;
+        static NotificationFeedFetchListener: typeof NotificationFeedFetchListener;
+        static ThreadFetchListener: typeof ThreadFetchListener;
+        static OfflineMessageListener: typeof OfflineMessageListener;
+        static SyncListener: typeof SyncListener;
+        static MediaCallbackListener: typeof MediaCallbackListener;
+        static MediaDownloadListener: typeof MediaDownloadListener;
+        /** Public reject codes for `forceSyncNow(callback)`. */
+        static readonly ERROR_OFFLINE_SYNC_IN_PROGRESS: "ERROR_OFFLINE_SYNC_IN_PROGRESS";
+        static readonly ERROR_OFFLINE_SYNC_COOLDOWN: "ERROR_OFFLINE_SYNC_COOLDOWN";
+        static readonly ERROR_OFFLINE_DISABLED: "ERROR_OFFLINE_DISABLED";
+        static MessageStatus: typeof MessageStatus;
+        static MessageFailureReason: typeof MessageFailureReason;
+        static MessageSource: typeof MessageSource;
+        static SyncState: typeof SyncState;
+        static SyncOutcome: typeof SyncOutcome;
+        static PendingMessageOverflowPolicy: typeof PendingMessageOverflowPolicy;
+        static MediaCachingMode: typeof MediaCachingMode;
+        static EncryptionFailureBehavior: typeof EncryptionFailureBehavior;
+        static OfflineCacheResetReason: typeof OfflineCacheResetReason;
+        static OfflineCacheResetListener: typeof OfflineCacheResetListener;
+        /** Per-send error code of a message removed before it could send (reason `DISCARDED`). */
+        static readonly ERROR_OFFLINE_MESSAGE_DISCARDED: "ERROR_OFFLINE_MESSAGE_DISCARDED";
+        /** R160: `discardLocalMessage` / `retryMessage` on a message whose send is already in flight. */
+        static readonly ERROR_OFFLINE_MESSAGE_IN_FLIGHT: "ERROR_OFFLINE_MESSAGE_IN_FLIGHT";
+        /** R160: `discardLocalMessage` / `retryMessage` on an unknown or already-sent localMessageId. */
+        static readonly ERROR_OFFLINE_MESSAGE_NOT_FOUND: "ERROR_OFFLINE_MESSAGE_NOT_FOUND";
+        /** `onOfflineCacheReset`'s `pendingMessagesLost` when the count is unknown (-1, never 0). */
+        static readonly OFFLINE_PENDING_COUNT_UNKNOWN = -1;
         static LoginListener: typeof LoginListener;
         static UploadFileListener: typeof UploadFileListener;
         static UploadFileRequest: typeof UploadFileRequest;
@@ -1254,6 +1299,13 @@ export class CometChat {
                 PRIVATE: string;
                 PROTECTED: string;
                 PASSWORD: string;
+        };
+        static SECURED_MEDIA_HOST: string;
+        static demoMetaInfo: {
+                name: string;
+                type: string;
+                version: string;
+                platform: string;
         };
         /**
             * Setter method for CometChat authToken.
@@ -1388,6 +1440,17 @@ export class CometChat {
          */
         static registerTokenForPushNotification(token: string, settings?: {}): Promise<string>;
         /**
+            * Whether offline is actually running for the logged-in user.
+            *
+            * `true` only while the offline layer is active: the app enabled it in its `OfflineConfig`, the
+            * server has not switched it off, and the local store is open. `false` before login, after logout,
+            * while the server switch is off, while offline is dormant because encryption cannot run, and
+            * during a settings restart until the layer starts again. Read it at the moment of each decision
+            * rather than caching it.
+            * @returns {boolean}
+            */
+        static isOfflineEnabled(): boolean;
+        /**
             * Login funtion will authenticate user provided as an argument. There are two ways to login:
             * 1. using UID and authKey (unsecure way)
             * 2. using authToken (secure way)
@@ -1396,16 +1459,191 @@ export class CometChat {
             * @memberof CometChat
             */
         static login(...args: any): Promise<User>;
-        /**-------------------------------------------------------------------*
-            * Message related functions provided by CometChat class              *
-         *--------------------------------------------------------------------**/
         /**
-            * Function to send message.
-            * @param {TextMessage | MediaMessage | CustomMessage | InteractiveMessage |any} message
-            * @returns {Message | any}
+            * Offline: current sync state ('IDLE' / 'SYNCING'). 'IDLE' when offline is off.
+            * @returns {string}
+            */
+        static getSyncState(): string;
+        /**
+            * Offline: total local cache size in bytes (0 when offline is off).
+            * @returns {Promise<number>}
+            */
+        static getCacheSize(): Promise<number>;
+        /**
+            * Offline: how the local cache is protected at rest.
+            *
+            * Returns the fixed cross-SDK shape `{ enabled, atRest, keyStorage, cipherAvailable, cipher,
+            * leakage }`, so the same question gets the same answer on every CometChat SDK. Safe to call at any
+            * time — before login, or with offline disabled.
+            *
+            * `enabled` is what you configured; the rest is what was actually achieved. `enabled: true` with
+            * `cipherAvailable: false` means encryption was asked for and could NOT be applied (an insecure
+            * origin, or a missing cipher backend) — check `atRest` to see whether a cache was opened at all.
+            *
+            * On the browser, `atRest: "FIELD_AES_GCM"` is content-level encryption: `leakage` names exactly
+            * what stays readable. Never returns the key or its length.
+            */
+        static getOfflineEncryptionStatus(): OfflineEncryptionStatus;
+        /**
+            * Offline: empty the logged-in user's offline cache in place (BEH-AUTH-14).
+            *
+            * A no-op unless offline is active ({@link CometChat.isOfflineEnabled}). Cached messages,
+            * conversations, lists and media are deleted; the store stays open and its encryption key is kept.
+            * Unsent messages are removed: each one still PENDING or SENDING fails with reason
+            * `DISCARDED` (`ERROR_OFFLINE_MESSAGE_DISCARDED` on its per-send listener); one already FAILED
+            * is removed silently.
+            * @returns {Promise<void>}
+            */
+        static clearOfflineCache(): Promise<void>;
+        /**
+            * Offline: the media caching mode in effect (BEH-MEDIA-05). Read-only — the mode is set once in
+            * the offline config at init. Returns `OFF` while offline is not active (before login, with offline
+            * disabled, or while the server switch is off), so a UI never has to read the app's config.
+            * @returns {string} `"AUTO"` or `"OFF"`
+            */
+        static getMediaCachingMode(): string;
+        /**
+            * Offline: register a listener told when the offline cache was wiped and rebuilt underneath the app
+            * with its unsent messages lost — `onOfflineCacheReset(reason, pendingMessagesLost)`, reason one of
+            * {@link CometChat.OfflineCacheResetReason}, `pendingMessagesLost` a count or `-1` ({@link CometChat.OFFLINE_PENDING_COUNT_UNKNOWN}) when unknown
+            * (BEH-ENC-15). Never fires for a logout. Registrations survive logout/login.
+            */
+        static addOfflineCacheResetListener(name: string, listener: OfflineCacheResetListener | any): void;
+        /** Offline: remove a cache-reset listener. */
+        static removeOfflineCacheResetListener(name: string): void;
+        /**
+            * Offline: force a catch-up sync. Fire-and-forget when called with no argument; pass a callback to
+            * be told it was accepted (the sweep's progress and outcome arrive on the sync listener) or rejected with `USER_NOT_LOGED_IN` (not logged in) /
+            * `ERROR_OFFLINE_SYNC_IN_PROGRESS` / `ERROR_OFFLINE_SYNC_COOLDOWN` (carries `retryAfterMs`) /
+            * `ERROR_OFFLINE_DISABLED` (logged in, but offline is disabled).
+            * @param {(error?: any) => void} [callback]
+            */
+        static forceSyncNow(callback?: (error?: any) => void): void;
+        /** Offline: register a global MediaDownloadListener (AUTO download-complete/failed observer). */
+        static addMediaDownloadListener(name: string, listener: any): void;
+        /** Offline: remove a global MediaDownloadListener. */
+        static removeMediaDownloadListener(name: string): void;
+        /**
+            * Offline: the PENDING/SENDING/FAILED outbox messages. If the local store cannot be read just now
+            * (busy, locked, full, or still being reopened for the signed-in user), the Promise rejects with
+            * `ERROR_OFFLINE_MESSAGE_PERSIST_FAILED`; it never resolves with an empty list then (BEH-SEND-25,
+            * R118). With offline off, or nobody signed in, it resolves with an empty list.
+            * @returns {Promise<any[]>}
+            */
+        static getPendingMessages(conversationId?: string): Promise<any[]>;
+        /**
+            * Offline: retry a single send — accepts a message or its localMessageId (R160, BEH-SEND-20 Band 1,
+            * NEVER silent). A FAILED message is reset to PENDING and attempted; a PENDING message lifts the
+            * reconnect hold on it and every PENDING ahead of it in its chat and the chat is attempted now,
+            * oldest-first.
+            *
+            * The final outcome goes to THIS retry call's own channel — the optional `listener` AND the returned
+            * Promise (R160 BEH-SEND-20: "the listener gets that message's final outcome"), never the message's
+            * original send listener: sent → `onMessageSent` + resolve; with no answer the not-connected notice
+            * fires ONCE (`onError(FAILED_TO_FETCH)` + reject) and the message stays PENDING. This mirrors
+            * `sendMessage`'s dual-channel settle (both the listener and the Promise settle offline), so a
+            * caller using only the Promise still hears the outcome. (R117 phrased the notice as going to "its
+            * own message's listener"; R160 is the newer, governing rule for a user-initiated retry — the retry
+            * call owns the outcome. Tension flagged for Aditya.)
+            *
+            * Rejections always answer with an error — on the listener and the Promise: `ERROR_OFFLINE_MESSAGE_IN_FLIGHT`
+            * (its send already started / request still in flight), `ERROR_OFFLINE_MESSAGE_NOT_FOUND` (unknown /
+            * already sent), `ERROR_OFFLINE_DISABLED` (offline not running), or the store-unavailable error (BEH-SEND-25).
+            */
+        static retryMessage(message: string | any, listener?: MessageSentListener): Promise<void>;
+        /**
+            * Offline: discard one PENDING or FAILED outbox message, durably and device-only (R160, BEH-SEND-36).
+            * Removes the message (its copied media, its reply-count contribution to the parent, its last-message
+            * preview slot — falling back to the newest remaining cached message, or empty) and, if the
+            * conversation existed only because of local sends (R156) and now has none, the conversation too.
+            * Works offline and survives a restart. On success ONLY the listener's `onSuccess` fires and nothing
+            * else (no outbox event; the original send listener is released with no final outcome). A
+            * `sendMessage()` Promise still open for that message rejects once with
+            * `ERROR_OFFLINE_MESSAGE_DISCARDED`. Rejections
+            * answer the listener's `onError` and reject the Promise: `ERROR_OFFLINE_MESSAGE_IN_FLIGHT` (the send
+            * already started), `ERROR_OFFLINE_MESSAGE_NOT_FOUND` (unknown / already sent),
+            * `ERROR_OFFLINE_DISABLED` (offline not running), or the store-unavailable error (BEH-SEND-25).
+            *
+            * @param {string | any} message A message model or its localMessageId.
+            * @param {{ onSuccess?: Function; onError?: Function }} [listener]
+            * @returns {Promise<void>}
+            */
+        static discardLocalMessage(message: string | any, listener?: {
+                onSuccess?: Function;
+                onError?: Function;
+        }): Promise<void>;
+        /** Offline: retry all failed sends. */
+        static retryAllFailedMessages(listener?: MessageSentListener): Promise<void>;
+        /**
+            * Offline: register a SyncListener for sync/cache observability.
+            *
+            * Valid at any point in the app's life, including before login and while offline is disabled or
+            * switched off by the server — the registration is kept and used by whichever offline start comes
+            * next. It also survives a restart (logout/login, a settings change, the server switch flipping
+            * back on), so an app registers once and never has to re-register. Registering the same `name`
+            * twice replaces the first listener.
+            */
+        static addSyncListener(name: string, listener: any): void;
+        /** Offline: remove a SyncListener. Takes effect immediately, started or not. */
+        static removeSyncListener(name: string): void;
+        /** Offline: register a global OfflineMessageListener (queue-wide observer). */
+        static addOfflineMessageListener(name: string, listener: any): void;
+        /** Offline: remove a global OfflineMessageListener. */
+        static removeOfflineMessageListener(name: string): void;
+        /**
+            * Offline: the server-time cursor the last catch-up sync caught up to, in epoch SECONDS (the
+            * `updatedAt` the server returned), or 0 if none has run. This is a server clock, not the device
+            * clock, so it is comparable across devices and matches the unit every other CometChat SDK reports.
+            * Returns 0 when offline is off or no sync has completed.
+            * @returns {Promise<number>}
+            */
+        static getLastSyncTimestamp(): Promise<number>;
+        /**
+            * Offline: download + cache an attachment's bytes; sets `localPath` on success.
+            * @param {any} attachment
+            * @param {MediaCallbackListener} [callback]
+            */
+        static downloadMedia(attachment: any, callback?: MediaCallbackListener): void;
+        /**
+            * Offline: the cached local path/handle for an attachment, or null if not cached.
+            * @param {any} attachment
+            * @returns {Promise<string | null>}
+            */
+        static getCachedMediaPath(attachment: any): Promise<string | null>;
+        /**
+            * Offline: a browser-renderable object URL (`blob:…`) for a cached attachment,
+            * or null if its bytes are not cached. Use as an <img>/<video> src to show media
+            * offline. The caller must revoke the URL (URL.revokeObjectURL) when done.
+            * @param {any} attachment
+            * @returns {Promise<string | null>}
+            */
+        static getCachedMediaObjectURL(attachment: any): Promise<string | null>;
+        /**
+            * Sends a message. Supports two forms:
+            *
+            * - `sendMessage(message)` — returns a Promise that resolves with the sent message.
+            * - `sendMessage(message, listener)` — reports progress through a three-phase
+            *   {@link MessageSentListener} (`onMessagePending` → `onMessageSent` → `onError`).
+            *   When offline support is enabled the message is queued in the durable outbox and
+            *   delivered when a connection is available; otherwise it behaves like the Promise
+            *   form, surfaced through the listener.
+            *
+            * Offline behaviour (offline support enabled): the send fires `onMessagePending`, then
+            * `onError` once with code `FAILED_TO_FETCH` while the row stays durably PENDING and
+            * auto-sends on reconnect (`onMessageSent` fires then). Both channels settle, so the
+            * returned Promise ALSO rejects offline — a listener-only consumer should `.catch()`
+            * (or otherwise handle) the returned Promise to avoid an unhandled rejection. The
+            * Promise means "sent now?": offline it rejects and the eventual send is observed via
+            * `onMessageSent` / {@link CometChat.getPendingMessages}, never the Promise. (A bare
+            * `await` with no listener is server-authoritative: it rejects and is NOT queued.)
+            *
+            * @param {TextMessage | MediaMessage | CustomMessage | InteractiveMessage | any} message The message to send.
+            * @param {MessageSentListener} [listener] Optional listener for the three-phase send.
+            * @returns {Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage> | void} A Promise when called without a listener; otherwise void.
             * @memberof CometChat
             */
         static sendMessage(message: TextMessage | MediaMessage | CustomMessage | InteractiveMessage | any): Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage>;
+        static sendMessage(message: any, listener: MessageSentListener): Promise<TextMessage | MediaMessage | CustomMessage | BaseMessage>;
         /**
             * Function to send a message to user.
             * @internal
@@ -1428,7 +1666,7 @@ export class CometChat {
             * @returns {Message | any}
             * @memberof CometChat
          */
-        static sendMediaMessage(message: Object): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
+        static sendMediaMessage(message: Object, listener?: MessageSentListener): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
         /**
             * Creates an {@link UploadFileRequest} scoped to one destination and one upload batch. This is
             * the entry point for the multi-attachment upload flow: configure the request
@@ -1438,7 +1676,9 @@ export class CometChat {
             *
             * @param {string} receiverId Intended recipient id (uid or guid). Sent in the presign call for role-based access control.
             * @param {string} receiverType Recipient type (`user` or `group`). Sent in the presign call for role-based access control.
-            * @returns {UploadFileRequest} A request object scoped to this destination + one batch.
+            * @returns {UploadFileRequest} A request object scoped to this destination + one batch. For a
+            *   thread batch, set the parent id on the returned request via `setParentMessageId` before the
+            *   first upload — that completes the batch triple `(receiverType, receiverId, parentMessageId)`.
             * @memberof CometChat
             *
             * @example
@@ -1461,6 +1701,30 @@ export class CometChat {
             */
         static createUploadFileRequest(receiverId: string, receiverType: string): UploadFileRequest;
         /**
+            * Restore the existing upload batch for a destination triple — a dedicated read path, separate
+            * from {@link CometChat.createUploadFileRequest} (OU-13). Returns an {@link UploadFileRequest}
+            * re-attached to the persisted batch (each file's current state restored, in insertion order), so a
+            * composer can rebuild its attachment tray after a reload/restart. Resolves to `null` when no batch
+            * exists for the triple — and **always `null` when offline is disabled** (there is nothing durable
+            * to restore). Uploads never auto-resume: restored un-uploaded files come back retryable and wait
+            * for the user (OU-6).
+            *
+            * @param {string} receiverId Recipient id (uid or guid).
+            * @param {string} receiverType Recipient type (`user` or `group`).
+            * @param {string | number} [parentMessageId] Thread parent id — omit for a main-conversation batch.
+            * @returns {Promise<UploadFileRequest | null>} The restored request, or `null` if none / offline off.
+            * @memberof CometChat
+            *
+            * @example
+            * // On chat/thread open, rebuild the tray from any persisted batch.
+            * const request = await CometChat.getExistingUploadFileRequest(receiverId, receiverType);
+            * if (request) {
+            *   const attachments = request.getAttachments();          // already-uploaded files
+            *   // ...render tiles; offer retry on failed files via request.retryAttachment(fileId).
+            * }
+            */
+        static getExistingUploadFileRequest(receiverId: string, receiverType: string, parentMessageId?: string | number): Promise<UploadFileRequest | null>;
+        /**
             * Returns the maximum number of attachments allowed per message, as configured
             * in app settings (`file.count.max`). Falls back to `UPLOAD_CONSTANTS.DEFAULT_FILE_COUNT_MAX`
             * if the setting is not available.
@@ -1473,18 +1737,20 @@ export class CometChat {
             *
             * Function to send a custom message.
             * @param {CustomMessage} message
+            * @param {MessageSentListener} [listener] Optional listener for the offline-aware 3-phase send (outbox).
             * @returns {Message | any}
             * @memberof CometChat
          */
-        static sendCustomMessage(message: CustomMessage): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
+        static sendCustomMessage(message: CustomMessage, listener?: MessageSentListener): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
         /**
             *
             * Function to send a interactive message.
             * @param {InteractiveMessage} message
+            * @param {MessageSentListener} [listener] Optional listener for the offline-aware 3-phase send (outbox).
             * @returns {Message | any}
             * @memberof CometChat
          */
-        static sendInteractiveMessage(message: InteractiveMessage): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
+        static sendInteractiveMessage(message: InteractiveMessage, listener?: MessageSentListener): Promise<BaseMessage | TextMessage | MediaMessage | CustomMessage>;
         /**
             *
             * Function to get the last delivered message id from local storage.
@@ -1566,12 +1832,13 @@ export class CometChat {
             */
         static sendTestMessage(message: any): Promise<void>;
         /**
-            * Function to fetch message details for the provided messageID.
-            * @param {string | any} messageId
-            * @returns {Message | any}
-            * @memberof CometChat
-         */
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §2). With a `listener`, the cached message
+            * is delivered first via `onCachedMessage` (nothing at all when it isn't cached), then the
+            * authoritative server copy via `onServerMessage`. Offline: cached callback only, then `onError`
+            * with `FAILED_TO_FETCH`. The returned Promise is unchanged and still settles on the server outcome.
+            */
         static getMessageDetails(messageId: string | any): Promise<TextMessage | MediaMessage | CustomMessage | InteractiveMessage | BaseMessage>;
+        static getMessageDetails(messageId: string | any, listener: MessageDetailsListener): Promise<TextMessage | MediaMessage | CustomMessage | InteractiveMessage | BaseMessage>;
         /**
             * Function to fetch message receipt details for the provided messageID.
             * @param {string | any} messageId
@@ -1728,17 +1995,17 @@ export class CometChat {
             * @memberof CometChat
          */
         static unblockUsers(blockedUids: String[]): Promise<Object>;
-        /**-------------------------------------------------------------------*
-            * Conversation related functions provided by CometChat class         *
-            *--------------------------------------------------------------------**/
         /**
-            * Function to fetch conversation for a specific user/group.
-            * @param {string} conversationWith
-            * @param {string} conversationType
-            * @returns {Promise<Conversation>}
-            * @memberof CometChat
-         */
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §2). Passing a `listener` delivers the
+            * cached conversation first via `onCachedConversation` (instantly, and nothing at all when it
+            * isn't cached), then the authoritative server copy via `onServerConversation`. Offline: only the
+            * cached callback fires, then `onError` with `FAILED_TO_FETCH`.
+            *
+            * The returned Promise is unchanged and still settles on the SERVER outcome, so existing code that
+            * ignores the listener behaves exactly as before.
+            */
         static getConversation(conversationWith: string, conversationType: string): Promise<Conversation>;
+        static getConversation(conversationWith: string, conversationType: string, listener: ConversationDetailsListener): Promise<Conversation>;
         /**
             * Function to tag a conversation for a specific user/group.
             * @param {string} conversationWith
@@ -2213,13 +2480,13 @@ export class CometChat {
             * @param authToken
             * @returns
          */
-        internalRestart(authToken: any): void;
+        internalRestart(authToken: any): Promise<void>;
         /**
             * @internal
             * @param pushToLoginListener
             * @returns
          */
-        internalLogout(pushToLoginListener?: boolean): Promise<unknown>;
+        internalLogout(pushToLoginListener?: boolean, wipeOffline?: boolean): Promise<unknown>;
         /**
     * Mark the element of a message as interacted.
     * @param {string} messageId
@@ -2632,32 +2899,37 @@ export class CometChatNotifications {
 }
 
 /**
-  * Interface representing the shape of the `cometchat-settings.json` file.
-  * Used by the file-based init overload for skills-driven integrations.
-  *
-  * The Chat SDK reads `appId`, `region`, and `chatSDK` fields.
-  * The `credentials`, `callsSDK`, and `uiKit` fields are reserved for other layers.
-  *
-  * @internal
-  * @module CometChatSettings
-  */
+    * Interface representing the shape of the `cometchat-settings.json` file.
+    * Used by the file-based init overload for skills-driven integrations.
+    *
+    * The Chat SDK reads `appId`, `region`, and `chatSDK` fields.
+    * The `credentials`, `callsSDK`, and `uiKit` fields are reserved for other layers.
+    *
+    * @internal
+    * @module CometChatSettings
+    */
 export interface CometChatSettings {
-    appId: string;
-    region: string;
-    credentials?: {
-        authKey?: string;
-    };
-    chatSDK?: {
-        presenceSubscription?: {
-            type?: string;
-            roles?: string[];
+        appId: string;
+        region: string;
+        credentials?: {
+                authKey?: string;
         };
-        autoEstablishSocketConnection?: boolean;
-        adminHost?: string | null;
-        clientHost?: string | null;
-    };
-    callsSDK?: Record<string, unknown>;
-    uiKit?: Record<string, unknown>;
+        chatSDK?: {
+                presenceSubscription?: {
+                        type?: string;
+                        roles?: string[];
+                };
+                autoEstablishSocketConnection?: boolean;
+                adminHost?: string | null;
+                clientHost?: string | null;
+                /**
+                    * Offline support (§10.1): a boolean shorthand (`{ enabled: <bool> }`) or a full offline config.
+                    * Offline is on only when `enabled` is explicitly `true`.
+                    */
+                offline?: boolean | OfflineConfig;
+        };
+        callsSDK?: Record<string, unknown>;
+        uiKit?: Record<string, unknown>;
 }
 
 /**
@@ -2737,9 +3009,16 @@ export class ThreadsRequest {
             * server's cursor is inclusive, so each page repeats the previous boundary row;
             * that duplicate is filtered out, which can make a returned page shorter than the
             * requested limit without meaning the list has ended.
+            *
+            * Offline behaviour (offline support enabled): passing a `listener` delivers the stored page via
+            * `onCachedThreads`, then the server page via `onServerThreads` — or, when offline, `onError` with
+            * code `FAILED_TO_FETCH`. The returned Promise settles the same way, so a listener-only consumer
+            * should handle its rejection. An empty cached page is the end of what is stored, not the end of the
+            * list.
             * @returns {Promise<MessageThread[]>}
             */
         fetchNext(): Promise<MessageThread[]>;
+        fetchNext(listener: ThreadFetchListener): Promise<MessageThread[]>;
         /** @returns {number} the page size. */
         getLimit(): number;
         /** @returns {boolean} */
@@ -3058,8 +3337,11 @@ export class UploadFileRequest {
         /**
             * @param {string} receiverId Recipient id (uid/guid). Sent in the presign call for RBAC/SBAC.
             * @param {string} receiverType Recipient type (`user`/`group`). Sent in the presign call.
+            * @param {string | number} [parentMessageId] Thread parent id — completes the batch triple
+            *   `(receiverType, receiverId, parentMessageId)` at construction. Omit for a main-conversation
+            *   batch. `setParentMessageId` remains available for backward compatibility.
             */
-        constructor(receiverId: string, receiverType: string);
+        constructor(receiverId: string, receiverType: string, parentMessageId?: string | number);
         /**
             * Mark this batch as belonging to a thread. The id is sent with `receiverId`/`receiverType` in
             * the presign call. Omit for a top-level (non-thread) message.
@@ -3110,6 +3392,45 @@ export class UploadFileRequest {
             */
         getAttachments(): Attachment[];
         /**
+            * Every file in the batch — any state — in the order it was added.
+            *
+            * Use this (not `getAttachments`) to rebuild a composer tray after
+            * {@link CometChat.getExistingUploadFileRequest}: an un-uploaded file has no hosted `Attachment`,
+            * so `getAttachments` cannot describe it, and without its `fileId` the UI can neither render it
+            * nor call {@link UploadFileRequest.retryAttachment}. Restored files come back as UPLOADED or
+            * FAILED (a file that was mid-flight when the process died is retryable-failed, not "paused").
+            *
+            * @returns {UploadFileInfo[]} Always an array (empty when the batch is unknown/empty).
+            *
+            * @example
+            * const request = await CometChat.getExistingUploadFileRequest(uid, "user");
+            * if (request) {
+            *   for (const f of request.getFiles()) {
+            *     // f.status → uploaded | failed | rejected | queued | uploading
+            *     // f.attachment (uploaded) · f.failure (failed/rejected) · f.fileId → retryAttachment
+            *   }
+            * }
+            */
+        getFiles(): UploadFileInfo[];
+        /**
+            * Every file in the batch — any state — in the order it was added, each with its public state
+            * (`queued` / `uploading` / `uploaded` / `failed` / `rejected`) and its `localCopyPath` (the SDK's
+            * durable copy of the bytes, in every state; `null` with offline off). Same result as
+            * {@link UploadFileRequest.getFiles}, under the name the other SDKs use.
+            * @returns {UploadFileInfo[]} Always an array (empty when the batch is unknown/empty).
+            */
+        getItems(): UploadFileInfo[];
+        /**
+            * The bytes this batch copied for a file when it was added — the same copy an upload/retry streams
+            * from. Lets a restored composer preview a file that never uploaded, whose original handle died
+            * with the process. The caller owns any object URL it creates from the blob.
+            *
+            * @param {string} fileId
+            * @returns {Promise<Blob | null>} Null when offline is OFF, the file is unknown, or no copy exists.
+            * An UPLOADED file resolves to its copy re-keyed to the hosted URL.
+            */
+        getFileBytes(fileId: string): Promise<Blob | null>;
+        /**
             * @param {string} type One of `image`/`video`/`audio`/`file`.
             * @returns {Attachment[]} Uploaded attachments of that kind — always an array (empty when none).
             */
@@ -3129,15 +3450,18 @@ export class UploadFileRequest {
             */
         addUploadListener(listener: UploadFileListener): void;
         /**
-            * Remove the batch-wide global listener.
+            * Remove the batch-wide global listener this request added — never one another request added to
+            * the batch it shares (BEH-UPLOAD-07).
             */
         removeUploadListener(): void;
         /**
-            * Re-upload one FAILED file (`onFileFailure`) using its retained bytes, re-presigning if the
-            * prior presign expired. No-op for rejected/uploaded files.
+            * Re-upload one FAILED file (`onFileFailure`) in place from its retained bytes, always with a
+            * fresh pre-signed URL. No-op for any other state, and for a FAILED file whose bytes are gone
+            * (`localCopyMissing`).
             * @param {string} fileId
+            * @param {UploadFileListener} [listener] Becomes the file's per-call listener for the retry.
             */
-        retryAttachment(fileId: string): void;
+        retryAttachment(fileId: string, listener?: UploadFileListener): void;
         /**
             * Remove one file from the batch. Aborts its in-flight upload (silently) if still uploading, or
             * drops it from the set if already uploaded.
@@ -3254,6 +3578,46 @@ export interface PresignForm {
         expiresAt?: number;
 }
 /**
+    * Public, read-only view of one file in an upload batch — every file, in the order it was added,
+    * whatever its state.
+    *
+    * `getAttachments()` deliberately returns only files that finished uploading (an un-uploaded file has
+    * no hosted `Attachment` to return), so it cannot describe a restored batch: after
+    * `getExistingUploadFileRequest`, the queued/failed files would be invisible and un-retryable (no
+    * `fileId` to pass to `retryAttachment`). This is the shape OU-13/OU-13a require the restored request
+    * to expose — id, name, size, mime, current state, the uploaded attachment, and the failure reason.
+    */
+export interface UploadFileInfo {
+        fileId: string;
+        name: string;
+        size: number;
+        mimeType: string;
+        status: UploadFileStatus;
+        /** Present once the file has UPLOADED. */
+        attachment?: Attachment;
+        /** Present when the file is FAILED (retryable) or REJECTED (terminal). */
+        failure?: {
+                code?: string;
+                message?: string;
+        };
+        /**
+            * True only for a FAILED file the SDK has **no durable byte copy** for — copy-at-add itself
+            * failed (e.g. disk-full) so nothing was ever copied, and the original handle died with the
+            * process. Such a file cannot be re-uploaded: {@link UploadFileRequest.retryAttachment} **no-ops**
+            * for it. The integrator must surface **remove / re-add** instead of a dead Retry (spec S-8).
+            * Absent/false whenever a durable copy exists or a live handle is still held (i.e. retry can
+            * still advance).
+            */
+        localCopyMissing?: boolean;
+        /**
+            * The SDK's own durable copy of the file's bytes (BEH-UPLOAD-13), in every state: the add-time copy,
+            * then — once UPLOADED — the copy re-keyed to the hosted URL. A byte-store handle (`opfs:…` in a
+            * browser, a file path on Electron); read the bytes with {@link UploadFileRequest.getFileBytes}.
+            * `null` with offline off or when no copy exists.
+            */
+        localCopyPath?: string | null;
+}
+/**
     * Internal per-file state tracked by the upload manager.
     * @private
     */
@@ -3276,6 +3640,12 @@ export interface UploadFileState {
         settled?: boolean;
         /** Per-call listener supplied for the upload call that added this file (may be undefined). */
         listener?: any;
+        /** Insertion order within the batch — persisted for restore fidelity (OU-13a). */
+        orderIndex?: number;
+        /** True once the bytes were copied into the durable store at add (OU-3). Drives stream-from-copy. */
+        durableCopied?: boolean;
+        /** The durable copy's handle (add-time copy, then the promoted one) — BEH-UPLOAD-13. */
+        localCopyPath?: string | null;
 }
 
 /**
@@ -3531,12 +3901,17 @@ export class MediaMessage extends BaseMessage implements Message {
          */
         setData(value: Object): void;
         /**
-            * Method to get attachment of media message.
+            * The first attachment of the message — always the same attachment as `getAttachments()[0]`
+            * (BEH-MEDIA-20), or `null` when the message has none (earlier releases threw).
             * @returns {Attachment}
          */
         getAttachment(): Attachment;
         /**
-            * Method to set attachment of media message.
+            * **Appends** `attachment` to the message's attachments (BEH-MEDIA-20, Android
+            * `MediaMessage.setAttachment`). On a message that already holds `a`, `setAttachment(b)` leaves
+            * `[a, b]` and `getAttachment()` is still `a` — `getAttachment()` means "the first attachment".
+            * The name is legacy; use `setAttachments(list)` to replace. `null` is a no-op ("append nothing"
+            * is not "hold nothing"). Earlier releases replaced the attachment.
             * @param {Attachment} attachment
          */
         setAttachment(attachment: Attachment): void;
@@ -3591,6 +3966,8 @@ export class BaseMessage implements Message {
         protected conversationId?: string;
         protected parentMessageId?: number;
         protected muid?: string;
+        protected localMessageId?: string;
+        protected source?: string;
         protected sender?: User;
         protected receiverId?: string;
         protected receiver?: User | Group;
@@ -3606,6 +3983,12 @@ export class BaseMessage implements Message {
         protected readByMeAt?: number;
         protected metadata: Object;
         protected status?: string;
+        /**
+            * R160 (BEH-SEND-35): why this message's send failed — a `MessageFailureReason` value, present only
+            * while `status` is `FAILED`. A device-local projection set by the offline layer; never serialized to
+            * the server (not part of the message payload). See {@link getFailureReason}.
+            */
+        protected failureReason?: string;
         protected receipts?: any[];
         protected readReceipts?: MessageReceipt[];
         protected deliveryReceipts?: MessageReceipt[];
@@ -3613,6 +3996,13 @@ export class BaseMessage implements Message {
         protected editedBy: string;
         protected deletedAt: number;
         protected deletedBy: string;
+        /**
+            * Server-bumped monotonic version stamp (seconds). Set on any server-side mutation — edit, delete,
+            * reaction, receipt — and used as the last-write-wins cursor by the offline cache and message
+            * pagination. Surfaced here so UI reconcilation (e.g. cache↔server merge on reopen) can pick the
+            * NEWEST copy of a message by version instead of a positional heuristic.
+            */
+        protected updatedAt: number;
         protected replyCount: number;
         protected rawMessage: Object;
         protected unreadRepliesCount: number;
@@ -3694,6 +4084,16 @@ export class BaseMessage implements Message {
             */
         setMuid(value: string): void;
         /**
+            * SDK-generated optimistic handle (offline). Present from compose until the server id arrives.
+            * @returns {string}
+            */
+        getLocalMessageId(): string;
+        /**
+            * Provenance of the message — 'REALTIME' or 'SYNC' (offline; SYNC = delivered by a catch-up sweep).
+            * @returns {string}
+            */
+        getSource(): string;
+        /**
             * Get sender of the message.
             * @returns {User}
             */
@@ -3753,10 +4153,31 @@ export class BaseMessage implements Message {
             * Set message's sentAt timestamp.
             */
         setSentAt(value: number): void;
-        /** @private */
+        /**
+            * @private The message status. For a message whose state the offline layer tracks, this is one of the
+            * `MessageStatus` values (derived on cache rehydration, not stored), so it compares directly against
+            * them. A call stores its call status here instead, so the type stays `string`.
+            */
         getStatus(): string;
         /** @private */
         setStatus(value: string): void;
+        /**
+            * Why this message's send failed (R160, BEH-SEND-35). One of the `MessageFailureReason` values
+            * (`TRANSIENT`, `PERMANENT`, `QUEUE_FULL`, `BYTE_OVERFLOW`, `QUEUE_OVERFLOW`, `DISCARDED`). Empty
+            * (`undefined`) unless the message's status is `FAILED`. Projected onto the message by the offline
+            * layer at every boundary it hands the app a failed message — the global `onOutboxMessageFailed`
+            * callback, a cache read of an unsent/failed row, `getPendingMessages`, and the first read after a
+            * restart — and cleared when a retry returns the message to `PENDING` or when it is sent. This is a
+            * device-local, read-only projection: it is NEVER serialized to the server (it is not part of the
+            * message payload, so it never rides the wire on a send or re-send).
+            * @returns {string}
+            */
+        getFailureReason(): string;
+        /**
+            * @private Set by the offline layer only. A falsy value clears it (kept `undefined`, never `null`),
+            * so a non-failed message carries no reason and the field never appears in a serialized message.
+            */
+        setFailureReason(value?: string | null): void;
         /**
             * Get delivery timestamp of the message.
             * @returns {number}
@@ -3817,6 +4238,18 @@ export class BaseMessage implements Message {
             * Set timestamp of the message when it was updated/edited.
             */
         setEditedAt(editedAt: number): void;
+        /**
+            * Get the server-bumped version stamp of the message (seconds). Advances on any server-side
+            * mutation (edit / delete / reaction / receipt) and is the last-write-wins cursor used by the
+            * offline cache and pagination. Use it to reconcile the NEWEST copy of a message by version.
+            * @returns {number}
+            */
+        getUpdatedAt(): number;
+        /**
+            * @param {number} updatedAt
+            * Set the server-bumped version stamp of the message (seconds).
+            */
+        setUpdatedAt(updatedAt: number): void;
         /**
             * Get UID of the user who edited/updated the message.
             * @returns
@@ -4107,6 +4540,7 @@ export const DEFAULT_VALUES: {
     MSGS_LIMIT: number;
     REACTIONS_LIMIT: number;
     MSGS_MAX_LIMIT: number;
+    MSGS_SYNC_MAX_LIMIT: number;
     USERS_LIMIT: number;
     USERS_MAX_LIMIT: number;
     GROUPS_LIMIT: number;
@@ -5092,6 +5526,7 @@ export const APP_SETTINGS: {
         CORE_CONVERSATIONS_UPDATE_ON_GROUP_ACTIONS: string;
         CORE_CONVERSATIONS_UPDATE_ON_CUSTOM_MESSAGES: string;
         CORE_CONVERSATIONS_UPDATE_ON_REPLIES: string;
+        CORE_THREADS_DECREMENT_REPLY_COUNT_ON_DELETE: string;
         FLAG_REASONS: string;
         FILE_SIZE_MAX: string;
         FILE_COUNT_MAX: string;
@@ -5490,6 +5925,21 @@ export class MessageListener {
          */
         onMessageModerated?: Function;
         /**
+            * This event is triggered when the reconnect catch-up sync reconciles a batch of updates
+            * to already-cached messages. Delivered in bulk; the app should upsert by id, not append.
+         */
+        onMessagesSynced?: Function;
+        /**
+            * This event is triggered when an AUTO-mode offline media download completes — the cached
+            * bytes are now on disk. Args: (messageId, attachmentId, localPath). A UI tile can refresh.
+         */
+        onMediaDownloaded?: Function;
+        /**
+            * This event is triggered when an AUTO-mode offline media download fails.
+            * Args: (messageId, attachmentId, error).
+         */
+        onMediaDownloadFailed?: Function;
+        /**
             * This event is triggered when an AI tool result is received.
             */
         onAIToolResultReceived?: Function;
@@ -5835,7 +6285,7 @@ export class Call extends BaseMessage implements Message {
             * Get call receiver entity(User/Group)
             * @returns {User | Group}
          */
-        getCallReceiver(): Group | User;
+        getCallReceiver(): User | Group;
         /**
             * @param {User | Group} receiver
             * Set details of the call receiver.
@@ -6216,10 +6666,11 @@ export class Action extends BaseMessage implements Message {
 export class GroupsRequest {
         constructor(builder?: GroupsRequestBuilder);
         /**
-            * Get list of next set of groups based on the parameters specified in GroupsRequestBuilder class The Developer need to call this method repeatedly using the same object of GroupsRequest class to get paginated list of groups.
-            * @returns {Promise<Group[] | []>}
-         */
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §6). See `UsersRequest.fetchNext` for the
+            * record/replay contract; `searchKeyword` is EXCLUDED, so a keyword search is empty offline.
+            */
         fetchNext(): Promise<Group[] | []>;
+        fetchNext(listener: GroupFetchListener): Promise<Group[] | []>;
         /**
             * Gets the limit on the number of groups to be fetched in a single operation.
             *
@@ -6321,10 +6772,12 @@ export class GroupMembersRequest {
         };
         constructor(builder: GroupMembersRequestBuilder);
         /**
-            * Get list of next set of group members based on the parameters specified in GroupMembersRequestBuilder class. The Developer need to call this method repeatedly using the same object of GroupMembersRequest class to get paginated list of group members.
-            * @returns {Promise<GroupMember[] | []>}
-         */
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §6). Scoped to this request's `guid`, so a
+            * ban/kick in that group invalidates exactly its recorded lists and no others (§6.3).
+            * `searchKeyword` and the presence `status` filter are EXCLUDED — empty offline (§6.2).
+            */
         fetchNext(): Promise<GroupMember[] | []>;
+        fetchNext(listener: GroupMemberFetchListener): Promise<GroupMember[] | []>;
         /**
             * Get the unique identifier of the group for which members are requested.
             *
@@ -6426,10 +6879,13 @@ export class GroupMembersRequestBuilder {
 export class BannedMembersRequest {
         constructor(builder: BannedMembersRequestBuilder);
         /**
-            * Get list of next set of banned members based on the parameters specified in BannedMembersRequestBuilder class. The Developer need to call this method repeatedly using the same object of BannedMembersRequest class to get paginated list of banned members.
-            * @returns {Promise<GroupMember[] | []>}
-         */
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §6). Scoped to this request's `guid`. Note
+            * this is a DIFFERENT read type from `GroupMembersRequest` even though both return
+            * `GroupMember[]` — separate signatures, separate recorded pages, and its own callback names.
+            * `searchKeyword` is EXCLUDED — empty offline (§6.2).
+            */
         fetchNext(): Promise<GroupMember[] | []>;
+        fetchNext(listener: BannedMemberFetchListener): Promise<GroupMember[] | []>;
         /**
             * Get the unique identifier of the group for which banned members are requested.
             *
@@ -6612,10 +7068,18 @@ export class UsersRequest {
             */
         getPage(): number;
         /**
-            * Get list of next set of users based on the parameters specified in UsersRequestBuilder class The Developer need to call this method repeatedly using the same object of UsersRequestBuilder class to get paginated list of users.
-            * @returns {Promise<User[] | []>}
-         */
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §6). Online, each page's server response is
+            * recorded verbatim against this request's signature; offline, the recorded pages replay in order
+            * through `onCachedUsers`. A read never fetched online is empty offline — never a guess.
+            *
+            * `searchKeyword` and the presence `status` filter are EXCLUDED (§6.2): with either set the cache
+            * phase is skipped entirely, so the read is empty offline rather than a subset that silently
+            * ignored the excluded predicate.
+            *
+            * The returned Promise is unchanged and still settles on the server outcome.
+            */
         fetchNext(): Promise<User[] | []>;
+        fetchNext(listener: UserFetchListener): Promise<User[] | []>;
         /**
             * @internal
             */
@@ -6741,10 +7205,16 @@ export class ConversationsRequest {
          */
         constructor(builder?: ConversationsRequestBuilder);
         /**
-            * Get list of next set of conversations based on the parameters specified in ConversationsRequestBuilder class. The Developer need to call this method repeatedly using the same object of ConversationsRequest class to get paginated list of conversations.
+            * Get the next page of conversations. Call repeatedly on the same request object for pagination.
+            *
+            * Offline behaviour (offline support enabled): passing a `listener` delivers the cache phase via
+            * `onCachedConversations`, then — when offline — fires `onError` once with code `FAILED_TO_FETCH`.
+            * Both channels settle, so the returned Promise ALSO rejects offline; a listener-only consumer
+            * should `.catch()` (or otherwise handle) the returned Promise to avoid an unhandled rejection.
             * @returns {Promise<Conversation[] | []>}
-         */
+            */
         fetchNext(): Promise<Conversation[] | []>;
+        fetchNext(listener: ConversationFetchListener): Promise<Conversation[] | []>;
         /**
             * @internal
             */
@@ -7158,18 +7628,31 @@ export class MessagesRequest {
         isHideQuotedMessages(): boolean;
         /**
             * Get list of next messages based on the parameters specified in MessagesRequestBuilder class. The Developer need to call this method repeatedly using the same object of MessagesRequest class to get paginated list of message.
+            *
+            * Offline behaviour (offline support enabled): passing a `listener` delivers the cache phase via
+            * `onCachedMessages`, then — when offline — fires `onError` once with code `FAILED_TO_FETCH`. Both
+            * channels settle, so the returned Promise ALSO rejects offline; a listener-only consumer should
+            * `.catch()` (or otherwise handle) the returned Promise to avoid an unhandled rejection.
             * @returns {Promise<BaseMessage[] | []>}
          */
         fetchNext(): Promise<BaseMessage[] | []>;
+        fetchNext(listener: MessageFetchListener): Promise<BaseMessage[] | []>;
         /**
             * Get list of previous messages based on the parameters specified in MessagesRequestBuilder class. The Developer need to call this method repeatedly using the same object of MessagesRequest class to get paginated list of message.
+            *
+            * Offline behaviour (offline support enabled): passing a `listener` delivers the cache phase via
+            * `onCachedMessages`, then — when offline — fires `onError` once with code `FAILED_TO_FETCH`. Both
+            * channels settle, so the returned Promise ALSO rejects offline; a listener-only consumer should
+            * `.catch()` (or otherwise handle) the returned Promise to avoid an unhandled rejection.
             * @returns {Promise<BaseMessage[] | []>}
          */
         fetchPrevious(): Promise<BaseMessage[] | []>;
+        fetchPrevious(listener: MessageFetchListener): Promise<BaseMessage[] | []>;
 }
 export class MessagesRequestBuilder {
         /** @private */ limit?: number;
         /** @private */ maxLimit: number;
+        /** @private */ skipCacheWrite?: boolean;
         /** @private */ uid?: string;
         /** @private */ guid?: string;
         /** @private */ parentMessageId?: number;
@@ -7622,11 +8105,19 @@ export class BlockedUsersRequest {
             */
         constructor(builder?: BlockedUsersRequestBuilder);
         /**
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §4.4). Blocked users are served offline
+            * **canonically**, from the blocked-users store — not from a snapshot: the store is the same
+            * authoritative set that drives the conversation `blockedByMe` flag and the message
+            * `hideMessagesFromBlockedUsers` filter, and it is maintained in place by block/unblock self-ops,
+            * so replaying a recorded response instead would be strictly worse.
             *
-            * Get list of next set of blocked users based on the parameters specified in BlockedUsersRequestBuilder class. The Developer need to call this method repeatedly using the same object of BlockedUsersRequest class to get paginated list of blocked users.
-            * @returns {Promise<User[] | []>}
+            * Callback names follow the PAYLOAD type: this returns `User[]`, so it is
+            * `onCachedUsers` / `onServerUsers`, the same pair `UsersRequest` uses.
+            *
+            * The returned Promise is unchanged and still settles on the server outcome.
             */
         fetchNext(): Promise<User[] | []>;
+        fetchNext(listener: UserFetchListener): Promise<User[] | []>;
         /**
             * Gets the direction type to determine the nature of the blocked users to be fetched.
             * The direction specifies whether to fetch users who are blocked by the logged-in user,
@@ -7735,11 +8226,18 @@ export class AppSettings {
         clientHost: string;
         /** @private */
         storageMode: StorageMode;
+        /** @private Offline config — a full OfflineConfig object or a boolean shorthand. Off by default. */
+        offlineConfig: OfflineConfig | boolean;
         /**
             * @private
             * @param {AppSettingsBuilder}
          */
         constructor(builder: AppSettingsBuilder);
+        /**
+            * This method returns the offline configuration set using `setOfflineConfig()` / `offline()` of the AppSettingsBuilder.
+            * @returns {OfflineConfig | boolean}
+         */
+        getOfflineConfig(): OfflineConfig | boolean;
         /**
             * This method returns the subscription type set using one of the following methods of the AppSettingsBuilder `subscribePresenceForAllUsers()`, `subscribePresenceForRoles()` or `subscribePresenceForFriends()`.
             * @returns {string}
@@ -7798,6 +8296,10 @@ export class AppSettingsBuilder {
         clientHost: string;
         /** @private */
         storageMode: StorageMode;
+        /** @private */
+        offlineConfig: OfflineConfig | boolean;
+        /** @private The explicit config object, if one was set — it wins over the boolean shorthand (§10.1). */
+        offlineConfigObject?: OfflineConfig;
         /**
             * A method to subscribe presence for all users.
             * @returns
@@ -7851,6 +8353,19 @@ export class AppSettingsBuilder {
             * @returns {this}
          */
         setStorageMode(storageMode: StorageMode): this;
+        /**
+            * @param {OfflineConfig} config
+            * Enables offline support with a full configuration object. Off by default.
+            * When both this and `offline()` are used, the explicit config object wins.
+            * @returns {this}
+         */
+        setOfflineConfig(config: OfflineConfig): this;
+        /**
+            * @param {boolean} enabled
+            * Boolean shorthand to enable/disable offline support with default settings.
+            * @returns {this}
+         */
+        offline(enabled?: boolean): this;
         /**
             * This method will return an object of the AppSettings class.
             * @returns {AppSettings}
@@ -8097,6 +8612,11 @@ export class Attachment {
             * @param {string} name
          */
         setUrl(url: string): void;
+        /**
+            * Method to get the cached local path/handle of the file (offline). Null if not cached.
+            * @returns {string}
+         */
+        getLocalPath(): string;
 }
 
 export class CallSettings {
@@ -8831,22 +9351,21 @@ export class ReactionsRequest {
          */
         getReaction(): string;
         /**
-            * Get list of next reactions list based on the parameters specified in ReactionsRequestBuilder class. The Developer need to call this method repeatedly using the same object of ReactionsRequest class to get paginated list of reactions.
-            * @returns {Promise<Reaction[] | []>}
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §6). Scoped to this request's message id, so
+            * the recorded reaction list belongs to exactly one message.
             */
         fetchNext(): Promise<Reaction[] | []>;
-        /**
-            * Get list of previous reactions list based on the parameters specified in ReactionsRequestBuilder class. The Developer need to call this method repeatedly using the same object of ReactionsRequest class to get paginated list of reactions.
-            * @returns {Promise<Reaction[] | []>}
-            */
+        fetchNext(listener: ReactionFetchListener): Promise<Reaction[] | []>;
+        /** Two-phase overload (ADDITIVE) — the backward direction, with its OWN replay cursor. */
         fetchPrevious(): Promise<Reaction[] | []>;
+        fetchPrevious(listener: ReactionFetchListener): Promise<Reaction[] | []>;
 }
 export class ReactionsRequestBuilder {
         /** @private */ limit?: number;
         /** @private */ msgId: number;
         /** @private */ reaction?: string;
         /**
-            * A method to set limit for the number of entries returned in a single iteration. A maximum of 20 entries can fetched in a single iteration.
+            * A method to set limit for the number of entries returned in a single iteration. Up to 1000 entries can be fetched in a single iteration; a larger limit is treated as 1000.
             * @param {number} limit
             * @returns
             */
@@ -9271,13 +9790,16 @@ export class PushNotification {
 export class NotificationFeedRequest {
         constructor(builder: NotificationFeedRequestBuilder);
         /**
-            * Fetches the next page of notification feed items.
-            * Manages cursor internally. When server returns no cursor,
-            * subsequent calls return an empty array without making a network request.
+            * Two-phase overload (ADDITIVE — Offline Read Coverage §6).
             *
-            * @returns {Promise<NotificationFeedItem[]>}
+            * This endpoint paginates by an OPAQUE cursor rather than a page number, which is exactly the case
+            * §6.1 excludes from the signature: the cursor is where you are in a read, not which read it is.
+            * So the signature is built from the filters alone and the recorded pages are walked by the replay
+            * index instead — which is also why an offline walk works at all, since the server cursor never
+            * advances offline.
             */
         fetchNext(): Promise<NotificationFeedItem[]>;
+        fetchNext(listener: NotificationFeedFetchListener): Promise<NotificationFeedItem[]>;
 }
 export class NotificationFeedRequestBuilder {
         /**
@@ -9828,6 +10350,49 @@ export class AIAssistantElement {
         static fromArray(elements: any[]): AIAssistantElement[];
 }
 
+/**
+    * The global cache-reset announcement (BEH-ENC-15 / BEH-ENC-16).
+    *
+    * A wipe that loses the unsent outbox underneath the app — a PERMANENT open failure, an escalation,
+    * or a change of the `encryption` setting — is the one offline path that destroys data nothing can
+    * rebuild, so it is announced: `onOfflineCacheReset(reason, pendingMessagesLost)`.
+    *
+    * Capture and delivery are separate: the reason and the count are captured at the moment of the wipe,
+    * and delivery is deferred to a later task so app code never runs inside the wipe, and the callback
+    * arrives once the rebuild has finished. The count is `OFFLINE_PENDING_COUNT_UNKNOWN` (-1) when it is
+    * unknown — in the commonest shape the pending rows lived inside the database that failed to open, and
+    * reporting `0` would tell the app nothing was lost. -1 is what Android, iOS and RN report (API parity
+    * M12). A logout wipe never fires it.
+    *
+    * Registrations are process-wide and survive restarts, like the sync listeners.
+    *
+    * @module offline/CacheResetNotifier
+    */
+/** `pendingMessagesLost` when the count of lost unsent messages is unknown (never 0). */
+declare const OFFLINE_PENDING_COUNT_UNKNOWN = -1;
+export interface OfflineCacheResetHandlers {
+        /** `(reason: OfflineCacheResetReason, pendingMessagesLost: number)` — `-1` (OFFLINE_PENDING_COUNT_UNKNOWN) = unknown. */
+        onOfflineCacheReset?: Function;
+}
+/** The app-facing listener (`CometChat.addOfflineCacheResetListener`). Style mirrors ConnectionListener. */
+export class OfflineCacheResetListener {
+        onOfflineCacheReset?: Function;
+        constructor(handlers: OfflineCacheResetHandlers);
+}
+declare function addOfflineCacheResetListener(name: string, listener: OfflineCacheResetListener | OfflineCacheResetHandlers): void;
+declare function removeOfflineCacheResetListener(name: string): void;
+/** @internal The runtime sets how a plaintext-residue wipe reports its lost unsent messages. */
+declare function setOfflineLostUnsentReporter(fn: (rows: any[]) => void): void;
+/** @internal Report the unsent messages an ONLINE_ONLY plaintext-residue wipe lost (best-effort). */
+declare function reportOfflineLostUnsent(rows: any[]): void;
+/** @internal Replace the delivery scheduler. Returns the previous one. */
+declare function setCacheResetScheduler(fn: (cb: () => void) => void): (cb: () => void) => void;
+/**
+    * Record a cache reset captured NOW and deliver it on a later task. `pendingMessagesLost` is the
+    * number of unsent messages the wipe removed, or `null` when it cannot be known (delivered as -1).
+    */
+declare function announceOfflineCacheReset(reason: OfflineCacheResetReason, pendingMessagesLost: number | null): void;
+
 /** Push Notification Preferences Enums */
 export enum MessagesOptions {
     DONT_SUBSCRIBE,
@@ -10328,6 +10893,271 @@ export class UnmutedConversation {
             * @param {MutedConversationType} type
             */
         setType(type: MutedConversationType): void;
+}
+
+/**
+    * Public configuration for Offline Messaging (V1).
+    *
+    * Off by default. Byte/day caps treat `0` as unlimited; count caps never do (BEH-EVICT-03).
+    *
+    * V2 keys (autoDownloadPolicy, autoDownloadNetwork, autoRetryFailedMessages,
+    * retryAttempts) are intentionally ABSENT in V1.
+    *
+    * @module offline/OfflineConfig
+    */
+export interface OfflineConfig {
+        /** Master gate. Nothing local opens unless true. */
+        enabled?: boolean;
+        /** Message retention TTL, in **DAYS** (`int`). `0` = unlimited (no TTL prune). Default `0`. */
+        cacheDurationDays?: number;
+        /** Local DB byte ceiling (logical). `0` = unlimited. Default 250 MB. */
+        maxStorageSize?: number;
+        /** Per-conversation cached window, `[1, 1000]`. `0` or out of range = `1000` (never unlimited). Default 500. */
+        maxMessagesPerConversation?: number;
+        /** Cached conversation count (whole-conversation LRU), `[1, 1000]`. `0` or out of range = `1000` (never unlimited). Default 100. */
+        maxConversations?: number;
+        /** Outbox cap, `[1, 100]`. `0` or out of range = `100`: the cap is never unlimited (BEH-EVICT-03). Default 50. */
+        maxPendingMessages?: number;
+        /** Gates ONLY the outbox flush on reconnect (the catch-up sweep always runs). Default true. */
+        autoSendPendingOnReconnect?: boolean;
+        /** At-cap behaviour for the outbox. Default REJECT_NEWEST. */
+        pendingQueueOverflowPolicy?: PendingMessageOverflowPolicy;
+        /**
+            * Per-user media caching mode. `AUTO` (default) auto-downloads + caches incoming media for
+            * offline viewing; `OFF` skips incoming media bytes (message + attachment metadata are still
+            * cached, so the message renders offline; media loads live from the URL when online). Sending
+            * media works in both modes.
+            */
+        mediaCaching?: MediaCachingMode;
+        /** Media-only byte budget (LRU). Default 500 MB. `0` = unlimited (a dev may opt out). */
+        maxMediaCacheSize?: number;
+        /**
+            * How many DISTINCT entity-list reads (request signatures) may be recorded for offline replay
+            * (Offline Read Coverage §3 / §6.4). Evicted LRU by signature — never per page, since half a
+            * recorded read would replay as a list that silently stops mid-way. Default 100.
+            */
+        maxSnapshotQueries?: number;
+        /**
+            * How long a recorded entity-list read stays replayable, in **DAYS** (§3 / §6.4). Past this it is
+            * dropped and the read is empty offline until it is viewed online again — better empty than
+            * confidently stale. Default 7.
+            */
+        snapshotTtlDays?: number;
+        /**
+            * Encrypt the offline cache at rest. Default `false` (opt-in), key-for-key identical across SDKs.
+            *
+            * Off ⇒ byte-identical to today: no key is generated, no key store is touched, no cipher probe runs
+            * On ⇒ the cache is created encrypted on first open and the achieved tier is
+            * reported by `getOfflineEncryptionStatus()`.
+            *
+            * This is **not** end-to-end encryption — the server still sees plaintext; this covers the
+            * on-device cache only, and what it buys is determined by where the key lives.
+            */
+        encryption?: boolean;
+        /**
+            * What to do when encryption **cannot run at all** on this build/device. Default `ONLINE_ONLY`,
+            * which never writes plaintext. See {@link EncryptionFailureBehavior} — it governs ONLY that case,
+            * never a transient vault failure (retries) or a lost key (self-heals, still encrypted).
+            *
+            * Ignored entirely while `encryption` is `false`.
+            */
+        encryptionFailureBehavior?: EncryptionFailureBehavior;
+        /** Dev-only diagnostic trace (§10.1). Default `false`; out of conformance, accepted for config parity. */
+        debugTracing?: boolean;
+}
+/**
+    * Conversation-list API max page size — also the hard ceiling on cached conversations
+    * (Enhancement 1, V1.2). `maxConversations` is clamped to `[1, MAX_CONVERSATIONS]`.
+    */
+declare const MAX_CONVERSATIONS = 1000;
+/**
+    * Clamp a COUNT cap, flooring fractional input (BEH-EVICT-03). A count cap is ALWAYS bounded and has
+    * **no "unlimited" setting**: a value of `0` — or anything below `min` or above `max` — normalizes to
+    * **`max`**, NOT to `min` and NOT to "unlimited" (`0`/`>1000` → `1000`; `0`/`>100` → `100` for the
+    * pending cap). Genuine in-range values are kept. `null`/`undefined`/non-finite falls back to `dflt`.
+    * (Only the byte/time caps keep `0 = unlimited`.)
+    */
+declare function clampCount(n: number | undefined | null, min: number, max: number, dflt: number): number;
+/** Every V1 key with its default. `0`/`null` semantics are applied by the engine, not here. */
+declare const DEFAULT_OFFLINE_CONFIG: Required<OfflineConfig>;
+/**
+    * Normalise the developer input into a fully-populated config (§10.1 — identical on every SDK).
+    *
+    *  - `undefined` / `null` → all defaults (offline OFF).
+    *  - `boolean`            → the shorthand `{ enabled: <bool> }`.
+    *  - object               → merged over defaults. **A missing `enabled` is `false`**, even when other
+    *                           offline keys are supplied: offline turns on only with an explicit `true`.
+    *
+    * Bad values are corrected, never rejected: count caps clamp per BEH-EVICT-03, snapshot caps fall
+    * back to their default, byte/day caps treat negative as `0` (unlimited), and an unknown enum value
+    * falls back to that key's default.
+    */
+declare function resolveOfflineConfig(input?: OfflineConfig | boolean | null): Required<OfflineConfig>;
+
+/**
+    * Two-phase read listeners (ADDITIVE — no rename of the existing onSuccess/onError).
+    *
+    * A cache phase (instant, local — may be empty; skipped entirely when a
+    * server-only filter is present) followed by the authoritative server phase.
+    * With offline OFF, only the server phase fires.
+    *
+    * Callback style mirrors the existing ConnectionListener (constructor takes an
+    * object of Function callbacks).
+    *
+    * @module offline/listeners/FetchListeners
+    */
+export interface MessageFetchHandlers {
+        /** Phase 1 — cached messages (instant, local). Only fires when the G1 gate passes. */
+        onCachedMessages?: Function;
+        /** Phase 2 — authoritative server messages (drop-in for the old onSuccess). */
+        onServerMessages?: Function;
+        onError?: Function;
+}
+export class MessageFetchListener {
+        onCachedMessages?: Function;
+        onServerMessages?: Function;
+        onError?: Function;
+        constructor(handlers: MessageFetchHandlers);
+}
+export interface ConversationFetchHandlers {
+        onCachedConversations?: Function;
+        onServerConversations?: Function;
+        onError?: Function;
+}
+export class ConversationFetchListener {
+        onCachedConversations?: Function;
+        onServerConversations?: Function;
+        onError?: Function;
+        constructor(handlers: ConversationFetchHandlers);
+}
+/**
+    * Two-phase `CometChat.getConversation`. SINGULAR callbacks, matching the singular read — the plural
+    * `onCachedConversations` belongs to the list read and means something different.
+    */
+export interface ConversationDetailsHandlers {
+        /** Phase 1 — the conversation from the canonical store, or nothing when it isn't cached. */
+        onCachedConversation?: Function;
+        /** Phase 2 — the authoritative server copy (also written through to the cache). */
+        onServerConversation?: Function;
+        onError?: Function;
+}
+/**
+    * The listener for two-phase `CometChat.getConversation` (BEH-READ-32). The name is the same on every
+    * SDK.
+    */
+export class ConversationDetailsListener {
+        onCachedConversation?: Function;
+        onServerConversation?: Function;
+        onError?: Function;
+        constructor(handlers: ConversationDetailsHandlers);
+}
+/** Two-phase `CometChat.getMessageDetails`. Singular, for the same reason as above. */
+export interface MessageDetailsHandlers {
+        onCachedMessage?: Function;
+        onServerMessage?: Function;
+        onError?: Function;
+}
+/**
+    * The listener for two-phase `CometChat.getMessageDetails`. The name is the same on every SDK
+    * (Android `CometChat.MessageDetailsListener`). `onCachedMessage` fires only on a cache hit.
+    */
+export class MessageDetailsListener {
+        onCachedMessage?: Function;
+        onServerMessage?: Function;
+        onError?: Function;
+        constructor(handlers: MessageDetailsHandlers);
+}
+export interface UserFetchHandlers {
+        onCachedUsers?: Function;
+        onServerUsers?: Function;
+        onError?: Function;
+}
+export class UserFetchListener {
+        onCachedUsers?: Function;
+        onServerUsers?: Function;
+        onError?: Function;
+        constructor(handlers: UserFetchHandlers);
+}
+export interface GroupFetchHandlers {
+        onCachedGroups?: Function;
+        onServerGroups?: Function;
+        onError?: Function;
+}
+export class GroupFetchListener {
+        onCachedGroups?: Function;
+        onServerGroups?: Function;
+        onError?: Function;
+        constructor(handlers: GroupFetchHandlers);
+}
+export interface GroupMemberFetchHandlers {
+        onCachedGroupMembers?: Function;
+        onServerGroupMembers?: Function;
+        onError?: Function;
+}
+export class GroupMemberFetchListener {
+        onCachedGroupMembers?: Function;
+        onServerGroupMembers?: Function;
+        onError?: Function;
+        constructor(handlers: GroupMemberFetchHandlers);
+}
+/**
+    * Banned members return `GroupMember[]` too, but they are a DIFFERENT read with its own snapshot
+    * scope and its own invalidation rule, so they get their own callback names rather than reusing the
+    * group-member ones — a caller wiring both to one object must be able to tell them apart.
+    */
+export interface BannedMemberFetchHandlers {
+        /** The cached banned members (§10.4 name). */
+        onCachedBannedGroupMembers?: Function;
+        /** The server's banned members (§10.4 name). */
+        onServerBannedGroupMembers?: Function;
+        /** @deprecated Use `onCachedBannedGroupMembers`; accepted as an alias. */
+        onCachedBannedMembers?: Function;
+        /** @deprecated Use `onServerBannedGroupMembers`; accepted as an alias. */
+        onServerBannedMembers?: Function;
+        onError?: Function;
+}
+export class BannedMemberFetchListener {
+        onCachedBannedGroupMembers?: Function;
+        onServerBannedGroupMembers?: Function;
+        onError?: Function;
+        constructor(handlers: BannedMemberFetchHandlers);
+}
+export interface ReactionFetchHandlers {
+        onCachedReactions?: Function;
+        onServerReactions?: Function;
+        onError?: Function;
+}
+export class ReactionFetchListener {
+        onCachedReactions?: Function;
+        onServerReactions?: Function;
+        onError?: Function;
+        constructor(handlers: ReactionFetchHandlers);
+}
+export interface NotificationFeedFetchHandlers {
+        onCachedNotificationFeedItems?: Function;
+        onServerNotificationFeedItems?: Function;
+        onError?: Function;
+}
+export class NotificationFeedFetchListener {
+        onCachedNotificationFeedItems?: Function;
+        onServerNotificationFeedItems?: Function;
+        onError?: Function;
+        constructor(handlers: NotificationFeedFetchHandlers);
+}
+export interface ThreadFetchHandlers {
+        onCachedThreads?: Function;
+        onServerThreads?: Function;
+        onError?: Function;
+}
+/**
+    * Two-phase listener for `ThreadsRequest.fetchNext(listener)`: `onCachedThreads` with the stored page
+    * (offline support enabled), then `onServerThreads` with the server page, or `onError`.
+    */
+export class ThreadFetchListener {
+        onCachedThreads?: Function;
+        onServerThreads?: Function;
+        onError?: Function;
+        constructor(handlers: ThreadFetchHandlers);
 }
 
 /**
@@ -10924,4 +11754,3672 @@ export class AIAssistantCardEndedEvent extends AIAssistantBaseEvent<AssistantCar
             */
         getCardId(): string;
 }
+
+/** At-cap behaviour for the durable send outbox. */
+export enum PendingMessageOverflowPolicy {
+        /** Evict the oldest PENDING message to admit the new one. */
+        DROP_OLDEST = "DROP_OLDEST",
+        /** Refuse the new send when the queue is full. */
+        REJECT_NEWEST = "REJECT_NEWEST"
+}
+/**
+    * Per-user media caching mode (offline). Governs the RECEIVE side only; sending media
+    * works in both modes.
+    *
+    *  - `AUTO` (default): incoming media is auto-downloaded + cached on receipt (any network),
+    *    so it is available offline.
+    *  - `OFF`: incoming media is NOT downloaded or cached. The message and its attachment
+    *    metadata are still cached (the message renders offline); the UI loads the media live
+    *    from the remote URL when online.
+    */
+export enum MediaCachingMode {
+        AUTO = "AUTO",
+        OFF = "OFF"
+}
+/**
+    * What the SDK does when offline encryption **cannot be applied at all** — the BUILD/LINK failure
+    * class: the cipher engine is missing on this build/device, or secure key storage is
+    * unavailable. In the browser that is an insecure origin (no `crypto.subtle`); in Electron it is a
+    * plain `better-sqlite3` in place of the cipher build, or a Linux box with no keyring.
+    *
+    * Key-for-key identical across every CometChat SDK.
+    *
+    * Scope: this governs ONLY "encryption is impossible here". A momentary vault failure still retries
+    * (TRANSIENT) and a lost key still self-heals by wiping and rebuilding ENCRYPTED (PERMANENT) — neither
+    * is affected by this setting, and neither can be downgraded to plaintext by it.
+    */
+export enum EncryptionFailureBehavior {
+        /**
+            * Default. Do not open a local cache at all; run server-only. Never writes plaintext.
+            *
+            * The safe default: it protects a compliance customer from a silent downgrade and makes a setup
+            * mistake visible, because offline simply stops working until it is fixed.
+            */
+        ONLINE_ONLY = "ONLINE_ONLY",
+        /**
+            * Opt-in. Open an UNENCRYPTED local cache so offline keeps working.
+            *
+            * Logs at error level and reports `atRest: "NONE"` from the status API, so the downgrade is both
+            * visible and queryable. An availability-over-guarantee trade — wrong for compliance use.
+            */
+        PLAINTEXT_FALLBACK = "PLAINTEXT_FALLBACK"
+}
+/** How a message reached the client — SYNC = delivered by a catch-up sweep. */
+export enum MessageSource {
+        REALTIME = "REALTIME",
+        SYNC = "SYNC"
+}
+/** Public, derived message status (from send-state + receipt timestamps). */
+export enum MessageStatus {
+        PENDING = "PENDING",
+        SENDING = "SENDING",
+        SENT = "SENT",
+        DELIVERED = "DELIVERED",
+        READ = "READ",
+        FAILED = "FAILED"
+}
+/** Why a send failed. */
+export enum MessageFailureReason {
+        TRANSIENT = "TRANSIENT",
+        PERMANENT = "PERMANENT",
+        QUEUE_OVERFLOW = "QUEUE_OVERFLOW",
+        QUEUE_FULL = "QUEUE_FULL",
+        BYTE_OVERFLOW = "BYTE_OVERFLOW",
+        /**
+            * The message was removed before it could send: `clearOfflineCache()`, the user's own leave or
+            * delete of the group, or any purge of its conversation. Fired only for a message still trying to
+            * send (`PENDING` / `SENDING`); an already-`FAILED` one is removed silently (BEH-SEND-01, §10.2).
+            */
+        DISCARDED = "DISCARDED"
+}
+/**
+    * Why the offline cache was wiped and rebuilt underneath the app, losing the unsent outbox
+    * (`onOfflineCacheReset`, BEH-ENC-15 / BEH-ENC-16). A logout never fires it.
+    */
+export enum OfflineCacheResetReason {
+        /** The encryption key could not be found any more (key store entry gone, blob unreadable). */
+        KEY_LOST = "KEY_LOST",
+        /** The stored key does not open the cache. */
+        WRONG_KEY = "WRONG_KEY",
+        /** The cache file is corrupt. */
+        CORRUPTED = "CORRUPTED",
+        /** An unclassifiable open failure repeated on three consecutive launches (BEH-ENC-12). */
+        ESCALATED = "ESCALATED",
+        /** The `encryption` setting no longer matches the cache on disk (BEH-ENC-16). */
+        ENCRYPTION_CHANGED = "ENCRYPTION_CHANGED"
+}
+/** Catch-up sync state. */
+export enum SyncState {
+        IDLE = "IDLE",
+        SYNCING = "SYNCING"
+}
+/**
+    * Result of a completed message-sync sweep. Exactly two values.
+    *  - `CAUGHT_UP`: the changelog fully drained — the cache is current with the server.
+    *  - `PARTIAL`: one changelog page was ingested and more changes remain on the server; the next
+    *    sweep resumes from the page's server cursor (BEH-SYNC-22a / BEH-SYNC-23a).
+    */
+export enum SyncOutcome {
+        CAUGHT_UP = "CAUGHT_UP",
+        PARTIAL = "PARTIAL"
+}
+
+/**
+    * Bumped on an additive schema change. v2 adds the two upload-batch stores (`upload_batches` /
+    * `upload_files`) for offline direct-to-storage uploads; v3 adds `crypto_keys`, which holds the
+    * per-(app, user) encryption key co-located with the data it protects — additive only,
+    * so the IndexedDB upgrade must be IDEMPOTENT (guard every createObjectStore with
+    * `objectStoreNames.contains`) and must NOT drop existing stores, so an earlier user's cached
+    * messages/conversations survive the upgrade.
+    *
+    * v4 adds `blocked_users` and `entity_snapshots` for Offline Read Coverage. §3.1 of that design says
+    * "no schema-version bump", which is achievable on a platform whose engine can add a table at any
+    * time — but **IndexedDB can only create an object store inside `onupgradeneeded`, which runs only on
+    * a version increase**. So the bump is unavoidable here. It is a bump WITHOUT a migration: the
+    * upgrade callback stays idempotent and purely additive, nothing is moved, transformed, or dropped,
+    * and existing cached rows survive untouched. The intent of §3.1 (no migration code, disposable dev
+    * caches) holds; only its literal wording could not.
+    *
+    * v5 adds `list_rows` and `list_meta` (the pinned / saved / my-threads list stores) and a
+    * `parentMessageId` index on `messages`. Same rule: additive and idempotent, so pending sends in
+    * `messages` and the upload batches survive the upgrade untouched.
+    */
+declare const OFFLINE_SCHEMA_VERSION = 5;
+/**
+    * Upper bound on opening or deleting one IndexedDB database. Another tab holding an older connection
+    * can block an open (or a delete) indefinitely, so the wait is bounded rather than left to hang a login.
+    */
+declare const OFFLINE_OPEN_TIMEOUT_MS = 5000;
+/**
+    * Upper bound on one whole offline start (queue wait + open + startup recovery). A start that has not
+    * settled by then is cancelled and the session continues online-only; the next start tries again.
+    */
+declare const OFFLINE_START_TIMEOUT_MS = 8000;
+/**
+    * The peer user role that marks an AGENTIC conversation (Offline Read Coverage §4.2, §11 "Confirmed").
+    *
+    * A conversation is agentic **iff** it is 1:1 AND the peer user's `role` equals this — a group is
+    * never agentic. Note this is a USER ROLE and is unrelated to `MessageCategory.AGENTIC` ("agentic"),
+    * which classifies a message; they are different axes that happen to share a word.
+    */
+declare const AGENTIC_USER_ROLE = "@agentic";
+/**
+    * How stale the blocked-users set may get before a settled reconnect sweep refetches it (BEH-CONV-15:
+    * "more than 12 h old"). There is no timer: the fetch runs at session start, and after a sweep only
+    * once the last successful fetch is older than this.
+    */
+declare const BLOCKED_USERS_REFRESH_MS: number;
+/**
+    * Page size of the ONE blocked-users request (BEH-CONV-15, BEH-SYNC-35:
+    * `GET /blockedusers?per_page=1000&direction=both`, first page only). Sent straight to the API: the
+    * public request builder's 100-row cap must never block or change it.
+    */
+declare const BLOCKED_USERS_PAGE_SIZE = 1000;
+/** Entity-list read types — the `(readType, scope)` key for snapshot invalidation (§6.3). */
+declare const SNAPSHOT_READ_TYPE: {
+        readonly users: "users";
+        readonly groups: "groups";
+        readonly groupMembers: "groupMembers";
+        readonly bannedMembers: "bannedMembers";
+        readonly reactions: "reactions";
+        readonly notificationFeed: "notificationFeed";
+        readonly threads: "threads";
+};
+/**
+    * A group at/above this membership size is "large" — a realtime receive does NOT bump its cached
+    * unread count (mirrors the server's `GROUP_SIZE_LARGE`).
+    */
+declare const GROUP_SIZE_LARGE = 300;
+/**
+    * Is a cached group at/above the "large" membership threshold? Unknown/zero membership → NOT large.
+    * `conversationWith` is an object on an IndexedDb row and a JSON string on a SQLite row.
+    */
+declare function isLargeGroup(conversationWith: unknown, threshold: number): boolean;
+/** Per-(app, user) database name. One DB per user → leak-proof wipe on auth change. */
+declare function offlineDbName(appId: string, uid: string): string;
+/**
+    * Namespace for the media byte store (OPFS dir / node:fs dir). Per `(app, user)`, like the database,
+    * so two apps on one origin with the same uid never share or wipe each other's media.
+    */
+declare function offlineMediaNamespace(appId: string, uid: string): string;
+/**
+    * The per-user namespace earlier builds wrote media under. Read as a fallback so cached bytes and
+    * pending outgoing copies survive the upgrade; deleted by every wipe.
+    */
+declare function offlineLegacyMediaNamespace(uid: string): string;
+/** Object store names (native IndexedDB). */
+declare const STORES: {
+        readonly messages: "messages";
+        readonly conversations: "conversations";
+        readonly attachments: "attachments";
+        readonly syncMeta: "sync_meta";
+        readonly uploadBatches: "upload_batches";
+        readonly uploadFiles: "upload_files";
+        readonly cryptoKeys: "crypto_keys";
+        readonly blockedUsers: "blocked_users";
+        readonly entitySnapshots: "entity_snapshots";
+        readonly listRows: "list_rows";
+        readonly listMeta: "list_meta";
+};
+/**
+    * Canonical key for an upload batch — the `(receiverType, receiverId, parentMessageId)` triple
+    * (OU-2). One durable batch per triple; `create` and `getExisting` resolve to the same key. A
+    * main-conversation batch (no parent) uses the `main` sentinel so it never collides with a thread
+    * batch. `receiverType` is ASCII-lowercased for stability; `receiverId` is kept verbatim.
+    */
+declare function uploadBatchKey(receiverType: string, receiverId: string, parentMessageId?: string | number | null): string;
+/** `sync_meta` keys. */
+declare const SYNC_META_KEYS: {
+        readonly watermark: "lastSyncedUpdatedAt";
+        readonly lastSyncTimestamp: "lastSyncTimestamp";
+        readonly schemaVersion: "schemaVersion";
+        readonly configSnapshot: "offlineConfigSnapshot";
+        /**
+            * Which at-rest mode the CURRENTLY STORED rows were written under ("NONE" | "FIELD_AES_GCM").
+            *
+            * Without this, turning `encryption` on over a store written by an earlier build makes every row
+            * fail to decrypt and self-heal individually — refetch-thrash across the whole cache instead of one
+            * clean wipe. Checked at open; a mismatch is a whole-store rebuild.
+            */
+        readonly encryptionMode: "offlineEncryptionMode";
+        /**
+            * The id half of the reconnect changelog cursor `(updatedAt, id)` (BEH-SYNC-09). The updatedAt half
+            * is `watermark`; both are written in one transaction (BEH-SYNC-21).
+            */
+        readonly watermarkId: "lastSyncedId";
+        /** When the blocked-users set was last replaced from the server, ms (BEH-CONV-15). */
+        readonly blockedUsersFetchedAt: "blockedUsersFetchedAt";
+        /**
+            * Browser encrypted store: a known value sealed under the store's key. At open it tells a key that
+            * opens this store from one that does not (WRONG_KEY), apart from damaged rows (CORRUPTED).
+            */
+        readonly keyCheck: "offlineKeyCheck";
+};
+/**
+    * `sync_meta` key prefix for an outbox row's count of dispatched-but-unanswered sends (BEH-SEND-10).
+    * Persisted so the 5-reconnect cap survives a restart.
+    */
+declare const OUTBOX_ATTEMPTS_META_PREFIX = "outboxAttempts:";
+/**
+    * `sync_meta` key prefix marking an outbox row whose last attempt got no answer: it now waits for the
+    * reconnect flush (R94, R107). Persisted so a drain the app starts after a restart still leaves it.
+    */
+declare const OUTBOX_UNANSWERED_META_PREFIX = "outboxUnanswered:";
+/**
+    * How long one outbox send waits for the server's answer before it counts as no answer (BEH-SEND-10
+    * lists a timeout as NOT_CONNECTED). The SDK's REST transport has no timeout of its own, so a request
+    * caught by a network drop can stay unanswered for minutes, holding its chat and the reconnect sweep
+    * that waits for the flush. Android's JSON client times out at 15 s (text, custom and interactive
+    * sends); React Native uses the same. A request timeout, not a retry timer (R73, R94): the message is
+    * retried only by the next reconnect flush.
+    */
+declare const OUTBOX_SEND_TIMEOUT_MS = 15000;
+/**
+    * The base of a media send's limit: Android's file client, 40 s. Android's 15 / 40 s are inactivity
+    * timeouts (no call timeout), so a large upload on a slow link still finishes there; a fetch here has
+    * no progress signal, so the limit grows with the upload instead: 40 s plus the upload's bytes at
+    * {@link OUTBOX_MEDIA_FLOOR_BYTES_PER_S}.
+    */
+declare const OUTBOX_MEDIA_SEND_TIMEOUT_MS = 40000;
+/** The floor upload rate a media send's limit allows for: 16 KiB/s (≈ 128 kbit/s, a poor mobile link). */
+declare const OUTBOX_MEDIA_FLOOR_BYTES_PER_S = 16384;
+/**
+    * How long a timed-out send's request is still treated as its attempt. Until it answers — or this
+    * passes — a reconnect flush does not post the message again, so a late acceptance cannot become a
+    * second copy on the server. Past it the attempt counts as lost (BEH-SEND-23: an acceptance after that
+    * can leave a duplicate).
+    */
+declare const OUTBOX_LATE_ANSWER_HOLD_MS = 120000;
+/**
+    * How long one request of the reconnect sweep (conversations, changelog page, my threads, blocked
+    * users) waits for its answer before it fails as no answer — Android's JSON REST timeout, 15 s. Without
+    * it a request caught by a network drop holds the sweep, and its single-flight latch, for as long as
+    * the request hangs, and every reconnect meanwhile only queues behind it. Not a retry timer: the
+    * failed phase is reported (BEH-SYNC-29) and the next reconnect sweeps again.
+    */
+declare const SYNC_REQUEST_TIMEOUT_MS = 15000;
+/** Public per-call error code of a send removed before it could go (reason `DISCARDED`, §10.2). */
+declare const OFFLINE_MESSAGE_ERROR: {
+        readonly DISCARDED: "ERROR_OFFLINE_MESSAGE_DISCARDED";
+        /**
+            * The local store could not be read just now (busy, locked, full, closing): `getPendingMessages`
+            * rejects with it instead of answering an empty list (BEH-SEND-25, R118). Android's code for it.
+            */
+        readonly STORE_UNAVAILABLE: "ERROR_OFFLINE_MESSAGE_PERSIST_FAILED";
+        /**
+            * R160 (BEH-SEND-36 / BEH-SEND-20): `discardLocalMessage` / `retryMessage` was called for a message
+            * whose send has already started (`SENDING`, or a timed-out request still awaiting its answer) — it
+            * is in flight and cannot be removed or re-attempted. Band-1 string, identical across SDKs.
+            */
+        readonly IN_FLIGHT: "ERROR_OFFLINE_MESSAGE_IN_FLIGHT";
+        /**
+            * R160 (BEH-SEND-36 / BEH-SEND-20): `discardLocalMessage` / `retryMessage` named an unknown
+            * localMessageId, or one whose message has already been sent (it is no longer in the outbox). Band-1
+            * string, identical across SDKs.
+            */
+        readonly NOT_FOUND: "ERROR_OFFLINE_MESSAGE_NOT_FOUND";
+};
+/** Public reject codes for `forceSyncNow(callback)`. */
+declare const OFFLINE_SYNC_ERROR: {
+        /** A sweep is already running. */
+        readonly IN_PROGRESS: "ERROR_OFFLINE_SYNC_IN_PROGRESS";
+        /** Called again within the cooldown window; the error carries `retryAfterMs`. */
+        readonly COOLDOWN: "ERROR_OFFLINE_SYNC_COOLDOWN";
+        /** Offline is disabled — there is no sync engine to drive. */
+        readonly DISABLED: "ERROR_OFFLINE_DISABLED";
+};
+/** Minimum gap between two forced syncs; a `forceSyncNow(callback)` inside this window rejects COOLDOWN. */
+declare const FORCE_SYNC_COOLDOWN_MS = 10000;
+
+/**
+    * Core seams + row/query types for the offline engine. Runtime-specific classes
+    * (IndexedDB, OPFS, Electron) implement these interfaces.
+    */
+/** Opaque handle persisted as `attachment.localPath` — never assume a real FS path. */
+type MediaRef = string;
+/**
+    * Per-row write outcome from an LWW upsert. `OUTBOX_ROW`: the row is the server's copy of a message
+    * still in the outbox (PENDING / SENDING, matched by its echoed `localMessageId`, same sender and
+    * conversation) and was not written; the outbox settles it (BEH-SEND-01). Another message carrying that
+    * key is not written either, and reads `SKIPPED_STALE`.
+    */
+type WriteResult = "OK" | "SKIPPED_STALE" | "FAILED" | "OUTBOX_ROW";
+/** Send-side state of a message row (public `status` is derived from this + receipts). */
+type SendState = "PENDING" | "SENDING" | "SENT" | "FAILED";
+/**
+    * Canonical message row — the flat columns are extracted copies of `payload`
+    * (the rendering source of truth). `id` is omitted while pending (sparse index).
+    */
+interface MessageRow {
+        localMessageId: string;
+        id?: number;
+        conversationId: string;
+        senderUid: string;
+        receiverType: "user" | "group";
+        receiverId: string;
+        type: string;
+        category: string;
+        parentMessageId?: number;
+        quotedMessageId?: number;
+        sentAt?: number;
+        updatedAt?: number;
+        deletedAt?: number;
+        deliveredAt?: number;
+        readAt?: number;
+        sendState: SendState;
+        failureReason?: string;
+        localSortTs: number;
+        source?: MessageSource;
+        payload: unknown;
+        tags: string[];
+        /**
+            * BEH-READ-41 (R81): this write's request applied `withTags`, so a payload without `tags` CLEARS the
+            * stored ones. Absent, a payload without `tags` says nothing about them and the stored tags are kept.
+            * Write-only: never stored.
+            */
+        tagsAuthoritative?: boolean;
+        mentions: string[];
+        /**
+            * Write-time projection: does the payload carry at least one attachment? (Offline Read Coverage §5
+            * `hasAttachments`.) A PROJECTION, not a read-time payload check, deliberately: under cache
+            * encryption the payload is sealed inside `__enc` and is `null` on the row the index scan sees, so
+            * a payload-reading predicate would silently match nothing. Rebuilt on every write, like `tags`.
+            */
+        hasAttachments?: boolean;
+        /**
+            * Write-time projection: the distinct `AttachmentType` values of this message's attachments
+            * (`image` | `video` | `audio` | `file`), derived from each attachment's mime type — the same
+            * vocabulary `MessagesRequestBuilder.setAttachmentTypes` sends on the wire (§5 `attachmentTypes`).
+            */
+        attachmentTypes?: string[];
+        /** Write-time projection: does the payload carry at least one reaction? (§5 `hasReactions`.) */
+        hasReactions?: boolean;
+        /** When the message was pinned (seconds), or `null` when it is known not to be pinned. */
+        pinnedAt?: number | null;
+        /** Who pinned it — a uid, or `app_system` for an admin pin. */
+        pinnedBy?: string | null;
+        /** When the logged-in user saved it (seconds), or `null` when known not to be saved. */
+        savedAt?: number | null;
+        /** Whether the logged-in user follows this message's thread (the value belongs to the thread root). */
+        threadSubscribed?: boolean | null;
+}
+/** The message flag columns, in one place for carry-forward and clearing. */
+declare const MESSAGE_FLAG_KEYS: ReadonlyArray<"pinnedAt" | "pinnedBy" | "savedAt" | "threadSubscribed">;
+/** A flag-only update for one cached message, applied update-if-cached (BEH-FLAG-01). */
+interface MessageFlagUpdate {
+        /** Server message id. */
+        id: number;
+        pinnedAt?: number | null;
+        pinnedBy?: string | null;
+        savedAt?: number | null;
+        threadSubscribed?: boolean | null;
+}
+/** Per-user conversation snapshot — NOT derivable from messages. */
+interface ConversationRow {
+        conversationId: string;
+        conversationType: "user" | "group";
+        conversationWith: unknown;
+        lastMessage?: unknown;
+        lastMessageId?: number;
+        unreadCount: number;
+        updatedAt?: number;
+        localSortTs: number;
+        lastAccessedTs: number;
+        tags: string[];
+        newestCachedMessageId?: number;
+        oldestCachedMessageId?: number;
+        /**
+            * I blocked the peer (§4.4). Driven by the cached blocked-users store + block/unblock self-ops,
+            * NOT by a conversation read. Queryable: the default conversation list filters these OUT and the
+            * `includeBlockedUsers` view includes them, both locally.
+            *
+            * **Field-protected.** Both backends upsert with `{ ...existing, ...row }`, so a writer that did
+            * not learn the blocked state must OMIT this key entirely (never set it to `undefined`) — that is
+            * what stops a plain read or a realtime update from clobbering it.
+            */
+        blockedByMe?: boolean;
+        /**
+            * The peer blocked me (§4.4). Sourced from `withBlockedInfo` on the reconnect sweep. Same
+            * field-protection rule as {@link blockedByMe}.
+            */
+        hasBlockedMe?: boolean;
+        /**
+            * Write-time projection: is this an agentic conversation (§4.2)? True **iff** the conversation is
+            * 1:1 AND the peer user's role is `@agentic`. A group is never agentic.
+            */
+        isAgentic?: boolean | null;
+        /**
+            * Write-time projection of the PEER entity's tags — `conversationWith.tags` for a user or a group
+            * (§4.2 `userTags` / `groupTags`). Distinct from {@link tags}, which is the conversation's OWN
+            * tags. Blind-indexed under encryption exactly like `tags`, so the filter stays a mid-scan column
+            * match in both tiers.
+            */
+        peerTags?: string[];
+        /**
+            * The conversation's read marker — the newest message id the current user has read (§4.5). Drives
+            * the message `unread` filter (`id > lastReadMessageId`, §11-confirmed). Advanced by the offline
+            * read hook and refreshed by the `markAsUnread` conversation write-back.
+            */
+        lastReadMessageId?: string;
+        /** Carried for model fidelity — `rowToConversation` previously hard-coded 0. */
+        unreadMentionsCount?: number;
+        /** Carried for model fidelity — `rowToConversation` previously hard-coded "". */
+        latestMessageId?: string;
+        /**
+            * The conversation's pin (BEH-CPIN-01): when it was pinned (seconds) and by whom (`app_system` for
+            * an admin pin). Field-protected like the blocked flags: a writer that is not authoritative for the
+            * pin omits both keys, and `null` means "known not pinned".
+            */
+        pinnedAt?: number | null;
+        pinnedBy?: string | null;
+        /**
+            * BEH-CPIN-01: the admin pin and the user's own pin, kept apart (Android ConversationRecord.java:39-40).
+            * `pinnedAt`/`pinnedBy` above are DERIVED from these by the store on every write (the admin pin wins).
+            * A writer puts only the column(s) its source proves; an absent key keeps the stored pin; `null`
+            * means "known not pinned" by that source. Rows from before the split read through `pinsOf`.
+            */
+        systemPinnedAt?: number | null;
+        ownPinnedAt?: number | null;
+        /**
+            * R156 / BEH-SYNC-15 (Android ConversationRecord.serverReturned): has any server conversation answer
+            * ever returned this conversation? Set `true` ONLY by the server-row mappers (the sweep page, the
+            * list-page read, `getConversation` write-back); a local send that synthesizes a brand-new row leaves
+            * it unset. STICKY — the `{...existing, ...row}` upsert carries it forward (a local bump omits the
+            * key; a server answer over a local-only row ORs it to `true`), and only a per-user wipe or a purge
+            * drops it with the row. Delete-by-omission NEVER purges a row that is not `serverReturned` (absence
+            * proves deletion only for a conversation the server has returned before) — this closes the data loss
+            * where a first send to a new peer, absent from a complete page, was purged and its message discarded.
+            */
+        serverReturned?: boolean;
+        /**
+            * R156 / BEH-SYNC-15 (Android ConversationRecord.writeSeq): a monotonic stamp the STORE assigns on
+            * every conversation-row write, seeded from `MAX(writeSeq)` on disk. Compared against the
+            * `dispatchSeq` captured when a conversation fetch is dispatched: a row with `writeSeq > dispatchSeq`
+            * was written after the request went out (a realtime receive or an own send landing in the request
+            * window), so the server answer could not have known about it and its absence proves nothing — it is
+            * spared by-omission regardless of the floor. Device-local; never sourced from the server.
+            */
+        writeSeq?: number;
+}
+/** Which list store a row belongs to. */
+type ListKind = "PINNED" | "SAVED" | "THREADS";
+/**
+    * One entry in a list store — a gap-free slice from the top of a server list, kept in the server's
+    * order (BEH-THR-04 / BEH-THR-07).
+    */
+interface ListRow {
+        kind: ListKind;
+        /** The store's scope: the conversationId for `PINNED`, `""` for the global stores. */
+        scopeKey: string;
+        /** The entry's identity: the message id (`PINNED` / `SAVED`) or the thread root id (`THREADS`). */
+        itemId: string;
+        /** The conversation the entry belongs to — scoped removal and uid/guid filtering. */
+        conversationId: string;
+        /** Primary server sort key: `pinnedAt` / `sentAt` / thread `updatedAt`; `null` while provisional. */
+        serverK1: number | null;
+        /** Tie-break server key: the message id / thread root id. */
+        serverK2: number | null;
+        /** Display order key: `serverK1`, or a provisional key until a server page carries the row. */
+        sortK1: number;
+        /** The held copy's `updatedAt` — refreshes are last-write-wins on it. */
+        updatedAt?: number;
+        /** The store `rev` at this row's last local change (exempts it from an older page's omission). */
+        localRev: number;
+        /** The full server JSON (message, or thread) this entry renders from. */
+        payload: unknown;
+}
+/** Per-store bookkeeping. A store with no meta row has not started (its cache phase is empty). */
+interface ListMeta {
+        kind: ListKind;
+        scopeKey: string;
+        /** The oldest server key the store holds — the slice's floor. `null` while empty. */
+        floorK1: number | null;
+        floorK2: number | null;
+        /** True once the whole server list is held (BEH-FLAG-07). */
+        complete: boolean;
+        /** Monotonic; bumped on every local change. */
+        rev: number;
+}
+/** One store's rows and meta, read together. */
+interface ListScope {
+        rows: ListRow[];
+        meta: ListMeta | null;
+}
+/** An atomic change to one list store, applied only if its `rev` is still `expectRev`. */
+interface ListOps {
+        put: ListRow[];
+        delete: string[];
+        /** The store's new meta, or `null` to remove the store entirely. */
+        meta: ListMeta | null;
+}
+/**
+    * One entry in the canonical blocked-users store (§3.1 / §4.4).
+    *
+    * The COMPLETE list of the current user's blocking relationships, refreshed periodically and by
+    * block/unblock self-ops. Canonical, NOT a snapshot: it is updated in place, and it serves three
+    * separate consumers — `BlockedUsersRequest` offline, the conversation `blockedByMe` flag, and the
+    * message `hideMessagesFromBlockedUsers` filter.
+    */
+interface BlockedUserRow {
+        uid: string;
+        /** I blocked them. */
+        blockedByMe: boolean;
+        /** They blocked me. */
+        hasBlockedMe: boolean;
+        /** Verbatim User JSON, so the offline `BlockedUsersRequest` replays real User models. */
+        user: unknown;
+        updatedAt: number;
+}
+/**
+    * One recorded page of an entity-list read (§6 snapshot / record-replay).
+    *
+    * Keyed by `(signature, pageIndex)`. The `response` is the server's body **verbatim** — replay parses
+    * it with the type's own normal parser, so the offline list is byte-for-byte what the online list was.
+    * Storage is isolated from the canonical stores: the reconnect sweep never touches it (§7).
+    */
+interface SnapshotPageRow {
+        /** Canonical predicate string (§6.1) — excludes the pagination cursor and excluded predicates. */
+        signature: string;
+        /** 0-based page index within this signature; the replay index counts up from 0. */
+        pageIndex: number;
+        /** Read type for `(readType, scope)` self-op invalidation (§6.3). */
+        readType: string;
+        /** Invalidation scope — "" for global reads, else the guid / message id the read is scoped to. */
+        scope: string;
+        /** The verbatim server response body, JSON-stringified. */
+        response: string;
+        hasNext: boolean;
+        /** Record time — TTL eviction (`snapshotTtlDays`). */
+        recordedAt: number;
+        /** Last replay/record touch — LRU eviction (`maxSnapshotQueries`). */
+        lastAccessedTs: number;
+}
+/** Per-signature rollup used by the snapshot eviction pass (§6.4). */
+interface SnapshotMeta {
+        signature: string;
+        recordedAt: number;
+        lastAccessedTs: number;
+        pages: number;
+        bytes: number;
+}
+/** Attachment metadata row (bytes live in the MediaFileStore, never here). */
+interface AttachmentRow {
+        attachmentId: string;
+        localMessageId: string;
+        fileUrl?: string;
+        localPath?: MediaRef;
+        mimeType?: string;
+        name?: string;
+        size?: number;
+        width?: number;
+        height?: number;
+        isExternalUrl?: boolean;
+        lastAccessedTs?: number;
+        pendingProtected?: boolean;
+}
+/**
+    * Durable upload-batch config row (offline direct-to-storage media uploads, OU-2/OU-4/OU-13a).
+    * Keyed by the canonical triple key (`uploadBatchKey`). Holds only batch-level config; the per-file
+    * rows live in {@link UploadFileRow}. Bytes live in the MediaFileStore, never here.
+    */
+interface UploadBatchRow {
+        batchKey: string;
+        batchId: string;
+        receiverType: string;
+        receiverId: string;
+        parentMessageId?: string;
+        concurrency: number;
+        updatedAt: number;
+}
+/**
+    * Durable per-file row within an upload batch (OU-4/OU-13a). One row per added file, restored in
+    * `orderIndex` (insertion) order. The copied bytes live in the MediaFileStore under `localKey`
+    * (pre-upload) and are re-keyed to the hosted URL on success (OU-8); `mediaRef` is the opaque handle.
+    */
+interface UploadFileRow {
+        batchKey: string;
+        fileId: string;
+        orderIndex: number;
+        name: string;
+        size: number;
+        mimeType: string;
+        state: string;
+        localKey?: string;
+        mediaRef?: MediaRef;
+        attachmentJson?: string;
+        failureCode?: string;
+        failureMessage?: string;
+        updatedAt: number;
+}
+/**
+    * The cache-side translation of a fetch request — ONLY the locally-computable
+    * predicates. Server-only filters never reach here.
+    */
+interface LocalQuery {
+        kind: "messages" | "conversations";
+        conversationId?: string;
+        /** Scope a message read to a 1:1 peer (matches sender/receiver, either direction). */
+        uid?: string;
+        /** Scope a message read to a group. */
+        guid?: string;
+        selfUid?: string;
+        /**
+            * Pre-built canonical 1:1 conversationId for the `(selfUid, uid)` pair, used by `inScope` INSTEAD of
+            * deriving one. Set only by the encrypted browser path, where `selfUid`/`uid` have been replaced by
+            * blind indexes and the canonical id can no longer be built from them (`RowCodec.encodeQuery`
+            * derives it from the plaintext first, then hashes it). Absent everywhere else, so the plaintext and
+            * Electron paths derive it exactly as before.
+            */
+        scopeConversationId?: string;
+        categories?: string[];
+        types?: string[];
+        tags?: string[];
+        hasMentions?: boolean;
+        mentionedUIDs?: string[];
+        hideDeleted?: boolean;
+        hideReplies?: boolean;
+        parentMessageId?: number;
+        conversationType?: "user" | "group";
+        onlyUnread?: boolean;
+        limit?: number;
+        /**
+            * Message `unread` filter (§5, §11-confirmed): keep messages whose server `id` is strictly greater
+            * than the conversation's read marker. Resolved from the cached conversation's `lastReadMessageId`
+            * by the read wiring, so the predicate itself stays a pure column comparison.
+            */
+        unreadAfterMessageId?: number;
+        /**
+            * Message `unread` on a cross-conversation read (no uid/guid, BEH-READ-36/39): each message against
+            * its OWN conversation, keyed by conversationId → that conversation's stored `lastReadMessageId`
+            * (0 when it has none), or -1 when its cached `unreadCount` is 0 (nothing matches). A conversation
+            * not in the map reads as pointer 0. A row with no server id never matches.
+            */
+        unreadMarkers?: {
+                [conversationId: string]: number;
+        };
+        /** Keep only messages carrying at least one attachment (§5 `hasAttachments`). */
+        hasAttachments?: boolean;
+        /** Keep only messages with an attachment of one of these `AttachmentType`s (§5, OR-of-types). */
+        attachmentTypes?: string[];
+        /** Keep only messages carrying at least one reaction (§5 `hasReactions`). */
+        hasReactions?: boolean;
+        /**
+            * Drop messages whose sender is in this set — `hideMessagesFromBlockedUsers` (§5), fed from the
+            * complete blocked-users store. Matches the `senderUid` COLUMN, so it survives blind indexing.
+            */
+        excludeSenderUids?: string[];
+        /**
+            * Outbox isolation (§7): drop pending/sending/failed rows. Set by the read wiring whenever ANY
+            * content filter is active, so a pending message shows in the canonical conversation view but
+            * never in a filtered message view.
+            */
+        sentOnly?: boolean;
+        /**
+            * BEH-READ-10 / BEH-READ-31: page the SENT rows by the keyset and place the queued rows (PENDING /
+            * SENDING / FAILED) after every sent row, as the message-list cache phase reads. With no cursor (the
+            * newest page) the page is the newest `limit` of sent-then-queued; an after-cursor page reaches the
+            * queued rows only once the sent rows newer than the cursor are used up, and then only those composed
+            * after `pendingAfterSortTs`; a before-cursor (older) page never holds a queued row. Without the flag
+            * the read is the plain `(localSortTs, id)` keyset, unchanged for every other caller.
+            */
+        pendingLast?: boolean;
+        /** With `pendingLast` on an after-cursor read: the newest queued row's `localSortTs` already delivered. */
+        pendingAfterSortTs?: number;
+        /** Match the PEER user's tags (`userTags`) — OR across the requested tags. */
+        userTags?: string[];
+        /** Match the PEER group's tags (`groupTags`) — OR across the requested tags. */
+        groupTags?: string[];
+        /** Keep only agentic conversations (§4.2 `onlyAgentic`). */
+        onlyAgentic?: boolean;
+        /** Drop agentic conversations (§4.2 `hideAgentic`). */
+        hideAgentic?: boolean;
+        /**
+            * Include `blockedByMe` conversations (§4.2 `includeBlockedUsers`). The default list EXCLUDES
+            * them; this opts them back in, interleaved by the normal recency sort.
+            */
+        includeBlockedUsers?: boolean;
+        /**
+            * BEH-CONV-17: the ASCII-lowercased uids the blocked-users store marks `blockedByMe`. The store fills
+            * it on a default (non-`includeBlockedUsers`) conversation read, so the exclusion follows the store
+            * (Android LocalConversationQuery.java:104), never the row's own column.
+            */
+        blockedByMeUids?: string[];
+        beforeSortTs?: number;
+        beforeSortId?: number;
+        afterSortTs?: number;
+        afterSortId?: number;
+        beforeConversationId?: string;
+}
+/** Persistence contract — one canonical, UNFILTERED store. All writes LWW by updatedAt. */
+interface OfflineStore {
+        /**
+            * LWW upsert. A served copy (`SENT`) of a row still in the outbox (`PENDING` / `SENDING`) is never
+            * written over it: its result is `OUTBOX_ROW`, and the committed batch's such rows go to the
+            * served-outbox listener, so the send reaches its one final outcome (BEH-SEND-01).
+            */
+        upsertMessages(rows: MessageRow[]): Promise<WriteResult[]>;
+        /**
+            * Who hears about served copies of outbox rows that an upsert left to the outbox (the runtime wires
+            * the live outbox; `null` clears it). Called after the write commits, with plaintext rows.
+            */
+        setServedOutboxListener?(listener: ((rows: MessageRow[]) => void) | null): void;
+        listMessages(q: LocalQuery): Promise<MessageRow[]>;
+        pending(conversationId?: string): Promise<MessageRow[]>;
+        reconcileOnAck(localMessageId: string, serverRow: MessageRow): Promise<void>;
+        /** Transition an outbox row's send-state (PENDING/SENDING/SENT/FAILED). */
+        setSendState(localMessageId: string, state: SendState, failureReason?: string): Promise<void>;
+        /**
+            * Atomic check-and-set of an outbox row's send state (BEH-SEND-03): moves the row to `to` only if
+            * it exists and is currently in one of `from`, and says whether it did. A failed flip never
+            * dispatches, so neither a second tab nor a retry can send the same row twice.
+            */
+        transitionSendState(localMessageId: string, from: SendState[], to: SendState, failureReason?: string): Promise<boolean>;
+        /** One `sync_meta` value as a string, or `null` when absent. */
+        readMeta(key: string): Promise<string | null>;
+        /** Write several `sync_meta` values in one transaction; `null` deletes a key. */
+        writeMeta(entries: {
+                [key: string]: string | number | null;
+        }): Promise<void>;
+        /**
+            * Empty the store in place (`clearOfflineCache`, BEH-AUTH-14): rows, outbox, cursors, blocked
+            * users, snapshots and list stores go; the store stays open and the encryption key is kept.
+            * Resolves with the unsent (PENDING / SENDING / FAILED) rows the clear deleted — read in the same
+            * transaction, so a send enqueued just before is announced and one enqueued after is untouched.
+            */
+        clearInPlace(): Promise<MessageRow[]>;
+        /**
+            * Replace an already-cached message with an authoritative server copy (edit / delete /
+            * moderation). Cache-only — NEVER inserts; returns `false` (no-op) if the message isn't
+            * cached. LWW by the message's bumped server `updatedAt`. Watermark untouched.
+            */
+        replaceIfPresent(row: MessageRow): Promise<boolean>;
+        /**
+            * Merge an others' real-time reaction delta into a cached message's `payload.data.reactions`.
+            * Cache-only (no-op if absent), `updatedAt` preserved. Add bumps/inserts; remove lowers and
+            * drops at 0; `reactedByMe` set only when `reactorUid === selfUid`.
+            */
+        mergeReaction(messageId: number | string, emoji: string, reactorUid: string | undefined, added: boolean, selfUid: string): Promise<boolean>;
+        /**
+            * Bump a cached parent message's `replyCount` by +1 when a reply is cached. Cache-only — match the
+            * parent by server `id`; if absent return `false` and **never insert**. A leaf write: mutate only
+            * `payload.replyCount`, preserving `updatedAt`/`localSortTs` so a later real parent refresh still
+            * wins by LWW. Caller fires it once per reply, never on a re-upsert of an already-cached reply id.
+            */
+        bumpReplyCountIfPresent(parentMessageId: number | string): Promise<boolean>;
+        /**
+            * Decrement a cached parent message's `replyCount` by 1 (clamped >= 0) when a reply is deleted.
+            * Same contract as {@link bumpReplyCountIfPresent} but −1. The CALLER gates this on the
+            * `core.threads.decrementReplyCountOnDelete` login flag (default off).
+            */
+        decrementReplyCountIfPresent(parentMessageId: number | string): Promise<boolean>;
+        /**
+            * Purge a conversation from the cache on `deleteConversation` success: delete its
+            * SENT messages **and** the conversation row by one composite `conversationId`; KEEP
+            * outbox (PENDING/SENDING/FAILED) rows. Watermark untouched.
+            */
+        purgeConversation(conversationId: string): Promise<void>;
+        /**
+            * Delete a conversation's ENTIRE footprint on delete-by-omission: ALL its messages
+            * (SENT **and** pending/sending/failed outbox rows — matched by the row's conversationId OR the
+            * canonical id derived from a provisional row) + their attachment rows + the conversation row, in
+            * one transaction. Returns the media byte keys to reclaim and the distinct outbox keys (provisional
+            * conversationIds) of the deleted pending rows, so the caller can reclaim bytes and dequeue the live
+            * outbox, and the unsent rows themselves (`outboxRows`, read in the deleting transaction) so the
+            * caller announces exactly those. Watermark untouched. Unlike `purgeConversation`, this does NOT
+            * keep the outbox.
+            */
+        purgeConversationFootprint(conversationId: string): Promise<{
+                mediaKeys: string[];
+                outboxKeys: string[];
+                outboxRows?: MessageRow[];
+        }>;
+        /**
+            * Read-time delete-by-omission: purge cached **SENT** messages in `conversationId`
+            * whose `localSortTs` lies **strictly between** `minLocalSortTs` and `maxLocalSortTs` (the page's
+            * oldest/newest) and whose server `id` is **absent** from `presentServerIds` — the server dropped
+            * them. Interior-only (never the boundary rows, never above-newest/below-oldest), SENT-only (never
+            * the outbox), whole-footprint (message row + attachment rows). When `topLevelOnly`, purge only rows
+            * with no `parentMessageId` (replies exempt — a `hideReplies`-only read). Returns media byte keys to
+            * reclaim. No-op if there is no interior.
+            */
+        purgeAbsentInInterior(conversationId: string, presentServerIds: number[], minLocalSortTs: number, maxLocalSortTs: number, topLevelOnly: boolean): Promise<{
+                mediaKeys: string[];
+        }>;
+        /**
+            * Advance cached receipt columns for the current user's OWN-SENT messages in a
+            * conversation, cumulatively up to `uptoMessageId`. Monotonic (never regress), cache-only
+            * (no-op if absent, never inserts), `read` ⇒ also `delivered`, `updatedAt` untouched. Writes
+            * both the flat columns AND `payload.deliveredAt`/`payload.readAt` so a rehydrate (which
+            * rebuilds from the payload) reflects the receipt.
+            */
+        advanceReceipts(conversationId: string, selfUid: string, uptoMessageId: number, deliveredAt?: number, readAt?: number): Promise<boolean>;
+        /**
+            * Return which of `ids` (server ids) are already cached — the sync new-vs-update split
+            * keys on cache presence by server id so a cached realtime message re-fetched by the
+            * sweep classifies as an update (upsert-by-id, no duplicate).
+            */
+        existingMessageIds(ids: number[]): Promise<number[]>;
+        deleteMessages(localMessageIds: string[]): Promise<void>;
+        /**
+            * R160 (BEH-SEND-36): durably and device-only remove ONE unsent outbox message by its
+            * `localMessageId`, in one transaction. Removes ONLY when the row is still `PENDING` or `FAILED`
+            * (a `SENDING`, `SENT`, or absent row is a no-op → `removed: false` with the state it found, so the
+            * caller decides the rejection). When it removes, it deletes the message row (and its tags +
+            * attachment rows), and in the same transaction:
+            *  - resets the conversation's last-message preview to the newest remaining cached message of that
+            *    conversation (or clears it when none remain), but ONLY when the removed message WAS the preview;
+            *  - removes the conversation row entirely (with its list-store rows) when the conversation is
+            *    LOCAL-ONLY — it was synthesized by a local send and never returned by the server, so its
+            *    `updatedAt` is still unset (R156) — and now has no messages left.
+            * Returns the removed message's media byte keys to reclaim (its copied-outgoing / attachment bytes),
+            * whether a row was removed and its `sendState`, and whether the conversation was removed.
+            */
+        discardOutboxMessage(localMessageId: string): Promise<{
+                removed: boolean;
+                sendState?: SendState;
+                mediaKeys: string[];
+                conversationRemoved: boolean;
+        }>;
+        upsertConversations(rows: ConversationRow[]): Promise<WriteResult[]>;
+        listConversations(q: LocalQuery): Promise<ConversationRow[]>;
+        deleteConversations(ids: string[]): Promise<void>;
+        /**
+            * R156 / BEH-SYNC-15 (Android OfflineStore.currentConversationWriteSeq): the store's current monotonic
+            * conversation-write stamp — the max `writeSeq` assigned so far. Captured the moment a conversation
+            * fetch is dispatched and threaded into delete-by-omission as `dispatchSeq`, so a row written after
+            * dispatch (`writeSeq > dispatchSeq`) is spared. Best-effort: an implementation may return 0 if it
+            * cannot read the counter (the `serverReturned` marker still protects every local-only row).
+            */
+        currentConversationWriteSeq(): Promise<number>;
+        /**
+            * Read ONE cached conversation by its canonical id — the cache phase of the two-phase
+            * `getConversation` (§2) and the source of the read marker for the message `unread` filter (§5).
+            * Returns `null` when the conversation isn't cached (offline → empty, never a guess).
+            */
+        getConversationById(conversationId: string): Promise<ConversationRow | null>;
+        /**
+            * Read ONE cached message by its server id — the cache phase of the two-phase `getMessageDetails`
+            * (§2). Returns `null` when the message isn't cached.
+            */
+        getMessageById(messageId: number | string): Promise<MessageRow | null>;
+        /**
+            * Set/clear the `blockedByMe` flag on cached 1:1 conversations whose peer is in `uids` (§4.4
+            * block/unblock self-op). **Keep-and-flag** — the conversation row is never purged, so the
+            * `includeBlockedUsers` view can still serve it from cache. Cache-only: never inserts. Preserves
+            * `updatedAt` (this is not a server mutation of the last message) and every other field.
+            * Returns the conversationIds actually touched.
+            */
+        setConversationsBlockedByMe(uids: string[], blocked: boolean, selfUid: string): Promise<string[]>;
+        /**
+            * Bump a cached conversation's device-local "last relevant" recency (`lastAccessedTs`)
+            * monotonically forward to `ts` — the timestamp retention + whole-conversation LRU rank on. Cache-only:
+            * a no-op if the conversation isn't cached (never inserts). Never lowers an existing value. Called
+            * ONLY on a genuine new-message arrival or a genuine user open — NEVER from a server sync/`updatedAt`.
+            */
+        touchConversationRecency(conversationId: string, ts: number): Promise<void>;
+        /**
+            * Bump a cached conversation's `unreadCount` by +1 on a qualifying realtime receive. A cache-only
+            * leaf write that PRESERVES `updatedAt`, is a no-op if the conversation isn't cached, and SKIPS the
+            * bump for a known-large group — one whose cached membership is >= `largeGroupThreshold` (unknown or
+            * zero membership counts anyway; the next getConversations corrects via LWW).
+            */
+        incrementUnreadIfPresent(conversationId: string, largeGroupThreshold: number): Promise<void>;
+        /**
+            * Set a cached conversation's `unreadCount` to 0 on any local read
+            * (markAsRead / markConversationAsRead). A cache-only leaf write that PRESERVES `updatedAt`, is a
+            * no-op if the conversation isn't cached, and fires independent of the read's network call (offline too).
+            *
+            * `advanceReadMarkerTo` (ADDITIVE, optional — omitting it keeps the exact previous behaviour) also
+            * advances `lastReadMessageId`, monotonically, so the new message-`unread` filter stays correct
+            * after the user's own read (§4.5). Pass a specific id for the message-level `markAsRead`; pass
+            * `"latest"` for a conversation-level read, which advances the marker to the conversation's own
+            * cached last message. Never regresses an existing marker.
+            */
+        clearUnreadIfPresent(conversationId: string, advanceReadMarkerTo?: number | "latest"): Promise<void>;
+        /**
+            * Merge tags into an already-cached conversation (tags-only field-merge, on tagConversation
+            * success). Cache-only — NEVER inserts (returns `false` if the conversation isn't cached) and
+            * preserves every local-only field (lastMessage/unreadCount/LRU last-accessed/window
+            * watermarks). LWW: a positive `updatedAt` older than the cached row's is skipped; `updatedAt`
+            * never regresses. Atomic get→merge→put so it is race-free.
+            */
+        mergeConversationTagsIfPresent(conversationId: string, tags: string[], updatedAt: number): Promise<boolean>;
+        /**
+            * BEH-CONV-09: replace a cached conversation's preview (`lastMessage`) with `payload` iff its
+            * `lastMessageId` is still `messageId` — atomically, preview only: never the sort key, `updatedAt`,
+            * the last-message id, unread, tags or recency, and never an insert (Android
+            * OfflineStore.replacePreviewIfLastMessage). Returns whether it wrote.
+            */
+        replaceConversationPreviewIfLast(conversationId: string, messageId: number, payload: unknown): Promise<boolean>;
+        /**
+            * Reflect a locally-composed (offline) SEND into an already-cached conversation as a field-merge:
+            * override `lastMessage`/`lastMessageId` and forward-bump the sort/version stamps
+            * (`localSortTs`/`updatedAt`) + LRU recency so the conversation re-sorts to the top on the next
+            * cache read (e.g. a Conversations-tab remount). Cache-only — NEVER inserts (returns `false` if the
+            * conversation isn't cached) and preserves every other field (unreadCount / conversationWith /
+            * tags / window watermarks). LWW: a `sortTs` strictly older than the cached `localSortTs` is
+            * skipped; stamps never regress. Atomic get→merge→put so it is race-free. The pending value is
+            * transient — the reconnect conversation-sync replaces it with the server-acked lastMessage.
+            *
+            * Create-if-absent: when the conversation is NOT cached and `createIfAbsent` is provided, synthesize
+            * a new row from that identity so a brand-new chat appears at the top immediately. The synthesized row
+            * starts `unreadCount: 0` and leaves `updatedAt` unset (the next getConversations fills the
+            * authoritative peer + `updatedAt` via LWW). Omit `createIfAbsent` to keep the strict never-insert
+            * behaviour.
+            */
+        mergeConversationLastMessageIfPresent(conversationId: string, lastMessage: unknown, lastMessageId: number | undefined, sortTs: number, createIfAbsent?: {
+                conversationType: "user" | "group";
+                conversationWith: unknown;
+        } | null): Promise<boolean>;
+        readWatermark(): Promise<number>;
+        advanceWatermark(ts: number): Promise<void>;
+        readLastSyncTimestamp(): Promise<number>;
+        setLastSyncTimestamp(ts: number): Promise<void>;
+        upsertAttachment(row: AttachmentRow): Promise<void>;
+        getAttachment(attachmentId: string): Promise<AttachmentRow | null>;
+        listAttachments(): Promise<AttachmentRow[]>;
+        setAttachmentAccessed(attachmentId: string, ts: number): Promise<void>;
+        deleteAttachment(attachmentId: string): Promise<void>;
+        upsertUploadBatch(row: UploadBatchRow): Promise<void>;
+        getUploadBatch(batchKey: string): Promise<UploadBatchRow | null>;
+        deleteUploadBatch(batchKey: string): Promise<void>;
+        upsertUploadFile(row: UploadFileRow): Promise<void>;
+        listUploadFiles(batchKey: string): Promise<UploadFileRow[]>;
+        /** Every upload file row of every batch (the orphan upload-copy reclaim, BEH-UPLOAD-12). */
+        listAllUploadFiles(): Promise<UploadFileRow[]>;
+        deleteUploadFile(batchKey: string, fileId: string): Promise<void>;
+        /**
+            * Replace the ENTIRE blocked-users store with `rows` — the periodic `GET /blockedusers` reconcile
+            * is authoritative (it is the multi-device source of truth), so a stale local entry must not
+            * survive it. Atomic: the store is never observed half-written.
+            */
+        replaceBlockedUsers(rows: BlockedUserRow[], fetchedAt?: number): Promise<void>;
+        /**
+            * Merge block/unblock self-op deltas in place (§4.4, §6.3 — "updated in place, not a snapshot").
+            * Inserts a row that isn't there yet; a row left with neither flag set is deleted.
+            */
+        upsertBlockedUsers(rows: BlockedUserRow[]): Promise<void>;
+        /** The whole store, insertion-independent. Callers filter by direction and page in memory. */
+        listBlockedUsers(): Promise<BlockedUserRow[]>;
+        /** Record one page of an entity read: `(signature, pageIndex)` → verbatim response. */
+        putSnapshotPage(row: SnapshotPageRow): Promise<void>;
+        /** Replay one page. `null` on a miss → the read is empty offline, never a guess. */
+        getSnapshotPage(signature: string, pageIndex: number): Promise<SnapshotPageRow | null>;
+        /** Self-op invalidation (§6.3): drop every snapshot for a `(readType, scope)` pair. */
+        deleteSnapshotsByScope(readType: string, scope: string): Promise<void>;
+        /** Drop one signature's pages (LRU/TTL eviction). */
+        deleteSnapshotsBySignature(signature: string): Promise<void>;
+        /** Per-signature rollup for the eviction pass (§6.4). */
+        listSnapshotMeta(): Promise<SnapshotMeta[]>;
+        /** Bump a signature's LRU recency on replay. Monotonic; no-op when the signature is absent. */
+        touchSnapshot(signature: string, ts: number): Promise<void>;
+        /**
+            * Apply flag-only updates to cached messages by server id. Update-if-cached: never inserts, never
+            * changes `updatedAt` or `localSortTs`, and never sets a flag on a message that has `deletedAt`
+            * (BEH-FLAG-03). Returns the ids that were updated.
+            */
+        applyMessageFlags(updates: MessageFlagUpdate[]): Promise<number[]>;
+        /**
+            * Clear the per-user flags (`savedAt`, `threadSubscribed`) on every cached message of one
+            * conversation (BEH-FLAG-06). Pins are untouched.
+            */
+        clearPerUserFlags(conversationId: string): Promise<void>;
+        /**
+            * Set `threadSubscribed` on a thread root and every cached reply to it together (BEH-SUB-01): the
+            * value belongs to the root. Update-if-cached; never moves `updatedAt`.
+            */
+        setThreadSubscribed(rootId: number | string, value: boolean): Promise<void>;
+        /** One store's rows (in no particular order) and meta. */
+        getListScope(kind: ListKind, scopeKey: string): Promise<ListScope>;
+        /**
+            * Apply `ops` to one store atomically, only if its current `rev` equals `expectRev` (`0` for a store
+            * that has not started). Returns `false` on a conflict, and the caller re-reads and retries.
+            */
+        applyListOps(kind: ListKind, scopeKey: string, ops: ListOps, expectRev: number): Promise<boolean>;
+        /** Remove entries by id from every store of `kinds`, in every scope (deletes, unpins, unsaves). */
+        deleteListItems(kinds: ListKind[], itemIds: string[]): Promise<void>;
+        /**
+            * Remove every entry of one conversation from `kinds`. A `PINNED` store scoped to it is removed
+            * whole, meta included.
+            */
+        deleteListRowsByConversation(conversationId: string, kinds: ListKind[]): Promise<void>;
+        /**
+            * Refresh the held copy of each message in the `PINNED` and `SAVED` stores, last-write-wins on
+            * `updatedAt` (BEH-THR-04 (h)). Never inserts.
+            */
+        refreshListCopies(items: {
+                itemId: string;
+                updatedAt?: number;
+                payload: unknown;
+        }[]): Promise<void>;
+        logicalByteSize(): Promise<number>;
+        wipe(): Promise<void>;
+}
+/** Media-byte tier. bytes on OPFS (web) / node:fs (Electron), keyed independently of the DB. */
+interface MediaFileStore {
+        put(key: string, bytes: Blob, opts?: {
+                protected?: boolean;
+        }): Promise<MediaRef>;
+        get(key: string): Promise<Blob | null>;
+        has(key: string): Promise<boolean>;
+        remove(key: string): Promise<void>;
+        ref(key: string): MediaRef;
+        totalBytes(): Promise<number>;
+        wipe(): Promise<void>;
+}
+/** What the engine is handed at login — one bundle per runtime. */
+interface StorageAdapter {
+        store: OfflineStore;
+        media: MediaFileStore | null;
+        /**
+            * The outbox rows the open read to prove the store (StorageAdapterFactory), handed once to startup
+            * recovery so a start reads the outbox once. Absent on a store that was already open.
+            */
+        openOutbox?: MessageRow[];
+}
+
+/**
+    * Pure helpers: write-time tag/mention projections and the column-backed read
+    * predicate that evaluates a LocalQuery against a row without parsing the payload.
+    */
+/** Tags projected off the payload. Rebuilt in the same transaction as the row upsert. */
+declare function extractTags(payload: any): string[];
+/** Mentioned uids projected off the payload. */
+declare function extractMentions(payload: any): string[];
+/** Does this payload carry at least one attachment? Write-time projection for `hasAttachments`. */
+declare function extractHasAttachments(payload: any): boolean;
+/** Distinct `AttachmentType` values on this payload. Write-time projection for `attachmentTypes`. */
+declare function extractAttachmentTypes(payload: any): string[];
+/** Does this payload carry at least one reaction? Write-time projection for `hasReactions`. */
+declare function extractHasReactions(payload: any): boolean;
+/**
+    * Scope predicate — restricts a message read to one conversation. Group: receiver is the guid.
+    * 1:1: when the self uid is known, the canonical pair id is authoritative. A reconciled row is keyed
+    * under its canonical pair id (`conversationId !== receiverId`); only PROVISIONAL rows — a pending
+    * outbox message keyed by the raw `receiverId` — fall through to sender/receiver matching. So a
+    * canonically-keyed row under a different pair (e.g. a system-authored action, sender = actor) is
+    * never re-matched by its sender on an actor-scoped read (F-02), while a pending message stays visible.
+    * The structural `conversationId === receiverId` test needs no id parsing, so a uid that itself
+    * contains "_user_" is handled correctly. With self unknown, the legacy sender/receiver fallback runs.
+    */
+declare function inScope(r: MessageRow, q: LocalQuery): boolean;
+/**
+    * Column-backed predicate for a cached message read. Never inspects `payload`;
+    * only evaluates the locally-computable filters.
+    *
+    * "Never inspects `payload`" is load-bearing, not stylistic: under cache encryption this predicate
+    * runs against the STORED row, whose `payload` is `null` (the real one is sealed in `__enc`). Any
+    * filter that needs payload data must therefore arrive as a write-time projection column — which is
+    * exactly what `hasAttachments` / `attachmentTypes` / `hasReactions` are.
+    */
+declare function matchesMessage(r: MessageRow, q: LocalQuery): boolean;
+
+/** ASCII-only lowercase (A–Z → a–z), matching the server rather than locale-aware toLowerCase. */
+declare function asciiLower(s: string): string;
+/** 1:1 canonical conversationId: `"<min>_user_<max>"`. Order-independent in its two args. */
+declare function canonicalUserConversationId(a: string, b: string): string;
+/** Group canonical conversationId: `"group_<lc guid>"`. */
+declare function canonicalGroupConversationId(guid: string): string;
+
+/**
+    * Native-IndexedDB implementation of `OfflineStore` (browser + Electron renderer).
+    * One unfiltered store per (app, user); writes are LWW by `updatedAt` and atomic
+    * per transaction, with tag/mention projections rebuilt in the same transaction.
+    */
+declare class IndexedDbOfflineStore implements OfflineStore {
+        /**
+            * Register the handler for a forced close. Another tab deleting this database (a logout or a
+            * switch-off wipe there) or upgrading it sends `versionchange`; this connection closes at once so
+            * that tab's delete is not blocked, and the owner stops using the store.
+            */
+        setExternalCloseListener(listener: (() => void) | null): void;
+        currentConversationWriteSeq(): Promise<number>;
+        /**
+            * Open the per-(app, user) store.
+            *
+            * With `options.encryption`, the key is provisioned from the same database and the store is
+            * **born encrypted**. Throws `OfflineEncryptionUnavailableError` when the runtime
+            * cannot encrypt at all — the caller resolves that through `encryptionFailureBehavior` and must
+            * never silently open a plaintext cache instead.
+            */
+        static open(appId: string, uid: string, options?: {
+                encryption?: boolean;
+        }): Promise<IndexedDbOfflineStore>;
+        /**
+            * Delete this store for a rebuild of damage found at first use (BEH-ENC-11/15). `notice` is what the
+            * rebuild will announce. Resolves `true` once the database is really gone; `false` when another
+            * connection keeps the delete blocked: nothing may be announced or DISCARDED now (the rows still
+            * exist), and the notice is kept so the first open after the delete happens announces it.
+            *
+            * The key record is NOT deleted ahead of the database (unlike logout's key-first wipe): it lives in
+            * the same database and goes with it in the one delete. Deleting it first would, if the delete stays
+            * blocked and never runs (a browser restart drops a queued delete), leave queued sends that can never
+            * open again and turn the eventual announcement into KEY_LOST instead of this CORRUPTED (round-2
+            * review). Only the in-memory key is dropped here.
+            */
+        wipeForRebuild(notice: {
+                reason: string;
+                pendingLost: number | null;
+                unsent: MessageRow[];
+        }): Promise<boolean>;
+        /**
+            * Delete a `(app, user)` database WITHOUT opening it — the self-heal path, for when opening is
+            * exactly what failed. The key lives inside, so it goes with it.
+            */
+        static wipeByName(appId: string, uid: string): Promise<void>;
+        /**
+            * Q15 / R126 / BEH-ENC-06: encryption is configured but cannot run on this device, so the policy is
+            * ONLINE_ONLY and no cache opens this session — but the developer asked for encryption, so a PLAINTEXT
+            * cache a previous run left must not survive at rest. Open the DB as-is (never upgrading it), and ONLY
+            * when it is a plaintext cache (its mode marker is `NONE`): read the unsent (PENDING/SENDING) rows for
+            * the DISCARDED announcement (a plain send-state column — no key), delete the whole database, and
+            * return those rows so the caller announces ENCRYPTION_CHANGED + DISCARDED exactly as a format change
+            * does. An ENCRYPTED leftover is left untouched (no plaintext at rest, and unreadable without the key),
+            * and so is a plaintext cache with nothing in it (deleted quietly, nothing lost). Returns `null` when
+            * nothing was announced-worthily wiped. Best-effort; never throws.
+            */
+        static wipePlaintextResidue(appId: string, uid: string): Promise<MessageRow[] | null>;
+        /** This store's achieved tiers, for the public status API. */
+        encryptionStatus(): OfflineEncryptionStatus;
+        upsertMessages(rowsIn: MessageRow[]): Promise<WriteResult[]>;
+        setServedOutboxListener(listener: ((rows: MessageRow[]) => void) | null): void;
+        listMessages(q: LocalQuery): Promise<MessageRow[]>;
+        pending(conversationId?: string): Promise<MessageRow[]>;
+        /**
+            * The outbox as far as it still reads, for a rebuild of a damaged store (BEH-ENC-15): every unsent
+            * row, decrypted where it opens, else its plain columns (send state, local id, type).
+            */
+        salvageUnsent(): Promise<MessageRow[]>;
+        reconcileOnAck(localMessageId: string, serverRow: MessageRow): Promise<void>;
+        replaceIfPresent(row: MessageRow): Promise<boolean>;
+        mergeReaction(messageId: number | string, emoji: string, reactorUid: string | undefined, added: boolean, selfUid: string): Promise<boolean>;
+        bumpReplyCountIfPresent(parentMessageId: number | string): Promise<boolean>;
+        decrementReplyCountIfPresent(parentMessageId: number | string): Promise<boolean>;
+        purgeConversation(conversationId: string): Promise<void>;
+        purgeConversationFootprint(conversationId: string): Promise<{
+                mediaKeys: string[];
+                outboxKeys: string[];
+                outboxRows: MessageRow[];
+        }>;
+        purgeAbsentInInterior(conversationId: string, presentServerIds: number[], minLocalSortTs: number, maxLocalSortTs: number, topLevelOnly: boolean): Promise<{
+                mediaKeys: string[];
+        }>;
+        advanceReceipts(conversationId: string, selfUid: string, uptoMessageId: number, deliveredAt?: number, readAt?: number): Promise<boolean>;
+        existingMessageIds(ids: number[]): Promise<number[]>;
+        setSendState(localMessageId: string, state: MessageRow["sendState"], failureReason?: string): Promise<void>;
+        /**
+            * Check-and-set an outbox row's send state in ONE readwrite transaction (BEH-SEND-03). Returns
+            * `false` — and writes nothing — when the row is gone or is not in one of `from`. IndexedDB
+            * serialises overlapping readwrite transactions on a store, also across tabs of the same origin,
+            * so two tabs can never both flip the same row PENDING → SENDING and both send it.
+            */
+        transitionSendState(localMessageId: string, from: MessageRow["sendState"][], to: MessageRow["sendState"], failureReason?: string): Promise<boolean>;
+        deleteMessages(localMessageIds: string[]): Promise<void>;
+        /** R160 (BEH-SEND-36): durably remove ONE unsent outbox message (PENDING/FAILED). See OfflineStore. */
+        discardOutboxMessage(localMessageId: string): Promise<{
+                removed: boolean;
+                sendState?: MessageRow["sendState"];
+                mediaKeys: string[];
+                conversationRemoved: boolean;
+        }>;
+        upsertConversations(rows: ConversationRow[]): Promise<WriteResult[]>;
+        touchConversationRecency(conversationId: string, ts: number): Promise<void>;
+        incrementUnreadIfPresent(conversationId: string, largeGroupThreshold: number): Promise<void>;
+        clearUnreadIfPresent(conversationId: string, advanceReadMarkerTo?: number | "latest"): Promise<void>;
+        getConversationById(conversationId: string): Promise<ConversationRow | null>;
+        getMessageById(messageId: number | string): Promise<MessageRow | null>;
+        setConversationsBlockedByMe(uids: string[], blocked: boolean, selfUid: string): Promise<string[]>;
+        replaceBlockedUsers(rows: BlockedUserRow[], fetchedAt?: number): Promise<void>;
+        upsertBlockedUsers(rows: BlockedUserRow[]): Promise<void>;
+        listBlockedUsers(): Promise<BlockedUserRow[]>;
+        putSnapshotPage(row: SnapshotPageRow): Promise<void>;
+        getSnapshotPage(signature: string, pageIndex: number): Promise<SnapshotPageRow | null>;
+        deleteSnapshotsByScope(readType: string, scope: string): Promise<void>;
+        deleteSnapshotsBySignature(signature: string): Promise<void>;
+        listSnapshotMeta(): Promise<SnapshotMeta[]>;
+        touchSnapshot(signature: string, ts: number): Promise<void>;
+        mergeConversationTagsIfPresent(conversationId: string, tags: string[], updatedAt: number): Promise<boolean>;
+        /** BEH-CONV-09: the preview only, iff `messageId` is still the conversation's last message. */
+        replaceConversationPreviewIfLast(conversationId: string, messageId: number, payload: unknown): Promise<boolean>;
+        mergeConversationLastMessageIfPresent(conversationId: string, lastMessage: unknown, lastMessageId: number | undefined, sortTs: number, createIfAbsent?: {
+                conversationType: "user" | "group";
+                conversationWith: unknown;
+        } | null): Promise<boolean>;
+        listConversations(q: LocalQuery): Promise<ConversationRow[]>;
+        deleteConversations(ids: string[]): Promise<void>;
+        upsertAttachment(row: AttachmentRow): Promise<void>;
+        getAttachment(attachmentId: string): Promise<AttachmentRow | null>;
+        listAttachments(): Promise<AttachmentRow[]>;
+        setAttachmentAccessed(attachmentId: string, ts: number): Promise<void>;
+        deleteAttachment(attachmentId: string): Promise<void>;
+        upsertUploadBatch(row: UploadBatchRow): Promise<void>;
+        getUploadBatch(batchKey: string): Promise<UploadBatchRow | null>;
+        deleteUploadBatch(batchKey: string): Promise<void>;
+        upsertUploadFile(row: UploadFileRow): Promise<void>;
+        listUploadFiles(batchKey: string): Promise<UploadFileRow[]>;
+        listAllUploadFiles(): Promise<UploadFileRow[]>;
+        deleteUploadFile(batchKey: string, fileId: string): Promise<void>;
+        readWatermark(): Promise<number>;
+        advanceWatermark(ts: number): Promise<void>;
+        /** One `sync_meta` value as a string, or `null` when absent. */
+        readMeta(key: string): Promise<string | null>;
+        /** Write several `sync_meta` values in ONE transaction; a `null` value deletes the key. */
+        writeMeta(entries: {
+                [key: string]: string | number | null;
+        }): Promise<void>;
+        readLastSyncTimestamp(): Promise<number>;
+        setLastSyncTimestamp(ts: number): Promise<void>;
+        logicalByteSize(): Promise<number>;
+        applyMessageFlags(updates: MessageFlagUpdate[]): Promise<number[]>;
+        setThreadSubscribed(rootId: number | string, value: boolean): Promise<void>;
+        clearPerUserFlags(conversationId: string): Promise<void>;
+        getListScope(kind: ListKind, scopeKey: string): Promise<ListScope>;
+        applyListOps(kind: ListKind, scopeKey: string, ops: ListOps, expectRev: number): Promise<boolean>;
+        deleteListItems(kinds: ListKind[], itemIds: string[]): Promise<void>;
+        deleteListRowsByConversation(conversationId: string, kinds: ListKind[]): Promise<void>;
+        refreshListCopies(items: {
+                itemId: string;
+                updatedAt?: number;
+                payload: unknown;
+        }[]): Promise<void>;
+        /**
+            * Empty the store IN PLACE (`clearOfflineCache`, BEH-AUTH-14): every cached row, the outbox, the
+            * sync cursors and the blocked-users set go; the database stays open and the encryption key and
+            * the encryption-mode marker are kept, so the same user keeps writing into the same store.
+            * Returns the unsent (PENDING / SENDING / FAILED) rows the clear actually deleted, read inside the
+            * same transaction, so the caller announces exactly those and no send enqueued around it is lost.
+            */
+        clearInPlace(): Promise<MessageRow[]>;
+        wipe(): Promise<void>;
+        /** Hand over (once) the reset that happened while opening, for the runtime to announce. */
+        takeResetNotice(): {
+                reason: string;
+                pendingLost: number | null;
+                unsent: MessageRow[];
+        } | null;
+        /** Drop in-memory key material and close the connection. */
+        close(): void;
+        /**
+            * Same-user restart: drop the in-memory key but KEEP the stored one.
+            *
+            * The store stays open and the data stays put; only the derived sub-keys go. `resumeCrypto`
+            * re-derives them from the same vault record when the re-login lands.
+            */
+        suspendCrypto(): void;
+        /** Re-derive the working keys after {@link suspendCrypto}. No-op when encryption is off. */
+        resumeCrypto(): Promise<void>;
+        /** True when this store was opened with encryption on (even while suspended). */
+        isEncrypted(): boolean;
+}
+/** The safe, reportable view of an unsent row that a rebuild is about to drop (BEH-ENC-16). */
+declare function unsentReportRow(r: StoredMessageRow): MessageRow;
+
+/**
+    * MediaFileStore backed by OPFS (Origin Private File System) — the browser's
+    * private, per-origin file store. One file per attachment under a per-user dir.
+    *
+    * The bytes are the source of truth; the DB only holds metadata + a handle. OPFS
+    * APIs are newer than the project's TS lib, so they're accessed via `any`.
+    *
+    * @module offline/browser/OpfsMediaStore
+    */
+declare class OpfsMediaStore implements MediaFileStore {
+        constructor(appId: string, uid: string);
+        /**
+            * Delete an `(app, user)`'s media WITHOUT opening a store: the per-(app, user) folder, then the
+            * legacy per-user folder. Idempotent; creates nothing.
+            */
+        static wipeByName(appId: string, uid: string): Promise<void>;
+        ref(key: string): MediaRef;
+        put(key: string, bytes: Blob): Promise<MediaRef>;
+        get(key: string): Promise<Blob | null>;
+        has(key: string): Promise<boolean>;
+        remove(key: string): Promise<void>;
+        totalBytes(): Promise<number>;
+        wipe(): Promise<void>;
+}
+
+/**
+    * Media byte cache — coordinates the MediaFileStore (bytes) with the attachment
+    * metadata (localPath / LRU) and the network.
+    *
+    *  - getCachedMediaPath: the local handle if cached (touches LRU), else null.
+    *  - downloadMedia: fetch + cache the bytes (single-flight per key); on a presigned
+    *    URL expiry it re-signs by re-fetching the message, then retries.
+    *  - copyOnEnqueue: copy outgoing bytes at compose time, protected from eviction.
+    *  - byte-budget admission (maxMediaCacheSize; 0 = unlimited); protected (outgoing)
+    *    media is always admitted.
+    *
+    * The bytes are the source of truth; presigned URLs are disposable acquisition
+    * tokens. Network + message re-fetch are injected so this stays decoupled/testable.
+    *
+    * @module offline/media/MediaCache
+    */
+/** Light shape the cache operates on (the wiring maps the SDK Attachment → this). */
+interface MediaDescriptor {
+        attachmentId: string;
+        localMessageId?: string;
+        url?: string;
+        messageId?: number;
+        size?: number;
+        mimeType?: string;
+        name?: string;
+}
+interface MediaCacheDeps {
+        media: MediaFileStore;
+        store: OfflineStore;
+        fetchBytes: (url: string) => Promise<Blob>;
+        /**
+            * Streaming fetch that reports byte progress — used ONLY for an explicit `downloadMedia` call that
+            * supplies an `onProgress` callback. Best-effort: reports only when the content length is known.
+            * When absent (or on a background auto-download with no `onProgress`), the plain `fetchBytes` is used.
+            */
+        fetchBytesWithProgress?: (url: string, onProgress: (loaded: number, total: number) => void) => Promise<Blob>;
+        /**
+            * Re-fetch the message for a freshly-signed URL of the SAME attachment (matched by its URL without
+            * the query string, BEH-MEDIA-13). Called only after a 401 / 403 / 410.
+            */
+        resignUrl?: (messageId: number, attachmentUrl?: string) => Promise<string | null>;
+        maxMediaCacheSize: number;
+        now?: () => number;
+}
+declare class MediaCache {
+        constructor(deps: MediaCacheDeps);
+        /** Remember which message an attachment was delivered with (most recent wins, bounded). */
+        rememberOwner(url: string, messageId: unknown): void;
+        /** The id of the message an attachment URL was last delivered with, if known this session. */
+        ownerOf(url: string): number | undefined;
+        key(url?: string): string;
+        /**
+            * Stable byte-store key for an upload-batch file's copied bytes (pre-promotion). Deterministic in
+            * `(batchKey, fileId)` so a retry after restart resolves the same copy without re-supply (OU-3/OU-7).
+            */
+        uploadLocalKey(batchKey: string, fileId: string): string;
+        /**
+            * The cached local handle for an attachment WITHOUT touching the LRU — for bulk cache-phase read
+            * hydration (BEH-MEDIA-14: a page read must not mark everything hot, and must not download). Returns
+            * null if the bytes aren't cached.
+            */
+        peekCachedMediaPath(desc: MediaDescriptor): Promise<MediaRef | null>;
+        /** The cached local handle for an attachment, or null. Touches LRU on a hit. */
+        getCachedMediaPath(desc: MediaDescriptor): Promise<MediaRef | null>;
+        /**
+            * A browser-renderable object URL (`blob:…`) for cached bytes, or null if not
+            * cached. Used to display cached media offline. The caller owns the URL and must
+            * revoke it (URL.revokeObjectURL) when done to avoid leaks. Touches LRU on a hit.
+            */
+        getCachedObjectURL(desc: MediaDescriptor): Promise<string | null>;
+        /** Download + cache the bytes, returning the local handle. Single-flight per key. */
+        downloadMedia(desc: MediaDescriptor, cb?: MediaCallbackListener): Promise<MediaRef>;
+        /** Copy outgoing media bytes at compose time — protected, exempt from LRU eviction. */
+        copyOnEnqueue(desc: MediaDescriptor, blob: Blob): Promise<MediaRef>;
+        /**
+            * Copy EVERY outgoing file of a media send at compose time (BEH-MEDIA-06), protected from eviction,
+            * one key per file: the local message id for the first (unchanged from single-file builds) and
+            * `<localMessageId>#<i>` for the rest, as Android keys them (MediaCache.java:233). The file count is
+            * recorded so the send can tell a vanished copy from a text message. Any one file failing to copy
+            * rolls back every copy made so far and fails the whole send (BEH-MEDIA-08, MediaCache.java:236).
+            */
+        copyAllOnEnqueue(localMessageId: string, blobs: Blob[], onProgress?: (event: {
+                kind: "start" | "done";
+                index: number;
+                size: number;
+        }) => void): Promise<MediaRef[]>;
+        /** How many files a queued media send copied, or `null` for a send made before counts existed. */
+        outgoingFileCount(localMessageId: string): Promise<number | null>;
+        /** The durable copies of a queued media send, in order, with their stored names/types. */
+        getOutgoingFiles(localMessageId: string, count: number): Promise<({
+                blob: Blob;
+                name?: string;
+                mimeType?: string;
+        } | null)[]>;
+        /** Promote every copy of an acked multi-file send to its server URL (AUTO), in order. */
+        promoteAllOnAck(localMessageId: string, serverUrls: string[]): Promise<void>;
+        /** Drop every copy of a queued media send (OFF after ack, overflow, discard). Best-effort. */
+        dropAllPending(localMessageId: string): Promise<void>;
+        /**
+            * After a media send is ACKed (§4, AUTO): promote the pending outgoing copy (keyed by the local
+            * id) to a retained cache entry keyed by the server URL — so the sent media is available offline
+            * exactly like received media, and a later fetch resolves it without re-downloading. No-op when
+            * there is no pending copy (a non-media send). Always drops the provisional local-id copy.
+            */
+        promoteOnAck(localKey: string, serverUrl?: string): Promise<void>;
+        /** Drop a pending/transient outgoing copy (§4, OFF after ack, or cleanup). Best-effort. */
+        dropPending(localKey: string): Promise<void>;
+        /**
+            * Copy an upload-batch file's bytes at ADD time (OU-3) — protected + exempt from LRU, keyed by an
+            * upload-local key (`u_…`) so it survives process death and drives all uploads/retries from the
+            * copy (never the volatile browser File handle). Mirrors {@link copyOnEnqueue} for the presigned
+            * upload path. Required even under mediaCaching=OFF — OFF only changes the post-ack disposition.
+            */
+        copyUploadBytes(localKey: string, blob: Blob, meta?: {
+                mimeType?: string;
+                name?: string;
+        }): Promise<MediaRef>;
+        /** Read back the copied upload bytes (first attempt after restart, or any retry). Null if absent. */
+        getUploadBytes(localKey: string): Promise<Blob | null>;
+        /**
+            * On upload SUCCESS (OU-8): re-key the copied bytes from the upload-local key to the hosted-URL key
+            * (query-stripped canonical), kept PROTECTED until the URL-only send is acked. So the sender renders
+            * their own media with zero re-download, and the bytes are settled at ack ({@link settleUploadedOnAck}).
+            * Drops the local-id copy. No-op if nothing was copied for `localKey`.
+            */
+        promoteUploaded(localKey: string, hostedUrl: string, meta?: {
+                mimeType?: string;
+                name?: string;
+                size?: number;
+        }): Promise<MediaRef | null>;
+        /** The promoted (hosted-URL keyed) copy of an uploaded file's bytes, or null (BEH-UPLOAD-13). */
+        getHostedUploadBytes(hostedUrl: string): Promise<Blob | null>;
+        /**
+            * Reclaim a promoted upload copy no send has adopted (BEH-UPLOAD-12 (a), Android
+            * UploadBatchStore.java:293): still protected and bound to no message. A copy a queued send adopted,
+            * or that an ack settled, is left alone.
+            */
+        reclaimUnadoptedUpload(hostedUrl: string): Promise<void>;
+        /**
+            * Send-adopt for a URL-only media send (BEH-UPLOAD-10, Android MediaCache.adoptSeededUrlBytes): every
+            * attachment whose hosted-URL bytes this user already holds (seeded by the upload's promotion) is
+            * bound to the queued message — its row takes the message's local id, stays protected until the
+            * ack, and the outgoing attachment's `localPath` points at the bytes (BEH-MEDIA-18, the pending
+            * bubble). An attachment we hold no bytes for is skipped. Never fails the send.
+            */
+        adoptSeededUrlBytes(localMessageId: string, attachments: any[]): Promise<void>;
+        /**
+            * Settle upload-path bytes after the URL-only send is ACKed (OU-10 / OU-11): AUTO keeps them as a
+            * normal evictable entry (clears the protected flag → own-media render, later evictable); OFF drops
+            * them. No-op if nothing is cached for the URL. Keyed by the query-stripped hosted URL.
+            */
+        settleUploadedOnAck(hostedUrl: string, keep: boolean): Promise<void>;
+}
+/**
+    * Point an attachment (or an outgoing File) at its local copy without the path ever reaching the
+    * wire or a stored payload: the property is non-enumerable, so JSON serialization skips it, while
+    * `new Attachment(raw)` (an own-property read) still picks it up.
+    */
+declare function bindLocalPath(target: any, ref: MediaRef | null | undefined): void;
+/**
+    * An attachment's key as the app sees it — its URL without the query string (or fragment): the key
+    * BEH-MEDIA-13 matches on and the media-download callbacks report (§10.4, ruled 2026-10-19).
+    */
+declare function mediaUrlKey(url: string): string;
+/**
+    * From a re-fetched message's attachments, the fresh URL of the attachment whose URL-without-query
+    * matches `staleUrl` (BEH-MEDIA-13). `null` when none matches — never another attachment's URL. With
+    * no `staleUrl` to match, a single-attachment message's URL is unambiguous and is returned.
+    */
+declare function pickResignedAttachmentUrl(attachments: any[], staleUrl?: string): string | null;
+/**
+    * The MediaFileStore key behind a stored `localPath` reference — its last path segment. A reference is
+    * `opfs:<dir>/<key>` in the browser and `<root>/<key>` on Electron; `remove`/`get` take the bare key.
+    */
+declare function mediaKeyFromRef(ref: string): string;
+/** `sync_meta` key prefix recording how many files a queued media send copied. */
+declare const OUTGOING_FILE_COUNT_PREFIX = "outboxFiles:";
+/** The media key of the i-th outgoing file of a send: the local id, then `<id>#<i>` (Android parity). */
+declare function outgoingFileKey(localMessageId: string, i: number): string;
+
+/**
+    * Media download callback: onSuccess(localPath) / onProgress(percent) / onError.
+    * Callback style mirrors the existing ConnectionListener.
+    *
+    * @module offline/listeners/MediaCallbackListener
+    */
+export interface MediaCallbackHandlers {
+        onSuccess?: Function;
+        onProgress?: Function;
+        onError?: Function;
+}
+export class MediaCallbackListener {
+        onSuccess?: Function;
+        onProgress?: Function;
+        onError?: Function;
+        constructor(handlers: MediaCallbackHandlers);
+}
+/**
+    * Global media-download observer (register with addMediaDownloadListener). Fires for AUTO background
+    * downloads completing/failing across all messages — distinct from the per-call MediaCallbackListener
+    * passed to an explicit downloadMedia.
+    */
+export interface MediaDownloadHandlers {
+        onMediaDownloaded?: Function;
+        onMediaDownloadFailed?: Function;
+}
+export class MediaDownloadListener {
+        onMediaDownloaded?: Function;
+        onMediaDownloadFailed?: Function;
+        constructor(handlers: MediaDownloadHandlers);
+}
+
+/**
+    * Runtime factory — picks the storage backend for the current runtime and
+    * returns the { store, media } bundle the engine uses. The engine never
+    * branches on runtime; only this factory does.
+    *
+    *   Browser  -> native IndexedDB (+ OPFS media; NO media bytes when OPFS is absent)
+    *   Electron -> SQLite + node:fs via the preload bridge — falls back to IndexedDB
+    *               when the bridge isn't wired.
+    *
+    * It also owns the encryption FAILURE policy: what happens when the cache cannot
+    * be encrypted. Returning `null` means "no local cache this session" — the engine already treats a
+    * missing adapter as offline-disabled, so server-only falls out naturally.
+    *
+    * @module offline/StorageAdapterFactory
+    */
+/** What the caller wants from the cache this session. */
+interface StorageAdapterOptions {
+        encryption?: boolean;
+        encryptionFailureBehavior?: EncryptionFailureBehavior;
+}
+/**
+    * Capability-based Electron detection: presence of the SDK-owned native bridge
+    * injected by the Electron preload. Absent in a plain browser.
+    */
+declare function isElectron(): boolean;
+/**
+    * Is there a usable IndexedDB? Absent (an SSR/worker-less host, a stripped webview) the offline layer is
+    * a capability this runtime does not have: offline stays dormant, nothing is counted toward escalation
+    * and no cache reset is announced (BEH-ENC-12 escalates FAULTS of a store, not a missing API).
+    */
+declare function indexedDbAvailable(): boolean;
+/**
+    * An open that failed because the runtime refuses IndexedDB outright, not because of a fault in the
+    * database: `InvalidStateError` (Firefox private browsing before 115) and `SecurityError` (storage
+    * blocked by the browser's site-data settings), or the global missing at call time. Dormant, like
+    * `indexedDbAvailable() === false` — never counted, never wiped over, never announced.
+    */
+declare function isStorageCapabilityAbsent(e: any): boolean;
+/** True when this runtime can back the media byte store with OPFS. */
+declare function opfsSupported(): boolean;
+/**
+    * Escalation of unclassifiable open failures (BEH-ENC-12): N = 3 consecutive, counted at most ONCE
+    * PER LAUNCH, and known-transient errors (busy, locked, disk full, a blocked open) never count.
+    *
+    * The counter is persisted OUTSIDE both the database and the key store — either may be the thing
+    * failing — in `localStorage`, and it is reset to zero on any successful open and on escalation, so a
+    * wipe cannot loop. Where `localStorage` is unavailable it degrades to an in-memory count (it then
+    * cannot reach 3 within one launch, so nothing is wiped by mistake).
+    */
+declare const ESCALATION_THRESHOLD = 3;
+/** Reset the escalation counter (a successful open, a genuine wipe, or escalation itself). */
+declare function resetOpenFailures(appId?: string, uid?: string): void;
+/** @internal Tests: forget which pairs counted in this "launch", simulating a process restart. */
+declare function simulateNewLaunchForTests(): void;
+/**
+    * The fixed mapping for a database open failure (BEH-ENC-11): busy, locked, disk full and a blocked
+    * open are TRANSIENT (never counted); "not a database" / corrupt is PERMANENT; everything else —
+    * I/O errors included — is unclassified.
+    */
+declare function classifyOpenFailure(e: any): "TRANSIENT" | "PERMANENT" | "UNCLASSIFIED";
+/**
+    * Delete an `(app, user)`'s offline data on disk WITHOUT opening it.
+    *
+    * Opening would mint a new encryption key, so nothing here opens a store, and no step creates a file,
+    * a folder or a database. It runs whenever the data must go but no store is open: the server kill
+    * switch reading off (on every start while it stays off), and logout or token expiry, including when
+    * offline was dormant or never started this session.
+    *
+    * Order, as logout's: the encryption key, then the database, then media.
+    *   - Electron: the sealed key sidecar, then the SQLite files (one IPC call; main keeps that order).
+    *   - Browser (and the Electron fallback): the IndexedDB database. The key is a row inside it, and
+    *     IndexedDB deletes a database as one operation, so key and data go together.
+    *   - Media: the per-(app, user) folder, then the legacy per-user folder.
+    * Every step catches its own failure so the rest still run, and every step is idempotent, so a wipe
+    * interrupted part-way finishes on the next run.
+    */
+declare function wipeOfflineDataAtRest(appId: string, uid: string): Promise<void>;
+/**
+    * Build the storage bundle for this runtime, or `null` when no cache may be opened.
+    *
+    * `null` is a normal outcome, not an error: it means offline runs server-only for this session, either
+    * because encryption could not be applied and the policy is `ONLINE_ONLY`, or because an open failed
+    * in a way that looks transient and deserves a retry rather than a wipe.
+    */
+declare function createStorageAdapter(appId: string, uid: string, options?: StorageAdapterOptions): Promise<StorageAdapter | null>;
+
+/**
+    * Owns the per-(app, user) offline cache lifecycle: opens the store on login
+    * (when enabled), no-ops when disabled, and wipes on logout / auth change.
+    */
+declare class OfflineStoreProvider {
+        static getInstance(): OfflineStoreProvider;
+        /** Record the developer's offline config. Nothing opens here. */
+        applyConfig(input?: OfflineConfig | boolean | null): void;
+        /**
+            * Offline may run: the app's config enables it AND the server switch is on. The server can turn
+            * offline off; it can never turn it on for an app that did not enable it.
+            */
+        isEnabled(): boolean;
+        /** The app's own config flag alone, ignoring the server switch. */
+        isConfigEnabled(): boolean;
+        /** Record the server kill switch. `fromArrival` marks settings the server just sent. */
+        setServerSwitch(on: boolean, fromArrival: boolean): void;
+        isServerSwitchOn(): boolean;
+        hasServerSwitchFromArrival(): boolean;
+        getConfig(): Required<OfflineConfig>;
+        /**
+            * Open the per-user store on login/session-restore. No-op when disabled or when
+            * the store is already open for the same user. Wipes first on a user switch.
+            */
+        onLogin(appId: string, uid: string): Promise<void>;
+        setExternalCloseListener(listener: (() => void) | null): void;
+        /**
+            * Close the open store WITHOUT wiping: release the connection and the in-memory key, keep the data
+            * on disk. Used when a start is cancelled (timed out, or stopped by another tab) after it opened.
+            */
+        closeStore(): Promise<void>;
+        /**
+            * The achieved encryption tiers for the open store.
+            *
+            * Answers honestly when offline is disabled, when no store opened, or when a backend predates the
+            * status API — all of which report the disabled shape rather than throwing.
+            */
+        getEncryptionStatus(): OfflineEncryptionStatus;
+        /** The active adapter, or `null` when offline is disabled / not open (read path no-ops). */
+        current(): StorageAdapter | null;
+        /** The appId the store is open for, or `null` when disabled / not open. */
+        getCurrentAppId(): string | null;
+        /** The logged-in uid the store is open for, or `null` when disabled / not open. */
+        getCurrentUid(): string | null;
+        /** The active outbox, or `null` until the init/login integration injects it (send path no-ops). */
+        getOutbox(): Outbox | null;
+        /** The active sync engine, or `null` until the init/login integration injects it. */
+        getSyncEngine(): SyncEngine | null;
+        /** Called by the init/login integration once the engines are assembled. */
+        setEngines(outbox: Outbox | null, syncEngine: SyncEngine | null): void;
+        /**
+            * Genuine auth change (explicit logout / token-invalid / user switch) → WIPE the user's cache +
+            * pending outbox + media (M1 D6 per-user privacy). Distinct from a same-user restart (onRestart).
+            */
+        onLogout(target?: {
+                appId?: string | null;
+                uid?: string | null;
+        }): Promise<void>;
+        /**
+            * Fix 1 (V1.2): same-user internal restart (settings / config / session refresh) → CLOSE the live
+            * engines but PRESERVE the store (DB + media) and the open adapter, so the same-user re-login
+            * reuses the same intact `(app, uid)` store and startup recovery reloads pending sends. Wipe stays
+            * strictly on genuine auth changes — a restart must NEVER route through the wiping onLogout.
+            */
+        onRestart(): void;
+        /**
+            * Delete the open store for a rebuild of damage found at first use (BEH-ENC-11) — a browser store and
+            * its key record in one delete; an Electron store key first, as main always does — then its media
+            * and anything left at rest. The session's state is dropped either way. Resolves `true` only
+            * when the store is really gone: on `false` nothing may be announced or DISCARDED (its rows still
+            * exist and would send later — two outcomes); a browser store keeps `notice` for the first open after
+            * its delete runs.
+            */
+        wipeDamagedStore(notice: {
+                reason: string;
+                pendingLost: number | null;
+                unsent: any[];
+        }): Promise<boolean>;
+}
+
+/** The settings `parameters` key that carries the switch. A flat, dotted key. */
+declare const OFFLINE_KILL_SWITCH_KEY = "features.core.offline-support.enabled";
+/**
+    * Parse the switch from a settings `parameters` block.
+    *
+    * Off only for JSON `false` or the string `"false"` in any letter case. Everything else — missing,
+    * `null`, numbers, other strings, objects, or no parameters block at all — counts as on.
+    */
+declare function readOfflineKillSwitch(parameters: any): boolean;
+/** Parse the switch from a whole settings object (the one that holds `parameters`). */
+declare function readOfflineKillSwitchFromSettings(settings: any): boolean;
+/**
+    * Record the switch from settings that just ARRIVED (the login's `/me` response, the settings-fetch
+    * fallback, or a token refresh). An arrival always wins over the stored copy.
+    *
+    * Returns the parsed value. A failed fetch never calls this, so the last known value stands.
+    */
+declare function applyOfflineKillSwitchFromSettings(settings: any): boolean;
+/**
+    * Where the switch value the last arrival read is kept on the device, so a start whose stored app
+    * settings were cleared (a settings restart clears the device store before its re-login) still reads
+    * the last value. Every arrival writes it, including one with no `parameters` (which reads `true`,
+    * BEH-AUTH-09 / R159). Written only for an app that configured offline on.
+    */
+declare const OFFLINE_KILL_SWITCH_STORE_KEY = "offline_kill_switch";
+/**
+    * The stored settings to read the switch from at start: the stored copy itself when it carries a
+    * `parameters` object (it is then the latest arrival that did), else the kept value (BEH-AUTH-09).
+    */
+declare function storedSettingsWithKeptSwitch(storedSettings: any, kept: any): any;
+declare function applyOfflineKillSwitchFromStoredSettings(storedSettings: any): boolean;
+
+/**
+    * Connection seam — the offline engine's view of realtime connectivity.
+    *
+    * Connection state is derived from the SDK's own socket/ping health (via the
+    * existing ConnectionListener / getConnectionStatus), NOT from OS/network flags
+    * like `navigator.onLine`. "Offline is a state, not an error."
+    *
+    * The engine depends only on this interface; the CometChat adapter implements it.
+    *
+    * @module offline/connection/ConnectionBridge
+    */
+interface ConnectionBridge {
+        /**
+            * Subscribe to "socket entered CONNECTED" edges. Returns an unsubscribe fn.
+            * May fire repeatedly on a flapping link — the ReconnectTrigger settles it.
+            */
+        onConnected(cb: () => void): () => void;
+        /** True when the realtime socket is currently connected. */
+        isConnected(): boolean;
+        /** Tear down any underlying registration. */
+        dispose(): void;
+}
+
+/**
+    * Turns raw "socket connected" edges into ONE settled reconnect action, with:
+    *
+    *   R1 single-flight — never run the reconnect work concurrently with itself.
+    *   R2 coalesce      — edges arriving while running collapse into at most one re-run.
+    *   R3 cooldown      — after a run, ignore new edges for a cooldown window.
+    *   R4 settle/debounce — wait briefly after an edge so a flapping link can't storm.
+    *
+    * The `work` callback is injected (the sync layer supplies "flush outbox + catch-up sweep").
+    * Sync failures are swallowed here — they're silent and resume on the next edge.
+    *
+    * Pure: depends only on ConnectionBridge + timers, so it's unit-testable with a fake.
+    *
+    * @module offline/connection/ReconnectTrigger
+    */
+interface ReconnectTriggerOptions {
+        /** R4: quiet period after an edge before firing. Default 800 ms. */
+        settleMs?: number;
+        /** R3: minimum gap between two runs. Default 2000 ms. */
+        cooldownMs?: number;
+        /**
+            * Shared last-sweep anchor (BEH-SYNC-28): the sync engine's timestamp of the last sweep (auto OR
+            * forced). When provided, the cooldown gate is measured against `max(local run, shared anchor)`, so
+            * a forceSyncNow defers the auto trigger too — both paths honour one anchor.
+            */
+        sharedLastSweepAt?: () => number;
+}
+declare class ReconnectTrigger {
+        constructor(bridge: ConnectionBridge, work: () => Promise<void>, opts?: ReconnectTriggerOptions);
+        /** Arm the trigger. If already connected (login while online), schedules one run. */
+        start(): void;
+        /** Disarm and cancel any pending timer (e.g. on logout / auth change). */
+        stop(): void;
+}
+
+/**
+  * ConnectionBridge backed by the SDK's realtime ConnectionListener.
+  *
+  * The CometChat connection primitives are INJECTED (not imported) so the offline
+  * module never depends on the CometChat facade directly — avoids a circular
+  * import and keeps this adapter unit-testable with a fake api. The init/login integration
+  * constructs it with CometChat's static methods + CONNECTION_STATUS.CONNECTED.
+  *
+  * @module offline/connection/CometChatConnectionBridge
+  */
+/** The slice of the CometChat connection API this adapter needs. */
+interface CometChatConnectionApi {
+    addConnectionListener(name: string, listener: ConnectionListener): void;
+    removeConnectionListener(name: string): void;
+    getConnectionStatus(): string;
+}
+declare class CometChatConnectionBridge implements ConnectionBridge {
+    constructor(api: CometChatConnectionApi, connectedStatus: string);
+    onConnected(cb: () => void): () => void;
+    isConnected(): boolean;
+    dispose(): void;
+}
+
+/**
+    * G1 capability gate — "better empty than wrong".
+    *
+    * The cache is a canonical, UNFILTERED store; a filtered read runs predicates
+    * locally. The cache phase answers ONLY IF *every* active filter is locally
+    * computable. If even one is server-only, the whole cache phase is skipped
+    * (returns nothing) and only the authoritative server phase answers.
+    *
+    * This file owns the filter-capability matrix as sets of filter keys. Mapping a request
+    * builder's state → the list of active keys is done at the read wiring,
+    * so this stays pure and unit-testable. Scope/pagination inputs (limit, uid,
+    * timestamp, page…) are NOT filters and must not be passed here.
+    *
+    * @module offline/read/FilterCapability
+    */
+type RequestKind = "messages" | "conversations";
+declare class FilterCapability {
+        /** Is this a locally-computable filter for the given request kind? */
+        static isSupported(kind: RequestKind, filterKey: string): boolean;
+        /**
+            * G1: true only if EVERY active filter is locally computable. All-or-nothing
+            * per request — one server-only filter empties the whole cache phase.
+            */
+        static allLocallyComputable(kind: RequestKind, activeFilterKeys: string[]): boolean;
+        /** The supported set (for docs / diagnostics). */
+        static supportedFilters(kind: RequestKind): ReadonlyArray<string>;
+}
+
+/**
+    * Two-phase read orchestrator — pure and generic over messages
+    * and conversations. The caller injects the store-specific operations, so this
+    * module stays decoupled from both the SDK models and the store backend.
+    *
+    * Order of events:
+    *   1. Cache phase (only if `runCachePhase`): read local rows → map → onCached
+    *      (may be empty). Skipped entirely when offline is disabled or the G1 gate
+    *      fails (a server-only filter is present).
+    *   2. Server phase: authoritative fetch → PERSIST → onServer. On failure → onError.
+    *
+    * With offline OFF the caller sets `runCachePhase=false` and a no-op `persist`,
+    * so only onServer fires — the additive drop-in for the old onSuccess.
+    *
+    * @module offline/read/TwoPhaseReader
+    */
+interface TwoPhaseReadOptions<TRow, TModel> {
+        /** enabled AND the G1 gate passed. */
+        runCachePhase: boolean;
+        /**
+            * Run the authoritative server phase. Default `true`, and a read always asks the server whatever the
+            * realtime connection's state: only a request that gets no answer is offline (BEH-READ-05, R72).
+            * `false` is only for an answer that needs no request — a synthesized end-of-list page while the SDK
+            * believes it is offline (BEH-READ-09a): then this fires the not-connected `onError` terminal AFTER
+            * the cache phase instead of `serverFetch`/`onServer`, so the read still terminates.
+            */
+        runServerPhase?: boolean;
+        /**
+            * Factory for the platform-native not-connected error handed to `onError` when the server phase is
+            * suppressed offline (JS/RN: `FAILED_TO_FETCH`). Lets the offline terminal carry a real error code.
+            */
+        offlineError?: () => any;
+        /** Read cached rows (store.listMessages / listConversations). */
+        cacheRead: () => Promise<TRow[]>;
+        /** Map cached rows → SDK models for the cache callback. */
+        rowsToModels: (rows: TRow[]) => TModel[];
+        /**
+            * Optional async post-map step on the CACHE-phase models before they're delivered (BEH-MEDIA-14:
+            * auto-hydrate each attachment's `localPath` from the media store — no download, no LRU touch).
+            * Best-effort: a hydration failure never blocks delivery.
+            */
+        hydrate?: (models: TModel[]) => Promise<void>;
+        /**
+            * Optional synchronous step on the SERVER-phase models before `onServer` (BEH-MEDIA-14: bind each
+            * attachment's on-disk `localPath`, no download, no LRU touch). Best-effort.
+            */
+        bindServer?: (models: TModel[]) => void;
+        /** Authoritative server fetch → SDK models (the existing no-arg fetch). */
+        serverFetch: () => Promise<TModel[]>;
+        /** Persist the server page into the cache (no-op when offline is disabled). */
+        persist: (models: TModel[]) => Promise<void>;
+        onCached?: (models: TModel[]) => void;
+        onServer?: (models: TModel[]) => void;
+        onError?: (error: any) => void;
+        /**
+            * Called just before `onError` when the server phase got NO answer (a bare transport failure, no
+            * HTTP status): the read was offline (BEH-READ-05). Lets a caller keep the state an offline page
+            * leaves behind (BEH-READ-07: the server cursor did not move past what the cache phase showed).
+            */
+        onNoAnswer?: (error: any) => void;
+        /**
+            * Notified when the persist step throws. Delivery of the authoritative result still proceeds — this
+            * is observability only, so a cache write that silently fails (leaving the next cache phase serving
+            * a stale page) is not invisible. Optional: a caller that omits it keeps the previous behaviour.
+            */
+        onPersistError?: (error: any) => void;
+}
+declare function twoPhaseRead<TRow, TModel>(opts: TwoPhaseReadOptions<TRow, TModel>): Promise<void>;
+
+/**
+    * Boundary mapper: BaseMessage ↔ MessageRow.
+    *
+    *  - messageToRow: extracts flat columns from the message's getters and stores
+    *    the raw server JSON (getRawMessage) as the row `payload` — the rendering
+    *    source of truth. Used to persist the server phase into the cache.
+    *  - rowToMessage: reconstructs a BaseMessage from the stored payload using the
+    *    SDK's own JSON→message converter, which is INJECTED (so the offline module
+    *    doesn't import MessageController and risk a cycle). Used for the cache phase.
+    *
+    * @module offline/read/OfflineModelMapper
+    */
+/**
+    * Derive the public `MessageStatus` for a cached row — "derived, not stored". Ported verbatim
+    * from Android's `OfflineModelMapper.deriveStatus`, applied on the cache→message rehydration path (the
+    * send path sets PENDING/SENDING/SENT/FAILED explicitly). The ladder — send-state wins first; a
+    * server-sourced (SENT) row then reads its receipt watermarks, `readAt` BEFORE `deliveredAt`
+    * (READ outranks DELIVERED), using `> 0` (a 0/absent stamp means "not yet" → fall through):
+    *
+    *   FAILED  → FAILED · PENDING → PENDING · SENDING → SENDING
+    *   SENT (or any server-sourced row): readAt > 0 → READ · deliveredAt > 0 → DELIVERED · else → SENT
+    */
+declare function deriveStatus(row: MessageRow): MessageStatus;
+/** The SDK's raw-JSON → message converter (MessageController.trasformJSONMessge). */
+type MessageTransform = (json: any) => BaseMessage;
+/**
+    * Turn an acked/received BaseMessage into a canonical cache row.
+    *
+    * `source` says where the message came from, which decides which pin / save / follow flags this row
+    * may set (BEH-FLAG-02). The default carries no flag keys at all, so the store keeps what it has.
+    */
+declare function messageToRow(msg: BaseMessage, source?: FlagSource): MessageRow;
+/** Rebuild a BaseMessage from a cached row via the injected SDK converter. */
+declare function rowToMessage(row: MessageRow, transform: MessageTransform): BaseMessage;
+/**
+    * The message an outbox callback hands over (BEH-INV-06): a complete `BaseMessage`, never the bare
+    * store row (Android `OfflineModelMapper.toMessage`, Outbox.java:1343). The row's derived status and,
+    * for an un-acked row, the compose-time sentAt are projected (`rowToMessage`); its `localMessageId`
+    * and canonical `conversationId` (BEH-SEND-26) are stamped; an un-acked own row takes the LIVE
+    * logged-in user as its sender when one is given (BEH-SEND-29). A row the parser cannot rebuild is
+    * handed over as it is, so a listener still hears about the message.
+    */
+declare function outboxRowToMessage(row: MessageRow, transform: MessageTransform, selfUser?: any): any;
+/**
+    * The message an unsent row lost by a store rebuild is reported as (DISCARDED, BEH-ENC-15/16, BEH-SEND-01).
+    *
+    * A rebuild reads what it loses from the columns it can still read, so the row often has no payload:
+    * an encrypted row's content is sealed (and its ids blind-indexed), and the Electron main process
+    * reports only the plain columns. The global listener must still get a `BaseMessage` with
+    * `getLocalMessageId()` and the other getters (BEH-INV-06, BEH-SEND-26), never the row, so a missing
+    * payload is rebuilt from those columns: category, type, receiver type, and the receiver,
+    * conversation and sender where they were stored in the clear.
+    */
+declare function lostRowToMessage(row: MessageRow, transform: MessageTransform, selfUser?: any): any;
+declare function composedMessageToRow(msg: BaseMessage, localMessageId: string, selfUid?: string): MessageRow;
+/** Map a page of server messages → rows (for persist), all from one `source`. */
+declare function messagesToRows(msgs: BaseMessage[], source?: FlagSource): MessageRow[];
+/** Map cached rows → BaseMessages (for the cache phase callback). */
+declare function rowsToMessages(rows: MessageRow[], transform: MessageTransform): BaseMessage[];
+/**
+    * Deterministic reading order (oldest→newest) for a page of cached rows — the SAME
+    * order the server returns for same-second messages. The server sorts by `(sentAt, id)` (its `id`
+    * is a monotonic autoincrement), so locally we mirror it with `(localSortTs, server id)`, with
+    * `localMessageId` as a final determinism fallback. This settles ONLY the display order of messages
+    * that tie on `localSortTs` (same second) — it can never hide a row.
+    *
+    * BEH-READ-10: a queued row (PENDING / SENDING / FAILED — it has no server `sentAt`) sorts after EVERY
+    * sent row, and queued rows among themselves by compose time (`localSortTs`). Its compose time can be
+    * older than a message that reached the server first, so ordering it by `localSortTs` alone would put
+    * the user's own unsent message in the middle of the history. Android LocalMessageQuery.compareReadingOrder.
+    */
+declare function compareReadingOrder(a: MessageRow, b: MessageRow): number;
+/**
+    * The store keyset order `(localSortTs, numeric id, localMessageId)` — the order the IndexedDB and
+    * SQLite scans page by. It equals {@link compareReadingOrder} for sent rows; queued rows are placed
+    * last by the read itself (`LocalQuery.pendingLast`), never by the keyset.
+    */
+declare function compareKeysetOrder(a: MessageRow, b: MessageRow): number;
+
+/**
+    * Column-backed predicate for a cached CONVERSATION read — the conversation twin of
+    * `Projections.matchesMessage`, and the single place all three storage paths
+    * (IndexedDB plaintext, IndexedDB sealed, SQLite) evaluate a conversation filter.
+    *
+    * Offline Read Coverage §4: the whole conversation list is bounded and fully cached, so **every**
+    * conversation filter except `searchKeyword` is computed locally. That is only true if the filters
+    * run off stored columns, so each one here maps to a write-time projection on `ConversationRow`:
+    *
+    *   userTags / groupTags  → `peerTags`   (the PEER entity's tags; `tags` is the conversation's own)
+    *   onlyAgentic / hideAgentic → `isAgentic`
+    *   includeBlockedUsers   → `blockedByMe`
+    *
+    * Keeping this off `conversationWith` is what makes the encrypted tier work: the sealed row's
+    * `conversationWith` is `null` mid-scan, so a predicate that reached into it would silently match
+    * nothing. `peerTags` is blind-indexed alongside `tags`, and the three booleans stay readable.
+    *
+    * @module offline/read/ConversationFilters
+    */
+/**
+    * Evaluate a cached conversation against the locally-computable filters.
+    *
+    * Note the default-list rule (§4.2): a `blockedByMe` conversation is EXCLUDED unless the request
+    * asked for `includeBlockedUsers`. The row itself is always kept in the cache — "keep and flag,
+    * don't purge" (§4.4) — so the `includeBlockedUsers` view can serve it without a separate fetch.
+    */
+declare function matchesConversation(r: ConversationRow, q: LocalQuery): boolean;
+/** BEH-CONV-17: the store's blockedByMe uids, ASCII-lowercased, for {@link LocalQuery.blockedByMeUids}. */
+declare function blockedByMeUidsOf(rows: {
+        uid: string;
+        blockedByMe: boolean;
+}[]): string[];
+
+/** The subset of `ConversationRow` this module owns. Every field is optional, deliberately. */
+interface ConversationRowExtras {
+        isAgentic?: boolean | null;
+        peerTags?: string[];
+        hasBlockedMe?: boolean;
+        lastReadMessageId?: string;
+        unreadMentionsCount?: number;
+        latestMessageId?: string;
+        systemPinnedAt?: number | null;
+        ownPinnedAt?: number | null;
+        /** The own pinner (the uid) when this write sets the own pin; the store derives the shown pinnedBy. */
+        pinnedBy?: string | null;
+}
+/**
+    * Which pin columns a conversation write proves (BEH-CPIN-01, Android ConversationTagScope.PinMode):
+    * KEEP — neither; ADMIN_WINS — an admin pin sets the admin pin and keeps the own pin, an own pin sets
+    * the own pin and clears the admin pin, no pin clears both; OWN / SYSTEM — that column only.
+    */
+type PinMode = "KEEP" | "ADMIN_WINS" | "OWN" | "SYSTEM";
+/**
+    * Build the projections for one conversation.
+    *
+    * @param c the `Conversation` model (or a raw JSON conversation — both are read defensively).
+    * @param blockedInfoPresent did the fetch that produced `c` actually ask for `withBlockedInfo`? When
+    *        false, `hasBlockedMe` is OMITTED from the result so the cached value survives (§4.4).
+    *        Note `blockedByMe` is never derived here at all: §4.4 makes the blocked-users store its one
+    *        authority, because the default conversation list a sweep returns legitimately omits blocked
+    *        conversations, so their absence says nothing about the relationship.
+    */
+declare function conversationRowExtras(c: any, blockedInfoPresent: boolean, pinAuthoritative?: boolean, peerTagsApplied?: boolean, pinMode?: PinMode): ConversationRowExtras;
+
+/**
+    * Small pure helpers shared by BOTH storage backends, so a rule is written once and cannot drift
+    * between IndexedDB and SQLite. Same reason `Projections` and `ConversationFilters` exist.
+    *
+    * @module offline/read/StoreShared
+    */
+/**
+    * What a served message whose `data.localMessageId` (BEH-SEND-21) matched a cached row by that key is to
+    * that row. Only for a row found BY localMessageId; the send's own ack (`reconcileOnAck`) never comes
+    * here. Both rows are plaintext (a stored row's `id` and `sendState` are never sealed, so a stored row
+    * with an id compares as it is).
+    *  - `FOREIGN`: not that message. Against an acked row, any other server id (a crafted or colliding
+    *    key, or a second server copy of a lost-ack send); against a row never acked, another sender or
+    *    another conversation. It must neither overwrite the row nor settle it: it is stored under its own
+    *    key (`foreignRowKey`) or dropped.
+    *  - `OUTBOX`: the server's copy of a message still in the outbox (PENDING / SENDING). It is not written
+    *    over it; the outbox settles it as sent once (BEH-SEND-01).
+    *  - `null`: the same message (an edit, a re-fetch, the echo of an acked or FAILED send): written as usual.
+    */
+declare function matchByLocalId(existing: {
+        id?: number | string | null;
+        sendState?: string;
+        senderUid?: string | null;
+        conversationId?: string | null;
+} | null | undefined, incoming: {
+        id?: number | string | null;
+        sendState?: string;
+        senderUid?: string | null;
+        conversationId?: string | null;
+}): "OUTBOX" | "FOREIGN" | null;
+/** The key a FOREIGN served message is stored under (its server id's, as any fetched message), or null to drop it. */
+declare function foreignRowKey(incoming: {
+        id?: number | string | null;
+}): string | null;
+/** Hand the served copies an upsert left to the outbox to its listener, after the commit. Never throws. */
+declare function notifyServedOutbox(listener: ((rows: MessageRow[]) => void) | null | undefined, rows: MessageRow[]): void;
+/**
+    * The conversation's read marker after a local read (§4.5).
+    *
+    * `advanceReadMarkerTo` is `undefined` for callers that only clear unread (the pre-existing
+    * behaviour), a specific message id for the message-level `markAsRead(...)`, or `"latest"` for a
+    * conversation-level read — which advances the marker to the conversation's own cached last message,
+    * the deterministic "everything here is read" answer §4.5 asks for.
+    *
+    * Always monotonic: a marker never regresses, so an out-of-order read of an older message cannot
+    * make already-read messages unread again. Ids are compared NUMERICALLY — `lastReadMessageId` is a
+    * string on the model (and TEXT in SQLite), and a lexical compare would rank "9" above "40".
+    */
+declare function nextReadMarker(existing: ConversationRow, advanceReadMarkerTo?: number | "latest"): string | undefined;
+/** The row shape `rollupSnapshotMeta` needs — readable columns only, so no decryption is required. */
+interface SnapshotMetaSource {
+        signature: string;
+        recordedAt: number;
+        lastAccessedTs: number;
+        response?: string;
+        /** Sealed bundle, when encryption is on — the bytes that actually occupy the quota. */
+        __enc?: string;
+}
+/**
+    * Roll individual snapshot PAGES up into one entry per signature — what LRU/TTL eviction (§6.4) and
+    * the storage-budget accounting (§3) operate on. Eviction is per-signature, never per-page: half a
+    * recorded read would replay as a list that silently stops mid-way.
+    *
+    * `recordedAt` takes the OLDEST page (the TTL clock starts when the read was first recorded) and
+    * `lastAccessedTs` the NEWEST (any page's replay keeps the whole read hot).
+    */
+declare function rollupSnapshotMeta(rows: SnapshotMetaSource[]): SnapshotMeta[];
+/**
+    * Snapshot LRU order (BEH-SNAP-10): least recently replayed first, ties broken by signature so the
+    * victim is the same on every run and backend (Android SnapshotDao: `lastAccessedTs ASC, signature ASC`).
+    */
+declare function compareSnapshotLru(a: SnapshotMeta, b: SnapshotMeta): number;
+/**
+    * BEH-READ-41 (R81): a message write keeps the stored tags unless its request applied `withTags`
+    * (`row.tagsAuthoritative`) — keyed on the request, never on whether the payload carries `tags`. Returns
+    * the row to write — its payload's tags replaced by the stored payload's (so the projection and the
+    * rehydrated model keep them) unless the write is authoritative — and never with the write-only
+    * `tagsAuthoritative` key. `existing` is the stored row, decoded (plaintext payload), or null for a
+    * first insert, which takes the payload as it is.
+    */
+declare function keepStoredMessageTags(row: MessageRow, existing: MessageRow | null | undefined): MessageRow;
+/**
+    * BEH-CONV-12: a conversation write that did not apply `withUserAndGroupTags` (no `peerTags` key) keeps
+    * the stored peer's `conversationWith.tags`, so the rehydrated model never loses them either.
+    */
+declare function keepStoredPeerTags(merged: any, existing: any, incoming: any): void;
+/**
+    * BEH-CONV-06: a conversation-list ingest is advance-only on the sort key and the preview, so a
+    * snapshot older than local state (taken before an in-flight send committed, carrying an EQUAL
+    * `updatedAt` that passes LWW) never demotes the row or reverts its last message. A genuinely newer
+    * row still applies in full. Ported from Android ConversationMergePolicy.resolveOnUpsert /
+    * isIngestPreviewNewer (ConversationMergePolicy.java:91-112, 227-240). Mutates `merged` in place;
+    * a first insert (`existing` null) takes the incoming row as-is.
+    */
+declare function keepAdvanceOnly(merged: any, existing: any, incoming: any): void;
+/**
+    * BEH-CONV-12/16: a row of a page's leading pinned block (or of a `pinnedBy` page) is the server's
+    * pinned set, whose rows carry no includes — so it is written pin-only for tags and blocked info:
+    * the conversation's tags, the peer's tags and `hasBlockedMe` are omitted and the stored values
+    * survive the field-merge. Android ConversationTagScope.pinnedRow() (OfflineReadCache.java:744,
+    * SyncEngine.java:514).
+    */
+declare function asPinnedBlockRow<T>(row: T): T;
+/** The derived `pinnedBy` column of a row whose shown pin is the user's own (reported as the uid at read). */
+declare const OWN_PINNER = "me";
+/**
+    * BEH-CPIN-01: a cached conversation's two pins — the admin pin and the user's own pin — read from the
+    * `systemPinnedAt` / `ownPinnedAt` columns (Android ConversationRecord.java:39-40). A row written
+    * before the two columns existed carries only the single `pinnedAt`/`pinnedBy` pair, which is read
+    * as the one pin it names; that is the additive upgrade, no migration step. `null` = no pin.
+    */
+declare function pinsOf(r: any): {
+        system: number | null;
+        own: number | null;
+};
+/**
+    * BEH-CPIN-01: resolve the pin columns of a conversation write. A pin column the incoming row omits is
+    * kept from the stored row (so each source changes only the pins it proves — the pin mode is which
+    * columns the writer put on the row); then the shown `pinnedAt`/`pinnedBy` are derived: the admin pin
+    * if there is one, else the own pin (Android ConversationMergePolicy.withPins :130, putDerivedPin).
+    * Mutates `merged`. Only when either side has ever carried a pin; a row with no pin knowledge is
+    * left as it was.
+    */
+declare function resolvePins(merged: any, existing: any, incoming: any): void;
+/**
+    * Set the shown `pinnedAt`/`pinnedBy` from the two pin columns. An own pin shows its pinner (the uid)
+    * when known, else {@link OWN_PINNER}; the delivered model always reports the current uid.
+    */
+declare function derivePin(r: any, ownPinner?: string | null): void;
+/** The message record's receipt state for a conversation preview (BEH-CONV-07). */
+interface PreviewReceipt {
+        senderUid?: string;
+        deliveredAt?: number;
+        readAt?: number;
+}
+/**
+    * BEH-CONV-07: the receipt state of each own-sent preview still missing a tick — one record read per
+    * candidate, keyed by `lastMessageId` (Android OfflineModelMapper.receiptOverlayCandidates :649).
+    */
+declare function previewReceipts(store: {
+        getMessageById(id: number | string): Promise<any>;
+}, rows: any[], selfUid: string | null): Promise<{
+        [id: string]: PreviewReceipt;
+}>;
+/**
+    * The cached preview as delivered — a copy, never written back (read-only, self-heals every read):
+    *  - BEH-CONV-07: an own-sent preview takes the message record's deliveredAt/readAt where they are
+    *    strictly ahead (identity + own-sent + advance-only; OfflineModelMapper.applyReceiptOverlay :775);
+    *  - BEH-CONV-08: a preview with no sentAt (an un-acked send) takes the row's sort key, already epoch
+    *    SECONDS, as-is (fill-only, needs a basis; applyPendingSentAtProjection :811).
+    */
+declare function previewForDelivery(row: any, receipts?: {
+        [id: string]: PreviewReceipt;
+}): any;
+/**
+    * BEH-CONV-17: put a cached 1:1's delivered peer flags on its model, recomputed per read and never taken
+    * from the stored peer JSON — with `withBlockedInfo`, `blockedByMe` from the blocked-users store (the
+    * ASCII-lowercased uid set) and `hasBlockedMe` from the protected column; without it both false, as the
+    * server (Android LocalConversationQuery.java:407, OfflineReadCache.java:588).
+    */
+declare function decorateBlockedFlags(model: any, row: any, withBlockedInfo: boolean, blockedByMe: {
+        [uid: string]: true;
+}): any;
+/**
+    * The two halves of a `pendingLast` message read (BEH-READ-10 / BEH-READ-31), shared by both backends so
+    * the window rule is written once. `sentQuery` is the plain keyset read of the SENT rows (null when the
+    * page needs none); `assemble` joins its rows (in the backend's scan order: newest-first for the newest
+    * and older pages, oldest-first for an after-cursor page) with the matching queued rows (`queuedAsc`,
+    * oldest compose time first) into the page, in that same scan order.
+    *
+    * Android LocalMessageQuery.paginate: the newest page is the last `limit` of sent-then-queued; an
+    * anchored newer page is the first `limit` rows past the anchor, so queued rows come only once the sent
+    * rows are used up; an older page never holds a queued row.
+    */
+declare function pendingLastPlan<T extends MessageRow>(q: LocalQuery, queuedAsc: T[], defaultLimit: number): {
+        sentQuery: LocalQuery | null;
+        assemble: (sent: T[]) => T[];
+};
+
+/** A predicate value as it can appear in a signature. */
+type SignatureValue = string | number | boolean | Array<string | number> | null | undefined;
+/**
+    * Build the canonical signature for an entity read.
+    *
+    * @param readType one of `SNAPSHOT_READ_TYPE` — keeps two different reads that happen to share
+    *                 predicate names (e.g. group members vs banned members, both `guid`+`scopes`) apart.
+    * @param scope    the invalidation scope: `""` for a global read, else the guid / message id.
+    * @param predicates the read's predicates. Key order does not matter — keys are sorted here.
+    */
+declare function buildSignature(readType: string, scope: string, predicates: {
+        [key: string]: SignatureValue;
+}): string;
+/**
+    * A request's two snapshot counters (BEH-SNAP-02/03; Android EntitySnapshotRead.java:97-151), one pair per
+    * direction for a two-directional read:
+    *
+    *  - the REPLAY index: which recorded page the next cache phase replays. It advances by one on every
+    *    dispatch that runs a cache phase, hit or miss; nothing else moves it.
+    *  - the SERVER page index: the page the next server page is recorded at. It advances only when a server
+    *    page arrives; the cache phase never moves it.
+    *
+    * Sharing one counter recorded an online page at the replay position (after an offline replay, page N
+    * landed at N+1) and replayed duplicated pages.
+    */
+declare class ReplayIndex {
+        /**
+            * A two-phase fetch of this request is between dispatch and settle (BEH-SNAP-14). Set and cleared by
+            * the snapshot reader; the request's own in-progress flag is set only once its server half starts.
+            */
+        isBusy(): boolean;
+        setBusy(busy: boolean): void;
+        current(): number;
+        advance(): void;
+        /** The page index the next server page is recorded at. */
+        serverPage(): number;
+        /** A server page for the fetch dispatched at `pageIndex` arrived. */
+        serverPageArrived(pageIndex: number): void;
+        reset(): void;
+}
+
+/**
+    * Record/replay engine for entity-list reads (Offline Read Coverage §6).
+    *
+    * Entity lists — users, groups, group members, banned members, reactions, the notification feed —
+    * are not derivable from the message/conversation cache: they are server-computed views over data
+    * this SDK never stores. So instead of trying to answer them locally, this records the server's
+    * response **verbatim** while online and replays it while offline. What the developer sees offline is
+    * exactly the list they last saw online, parsed by the type's own parser — never a reconstruction.
+    *
+    * Built ON the existing `twoPhaseRead`, not beside it: the phase order, the persist-then-notify rule,
+    * the offline `onError` terminal and the Promise contract are all inherited rather than re-derived.
+    *
+    * ## Isolation (§7)
+    *
+    * Snapshot storage is separate from the canonical stores. The reconnect sweep never reads or
+    * refreshes it; a snapshot refreshes only when that same read is viewed online again. Nothing in a
+    * snapshot ever reaches the message/conversation caches, and a SEND never invalidates one.
+    *
+    * @module offline/snapshot/SnapshotReader
+    */
+interface SnapshotReadOptions<TModel> {
+        store: OfflineStore | null;
+        /**
+            * Realtime connectivity. It never decides whether the server phase runs — a read always asks the
+            * server, and only a request with no answer is offline (BEH-READ-05, R72, R105). It only decides
+            * whether the legacy in-flight answer is delivered as the server phase (BEH-SNAP-14).
+            */
+        connected: boolean;
+        /** `SNAPSHOT_READ_TYPE` value; with `scope` it forms the self-op invalidation key (§6.3). */
+        readType: string;
+        /** "" for a global read, else the guid / message id this read is scoped to. */
+        scope: string;
+        /** Canonical predicate string, computed at DISPATCH — before any cursor mutates (§6.1). */
+        signature: string;
+        /** This request's replay cursor. One per direction for a two-directional read. */
+        replayIndex: ReplayIndex;
+        /**
+            * False when the read can never be served from cache — a `searchKeyword` or a presence filter
+            * (§6.2). The cache phase is skipped entirely, so the read is empty offline rather than a subset
+            * that quietly ignored the excluded predicate.
+            */
+        cacheable: boolean;
+        /** Parse a recorded response body into models, with the type's OWN normal parser. */
+        parse: (response: any) => TModel[];
+        /** The existing single-callback fetch — the authoritative server phase, unchanged. */
+        serverFetch: () => Promise<TModel[]>;
+        /**
+            * The verbatim body of the response `serverFetch` just consumed, plus whether more pages follow.
+            * Returns `null` when the request could not capture it, which simply skips recording that page.
+            */
+        captureResponse: () => {
+                response: any;
+                hasNext: boolean;
+        } | null;
+        /** Optional post-parse hydration of cached media paths (§6.4). Best-effort. */
+        hydrate?: (models: TModel[]) => Promise<void>;
+        /** Platform not-connected error for the offline terminal. */
+        offlineError: () => any;
+        /**
+            * At dispatch: another fetch of this request is still in flight. The call is answered by the type's
+            * legacy in-flight answer alone — no cache phase, the replay index unmoved (BEH-SNAP-14).
+            */
+        inFlight?: boolean;
+        /** The legacy in-flight answer; defaults to `serverFetch` (which answers it). */
+        inFlightAnswer?: () => Promise<TModel[]>;
+        /**
+            * The store open NOW. A server page dispatched for one user is recorded only while that same store is
+            * still open: after a logout or a user switch it is dropped (BEH-SNAP-06).
+            */
+        currentStore?: () => OfflineStore | null;
+        onCached?: (models: TModel[]) => void;
+        onServer?: (models: TModel[]) => void;
+        onError?: (error: any) => void;
+}
+/**
+    * Run one page of a two-phase entity read.
+    *
+    * Cache phase: look up `(signature, replayIndex)`, parse, hydrate, deliver, advance the index. A miss
+    * delivers an empty list — a read never fetched online is empty offline, by design.
+    *
+    * Server phase: the unchanged fetch, then record `(signature, pageIndex) → verbatim response` BEFORE
+    * `onServer` fires (persist-then-notify). The recorded page index is the request's own page counter,
+    * so replaying later walks the pages in the order they were fetched.
+    */
+declare function snapshotRead<TModel>(opts: SnapshotReadOptions<TModel>): Promise<TModel[]>;
+
+/**
+    * The boilerplate every entity-list request needs in order to run a two-phase snapshot read, in one
+    * place — so six request classes wire the same contract instead of six slightly different ones.
+    *
+    * Each request supplies only what actually varies: its read type and scope, its predicates, how to
+    * parse a recorded body, its unchanged server fetch, and how to hand back the verbatim response it
+    * just consumed. Everything shared — the store lookup, the connectivity gate, the offline error, the
+    * signature, the Promise contract — is decided here.
+    *
+    * @module offline/snapshot/EntityFetch
+    */
+interface EntityFetchOptions<TModel> {
+        readType: string;
+        /** "" for a global read, else the guid / message id this read is scoped to. */
+        scope?: string;
+        /** The read's predicates — everything except the pagination cursor and the excluded predicates. */
+        predicates: {
+                [key: string]: SignatureValue;
+        };
+        /** This request's replay cursor (one per direction for a two-directional read). */
+        replayIndex: ReplayIndex;
+        /**
+            * True when this read may be served from cache at all. Pass `false` when a `searchKeyword` or a
+            * presence filter is set — those are EXCLUDED (§6.2), so the read is empty offline.
+            */
+        cacheable: boolean;
+        parse: (response: any) => TModel[];
+        serverFetch: () => Promise<TModel[]>;
+        captureResponse: () => {
+                response: any;
+                hasNext: boolean;
+        } | null;
+        hydrate?: (models: TModel[]) => Promise<void>;
+        /** Built by the caller so each request keeps its own platform-native error construction. */
+        offlineError: () => any;
+        /** At dispatch: another fetch of this request is in flight (BEH-SNAP-14). */
+        inFlight?: boolean;
+        /** The legacy in-flight answer, when `serverFetch` would not give it. */
+        inFlightAnswer?: () => Promise<TModel[]>;
+        onCached?: (models: TModel[]) => void;
+        onServer?: (models: TModel[]) => void;
+        onError?: (error: any) => void;
+}
+/** Run one page of an entity-list two-phase read. Returns the same Promise the legacy fetch does. */
+declare function entityFetch<TModel>(opts: EntityFetchOptions<TModel>): Promise<TModel[]>;
+
+/**
+  * 3-phase send listeners (ADDITIVE — the existing send onSuccess/onError are kept).
+  *
+  *  - MessageSentListener: per-send — onMessagePending (optimistic, queued locally,
+  *    fires only when offline is enabled) → onMessageSent (server-acked) → onError.
+  *  - OfflineMessageListener: global outbox observer — onOutboxMessagePending /
+  *    onOutboxMessageSent / onOutboxMessageFailed(message, reason). Named `onOutbox*` to
+  *    disambiguate from the per-send MessageSentListener above.
+  *
+  * Callback style mirrors the existing ConnectionListener.
+  *
+  * @module offline/listeners/SendListeners
+  */
+export interface MessageSentHandlers {
+    onMessagePending?: Function;
+    onMessageSent?: Function;
+    onError?: Function;
+}
+export class MessageSentListener {
+    onMessagePending?: Function;
+    onMessageSent?: Function;
+    onError?: Function;
+    constructor(handlers: MessageSentHandlers);
+}
+export interface OfflineMessageHandlers {
+    onOutboxMessagePending?: Function;
+    onOutboxMessageSent?: Function;
+    onOutboxMessageFailed?: Function;
+}
+export class OfflineMessageListener {
+    onOutboxMessagePending?: Function;
+    onOutboxMessageSent?: Function;
+    onOutboxMessageFailed?: Function;
+    constructor(handlers: OfflineMessageHandlers);
+}
+
+/**
+    * The offline send engine.
+    *
+    *  - Unified-table send-state machine: PENDING → SENDING → SENT | FAILED.
+    *  - Per-conversation FIFO, one message in flight per conversation; a stuck message in chat A never
+    *    blocks chat B (BEH-SEND-08/09).
+    *  - Persist-then-notify optimistic send (onMessagePending) before any ack (BEH-SEND-03).
+    *  - Every dispatch starts with an atomic, checked PENDING → SENDING flip; a failed flip never sends,
+    *    so a second tab, a retry or a restart can never send the same row twice (BEH-SEND-03/08/20).
+    *  - Three failure classes (BEH-SEND-10..14):
+    *      NOT_CONNECTED — no server answer: the row stays PENDING, the per-call `onError` (not connected)
+    *        fires once, and this drain stops; the next flush of the conversation starts with the row
+    *        again. No timers. After 5 unanswered reconnect flushes (the count is persisted, so it survives
+    *        a restart) the row becomes FAILED / TRANSIENT and steps aside.
+    *      TRANSIENT — a completed 5xx or 429: FAILED at once, steps aside, the chat keeps sending.
+    *      PERMANENT — any other completed rejection: FAILED, steps aside.
+    *  - Overflow admission per PendingMessageOverflowPolicy; only PENDING / SENDING rows count, and the
+    *    DROP_OLDEST victim is always a PENDING row, removed with QUEUE_OVERFLOW (BEH-SEND-15/16).
+    *  - Removal before send (clearOfflineCache, purges) fails PENDING / SENDING rows with DISCARDED;
+    *    an already-FAILED row is removed silently (BEH-SEND-01, R49).
+    *  - Startup recovery resets any SENDING left mid-flight by a crash back to PENDING (BEH-SEND-07).
+    *
+    * Pure and injected (store / sender / connection / config / lock) → unit-testable.
+    *
+    * @module offline/outbox/Outbox
+    */
+/** Fan-out callbacks. per-send uses onPending/onSent/onError; global adds onFailed. */
+interface OutboxCallbacks {
+        onPending?: (row: MessageRow) => void;
+        onSent?: (row: MessageRow) => void;
+        onError?: (error: any, row?: MessageRow) => void;
+        onFailed?: (row: MessageRow, reason: string) => void;
+        /**
+            * Not an app callback. The message was removed by `discardLocalMessage`, which fires no send callback,
+            * so a send whose Promise is still open settles it here and tells its listener nothing.
+            */
+        onDiscarded?: () => void;
+}
+interface OutboxConfig {
+        /** Outbox cap, already normalised to [1, 100] by the config (BEH-EVICT-03). `<= 0` = no cap. */
+        maxPendingMessages: number;
+        overflowPolicy: PendingMessageOverflowPolicy;
+        /**
+            * `autoSendPendingOnReconnect`: whether a reconnect flush retries the queue. Off, nothing would retry
+            * a send that got no answer, so it fails at once (R114). Default on.
+            */
+        autoSendPendingOnReconnect?: boolean;
+}
+interface AdmitResult {
+        ok: boolean;
+        reason?: MessageFailureReason;
+        /**
+            * The store failed BEFORE the durable commit (BEH-SEND-28): nothing was persisted, no callback
+            * fired, and the caller must send the message directly — over the wire, with no durability, per-call
+            * onSent/onError only and no pending (Android `Outbox.onTransientDuringEnqueue` → `directSend`).
+            */
+        sendDirect?: boolean;
+        /**
+            * The outbox ended (same-user restart, server switch off, store closed elsewhere, rebuild) before this
+            * send was queued, and nothing fired for it: the caller sends it again once the offline layer settles.
+            */
+        resend?: boolean;
+}
+/**
+    * Cross-context guard for one in-flight send. In a browser the default uses the Web Locks API, which
+    * is shared by every tab and Electron window of the origin and released when a context dies, so
+    * startup recovery can tell a row a live tab is still sending from one a crash left behind.
+    */
+interface OutboxSendLock {
+        /** Run `fn` while holding the lock for `key`. */
+        run<T>(key: string, fn: () => Promise<T>): Promise<T>;
+        /** `true` when nobody holds the lock for `key` right now (used only by recovery). */
+        isFree(key: string): Promise<boolean>;
+        /**
+            * `true` when the lock is shared by every tab/window of the origin (Web Locks), so "free" proves no
+            * other context is sending. When `false` (no Web Locks, e.g. Safari before 15.4) "free" proves
+            * nothing across tabs, and recovery also requires the row's send lease to have gone stale.
+            */
+        crossContext: boolean;
+}
+/** Cross-context outbox events (BroadcastChannel), so a tab learns its own message's outcome. */
+interface OutboxChannel {
+        post(msg: any): void;
+        onMessage(handler: (msg: any) => void): void;
+        close(): void;
+}
+/**
+    * A compose ticket: taken when a message is composed, before any asynchronous preparation (a media
+    * copy). A later send in the same conversation waits for every earlier ticket of that conversation
+    * before its admission, so a text sent while an earlier photo is still being copied is queued — and
+    * sent — after the photo (per-chat FIFO, BEH-SEND-08). `key` is the user and the conversation, and
+    * tickets live beside the outbox, not in it: a send handed back by a restart keeps its ticket until it
+    * is queued in the reopened outbox, so a send composed after the restart, or in its gap, waits behind
+    * it (round-4 F3). Released when its send is queued, refused, failed or ended. Sends in other
+    * conversations never wait.
+    */
+declare function takeComposeTicket(key: string): ComposeTicket;
+/**
+    * A session ended (logout, user switch): every open ticket goes, so nothing composed in a later session
+    * waits for a send of the ended one (a copy still running, a send handed back). Those end silently.
+    */
+declare function releaseAllComposeTickets(): void;
+/** How an outbox ends (see Outbox.dispose). */
+type OutboxEndMode = "SILENT" | "RESEND";
+/** See takeComposeTicket. */
+interface ComposeTicket {
+        conversationId: string;
+        /** The conversation's earlier tickets, still open when this one was taken. */
+        prior: Promise<void>[];
+        /** Let the conversation's later sends go (idempotent). */
+        release(): void;
+}
+interface OutboxOptions {
+        /** Defaults to the Web Locks API where it exists, else an in-process lock plus send leases. */
+        sendLock?: OutboxSendLock;
+        /** Cross-tab outcome channel; defaults to a BroadcastChannel where one exists. */
+        channel?: OutboxChannel | null;
+        /** A send lease older than this is abandoned (no-Web-Locks recovery). Default 30 s. */
+        leaseStaleMs?: number;
+        /** Unanswered dispatches before a row fails TRANSIENT (BEH-SEND-10). Fixed at 5 by the spec. */
+        maxUnansweredDispatches?: number;
+        /** How long a send waits for its answer before it counts as no answer. Default 15 s (tests shorten it). */
+        sendTimeoutMs?: number;
+        /** The base of a media send's limit. Default 40 s. */
+        mediaSendTimeoutMs?: number;
+        /** The floor upload rate a media send's limit allows for, bytes per second. Default 16 KiB/s. */
+        mediaFloorBytesPerSecond?: number;
+        /** How long a timed-out request is still the message's attempt. Default 120 s. */
+        lateAnswerHoldMs?: number;
+        /**
+            * A send was acked and written back: refresh its conversation's preview + order with the server copy
+            * (BEH-CONV-01, Android reconcileSent → ConversationBumpWriter.bump). Injected because the Outbox
+            * holds only the metadata store; best-effort.
+            */
+        onSentAcked?: (server: MessageRow, newReplyTo?: number | string | null) => Promise<void>;
+        /**
+            * The Web Locks name that serialises admission + insert across the tabs sharing this user's store
+            * (BEH-SEND-15/16). Without it (or without Web Locks) admission is serialised in this context only.
+            */
+        admissionLockName?: string;
+}
+/** The per-call error of a send refused because the outbox is full (BEH-SEND-16, REJECT_NEWEST). */
+declare function queueFullError(cap: number): any;
+/** The no-answer limits of a send (see {@link sendTimeLimitMs}). */
+interface SendTimeLimits {
+        sendTimeoutMs: number;
+        mediaSendTimeoutMs: number;
+        mediaFloorBytesPerSecond: number;
+}
+declare const DEFAULT_SEND_TIME_LIMITS: SendTimeLimits;
+/**
+    * How long a send of `type` waits for its answer (BEH-SEND-10): 15 s; a media send 40 s plus its
+    * `uploadBytes` at the floor rate, so an upload that is still moving is not cut off (Android's limits
+    * are inactivity timeouts; a fetch has no progress signal to reset one).
+    */
+declare function sendTimeLimitMs(type: string, uploadBytes: number, limits?: SendTimeLimits): number;
+/** The per-call error of a send removed before it could go (§10.2). */
+declare function discardedError(): any;
+/** Web Locks when present (browser tabs, Electron renderers); otherwise a lock that never contends. */
+declare function defaultSendLock(): OutboxSendLock;
+/** A lock that only knows this JS context. Recovery pairs it with the row's send lease. */
+declare function inProcessSendLock(): OutboxSendLock;
+/** BroadcastChannel where it exists (browser tabs, Electron renderers of one origin), else none. */
+declare function defaultOutboxChannel(name: string): OutboxChannel | null;
+/** `sync_meta` key prefix of a row's send lease (ms timestamp, refreshed while the send runs). */
+declare const OUTBOX_LEASE_META_PREFIX = "outboxLease:";
+/** Why a `discardLocalMessage` / `retryMessage` was refused (R160, BEH-SEND-36 / BEH-SEND-20). */
+type OutboxOpRejection = "IN_FLIGHT" | "NOT_FOUND" | "STORE_UNAVAILABLE";
+/** The outcome of a `discardLocalMessage` / `retryMessage` — accepted, or refused with a Band-1 reason. */
+type OutboxOpResult = {
+        ok: true;
+} | {
+        ok?: false;
+        rejected: OutboxOpRejection;
+        error?: any;
+};
+declare class Outbox {
+        constructor(store: OfflineStore, sender: MessageSender, _isConnected: () => boolean, config: OutboxConfig, global?: OutboxCallbacks, classifierOpts?: FailureClassifierOptions, dropPendingMedia?: (localMessageId: string) => void, onReplyAcked?: (server: MessageRow) => Promise<void>, options?: OutboxOptions);
+        /** Disposes the cross-tab channel. */
+        close(): void;
+        /**
+            * Reset any send interrupted by a crash/restart (SENDING → PENDING, BEH-SEND-07). A row another
+            * live tab is sending right now holds its send lock and is left alone, so opening a second tab
+            * mid-send cannot turn that send into a duplicate.
+            */
+        startupRecovery(openOutbox?: MessageRow[]): Promise<void>;
+        /**
+            * Admit + persist a composed PENDING message, notify pending, and attempt it at once (R73). With a
+            * compose `ticket`, it first waits for the earlier sends of its conversation (see takeTicket), and
+            * releases the ticket when it is done, however it ends.
+            */
+        enqueue(row: MessageRow, listener?: OutboxCallbacks, ticket?: ComposeTicket): Promise<AdmitResult>;
+        /**
+            * A send refused before it was queued (QUEUE_FULL / BYTE_OVERFLOW / a media copy failure): its one
+            * outcome goes to the per-call onError and to the global onOutboxMessageFailed (Android
+            * `env.emitFailed`). Nothing was persisted.
+            */
+        reject(row: MessageRow, reason: string, error?: any, listener?: OutboxCallbacks): void;
+        /**
+            * Drain one conversation's queue in FIFO order. Single-flight per conversation. `auto` marks a
+            * reconnect flush: only those count toward the unanswered-dispatch cap (BEH-SEND-10, Android R11).
+            */
+        flush(conversationId: string, auto?: boolean): Promise<void>;
+        /**
+            * The server's copy of messages still in the outbox, served by a read page, the sweep or a realtime
+            * frame (the store left them unwritten, `OUTBOX_ROW`). The server holds each one, so it is settled as
+            * acked: written back, `onMessageSent` / `onOutboxMessageSent` once (BEH-SEND-01), and never sent
+            * again. Its chat then drains on behind it, as after any answered head (R107). A row in flight here
+            * keeps its own attempt, whose answer — or, if that is lost too, this copy — settles it.
+            */
+        reconcileServed(rows: MessageRow[]): Promise<void>;
+        /**
+            * Release in-memory state on logout / teardown. Durable rows and counters are untouched. A drain
+            * still running stops at its next step: the store it reads is being closed. A send already in flight
+            * that the server accepts is still reported sent (BEH-SEND-28, R112); one that does not go through
+            * is destroyed silently, and nothing more is written to the closed store.
+            */
+        dispose(mode?: OutboxEndMode): void;
+        /**
+            * Forget everything in memory after the store was emptied underneath (clearOfflineCache): halts,
+            * notices and listeners go, and a flush already running stops at its next step.
+            */
+        reset(): void;
+        /**
+            * Dequeue a conversation from the LIVE outbox on a footprint purge (BEH-SYNC-17): clear its
+            * in-memory single-flight state. The pending rows themselves are already deleted by
+            * `purgeConversationFootprint`, so no future flush finds them.
+            */
+        dequeueConversation(conversationId: string): void;
+        /**
+            * The SENDING rows among `rows` whose sender is gone (`isAbandoned`), decided NOW. A caller about to
+            * delete the store asks this first: without Web Locks, abandonment is read from the row's send lease
+            * in the store, which cannot be read once the store is gone (review N1).
+            */
+        abandonedSending(rows: MessageRow[]): Promise<Set<string>>;
+        /**
+            * Announce unsent rows that were removed before they could send (BEH-SEND-01, BEH-SYNC-17,
+            * BEH-AUTH-14): each PENDING / SENDING row fails with DISCARDED on its per-call listener and the
+            * global outbox listener; an already-FAILED row had its final outcome and goes silently (R49).
+            * `rows` must be the rows the removal actually deleted (read in its transaction); a row this context
+            * already reported SENT is skipped, so no message gets two outcomes. `abandoned`: which SENDING rows
+            * are abandoned, decided before the store was deleted (see `abandonedSending`).
+            */
+        discard(rows: MessageRow[], abandoned?: Set<string>): Promise<void>;
+        /**
+            * Flush every conversation with pending sends. `auto` (the default) is the reconnect flush, which
+            * counts toward the unanswered-dispatch cap.
+            */
+        flushAll(auto?: boolean): Promise<void>;
+        /**
+            * R160 (BEH-SEND-36): discard one PENDING or FAILED outbox message, durably and device-only. The
+            * actual store removal (row + media + preview fallback + local-only conversation) is `performRemoval`,
+            * injected by the runtime so the Outbox stays store-agnostic. Serialized against the START of this
+            * message's send on its send lock: either the row is deleted first (its checked PENDING→SENDING flip
+            * then fails, so it is never sent) or a dispatch already holds the lock and the row reads SENDING
+            * (refused IN_FLIGHT) — no overlap. On success only the discard listener's SUCCESS fires (the caller
+            * does that); NOTHING else — no outbox event, and the original send listener is released with no final
+            * outcome (a new exception to BEH-SEND-01). Refusals change nothing.
+            */
+        discardLocalMessage(localMessageId: string, performRemoval: (row: MessageRow) => Promise<void>): Promise<OutboxOpResult>;
+        /**
+            * Manually retry one send (BEH-SEND-18/20; R160 raises this to Band 1 — NEVER silent).
+            *
+            *  - FAILED: reset to PENDING and attempt it — unless an earlier message of its chat is still unsent,
+            *    when it waits behind it (R77), exactly as before.
+            *  - PENDING: lift the reconnect hold on this message AND every PENDING ahead of it in its chat, then
+            *    attempt the chat now, oldest-first. A chat already sending is left to finish (nothing new goes).
+            *
+            * Either way it is the user's own one-shot attempt: it does NOT advance the 5-reconnect-flush cap
+            * (auto=false), and no cap check gates it (a retry may exceed maxPendingMessages — the cap governs new
+            * sends only, R119). THIS message's listener gets its final outcome via dispatch; with no answer the
+            * not-connected notice fires once and the message stays PENDING — even if an earlier message was the
+            * one actually attempted. Refused (never silently) with a Band-1 reason for a SENDING/in-flight row
+            * (IN_FLIGHT), an unknown or already-sent id (NOT_FOUND), or a momentarily unreadable store
+            * (STORE_UNAVAILABLE).
+            */
+        retryMessage(localMessageId: string, listener?: OutboxCallbacks): Promise<OutboxOpResult>;
+        /** Manually retry all failed sends — TRANSIENT only; PERMANENT rows are skipped (BEH-SEND-20). */
+        retryAllFailedMessages(listener?: OutboxCallbacks): Promise<void>;
+        /** PENDING/SENDING/FAILED outbox rows, FIFO by compose time (BEH-SEND-25). */
+        getPendingMessages(conversationId?: string): Promise<MessageRow[]>;
+}
+
+/**
+  * Transport seam the Outbox delivers through — so the engine is testable with a
+  * fake sender, decoupled from the SDK's real send path.
+  *
+  * The production implementation (wired at the send integration) performs the
+  * existing SDK send and maps the acked server message back into a MessageRow
+  * (via the messageToRow mapper) for reconciliation. It must THROW a
+  * classifiable error (carrying a `code`) on failure — see FailureClassifier.
+  *
+  * @module offline/outbox/MessageSender
+  */
+/** What a send reports while it runs: the bytes its upload carries, once known (media sends). */
+interface SendProgress {
+    uploadBytes(bytes: number): void;
+}
+interface MessageSender {
+    /** Send one outbox row; resolve with the acked server row, or throw on failure. */
+    send(row: MessageRow, progress?: SendProgress): Promise<MessageRow>;
+}
+
+/**
+  * Production MessageSender — performs the real SDK send for one outbox row.
+  *
+  * Both SDK dependencies are INJECTED (not imported) so the offline module never
+  * depends on the CometChat facade (avoids a cycle). The init/login integration constructs
+  * this with:
+  *   - sdkSend   = CometChat.sendMessage           (the existing network send)
+  *   - rehydrate = MessageController.trasformJSONMessge (row payload → sendable message)
+  *
+  * @module offline/outbox/ApiMessageSender
+  */
+/** Rebuild a sendable message from the stored row payload. */
+type MessageRehydrate = (json: any) => any;
+/** The existing SDK send — resolves the acked message, or rejects with a coded error. */
+type SdkSend = (message: any) => Promise<any>;
+/** Re-attach the cached outgoing bytes onto a rehydrated media message before send (§4). */
+type AttachPendingMedia = (message: any, localMessageId: string) => Promise<void>;
+/** Finalize a sent media message's cache copy after ack — re-key (AUTO) or drop (OFF) (§4). */
+type FinalizeSentMedia = (acked: any, localMessageId: string) => Promise<void>;
+declare class ApiMessageSender implements MessageSender {
+    constructor(sdkSend: SdkSend, rehydrate: MessageRehydrate, attachPendingMedia?: AttachPendingMedia, finalizeSentMedia?: FinalizeSentMedia);
+    send(row: MessageRow, progress?: SendProgress): Promise<MessageRow>;
+}
+
+/** How a send failure is classified. */
+declare enum FailureClass {
+        NOT_CONNECTED = "NOT_CONNECTED",
+        TRANSIENT = "TRANSIENT",
+        PERMANENT = "PERMANENT"
+}
+/** Error codes the classifier recognises by default (overridable via options). */
+declare enum SendErrorCode {
+        INTERNET_UNAVAILABLE = "ERROR_INTERNET_UNAVAILABLE",
+        IO_EXCEPTION = "ERROR_IO_EXCEPTION",
+        NETWORK_ERROR = "NETWORK_ERROR",
+        FAILED_TO_FETCH = "FAILED_TO_FETCH",
+        UNKNOWN_HTTP_EXCEPTION = "ERROR_UNKNOWN_HTTP_EXCEPTION"
+}
+interface FailureClassifierOptions {
+        /** Codes meaning "no server response" (offline / dropped mid-send / timeout / bare `fetch` drop) —
+            *  the row reverts to PENDING and is retried; the bounded dispatched-but-dropped cap lives here. */
+        notConnectedCodes?: string[];
+        /** Codes meaning a COMPLETED server response carrying a 5xx gateway error — immediate FAILED + halt. */
+        transientCodes?: string[];
+}
+/**
+    * The HTTP status of the response behind `error`, or `null` when there was no response (offline,
+    * dropped, timeout). The transport attaches it as a non-enumerable `httpStatus` (see HttpHelper), so
+    * it never changes what an app sees when it logs or serialises the error.
+    */
+declare function httpStatusOf(error: any): number | null;
+/**
+    * Classify a send failure (BEH-SEND-14). The boundary is normative:
+    *  - a completed response's HTTP status decides first: 429 and 5xx → TRANSIENT (BEH-SEND-11),
+    *    any other completed status (4xx, or a 2xx/3xx with an unreadable body) → PERMANENT — a
+    *    completed response is never NOT_CONNECTED;
+    *  - with no response at all, the code decides: a connectivity code → NOT_CONNECTED;
+    *  - anything unrecognised → PERMANENT ("when in doubt, step aside", BEH-SEND-13).
+    */
+declare function classifyFailure(error: any, opts?: FailureClassifierOptions): FailureClass;
+
+/**
+  * Public sync listener — phase-based. Catch-up sync has two INDEPENDENT phases, each with its own
+  * start / complete / error:
+  *
+  *  - Conversation sync: onConversationSyncStarted → onConversationSyncCompleted(List<Conversation>)
+  *                       | onConversationSyncError(error)
+  *  - Message sync:      onMessageSyncStarted → onMessageSyncCompleted(List<Message>, SyncOutcome)
+  *                       | onMessageSyncError(error)
+  *
+  * The former single-lifecycle callbacks (onSyncStarted / onSyncProgress / onSyncCompleted /
+  * onSyncFailed / onCacheLimitReached) are REMOVED. Callback style mirrors ConnectionListener.
+  *
+  * @module offline/listeners/SyncListener
+  */
+export interface SyncHandlers {
+    onConversationSyncStarted?: Function;
+    onConversationSyncCompleted?: Function;
+    onConversationSyncError?: Function;
+    onMessageSyncStarted?: Function;
+    onMessageSyncCompleted?: Function;
+    onMessageSyncError?: Function;
+}
+export class SyncListener {
+    onConversationSyncStarted?: Function;
+    onConversationSyncCompleted?: Function;
+    onConversationSyncError?: Function;
+    onMessageSyncStarted?: Function;
+    onMessageSyncCompleted?: Function;
+    onMessageSyncError?: Function;
+    constructor(handlers: SyncHandlers);
+}
+
+/**
+    * Sync observability seam. The cache manager is the single SyncState source and forwards to the
+    * public phase-based SyncListener; the SyncEngine just calls these hooks.
+    *
+    * Two independent phases, each start/complete/error. `onCacheLimitReached` is an INTERNAL-only hook
+    * (EvictionPolicy → CacheManager) — it is deliberately NOT exposed on the public SyncListener.
+    *
+    * @module offline/sync/SyncObserver
+    */
+interface SyncObserver {
+        /**
+            * Sweep lifecycle bracket (Android SyncEngine.Completion + CacheManager.onSyncStarted/onSyncEnded).
+            * Fired once at the very start of a sweep and once at every terminal (completed / failed / aborted),
+            * regardless of which phases ran. The cache manager drives its single `SyncState` off these — an
+            * in-flight counter, SYNCING while > 0 — so a COLD-START sweep (conversation phase only, no message
+            * phase) still returns to IDLE. The phase callbacks below are developer fan-out only; they never
+            * touch state. `onSyncEnded` is balanced against `onSyncStarted` exactly once per sweep.
+            */
+        onSyncStarted?(): void;
+        onSyncEnded?(): void;
+        onConversationSyncStarted?(): void;
+        onConversationSyncCompleted?(conversations: ConversationRow[]): void;
+        onConversationSyncError?(error: any): void;
+        onMessageSyncStarted?(): void;
+        onMessageSyncCompleted?(messages: MessageRow[], outcome: SyncOutcome): void;
+        onMessageSyncError?(error: any): void;
+}
+
+/**
+    * Reconnect catch-up sync. On a settled reconnect (or forceSyncNow): flush the outbox (auto path
+    * only), then run two INDEPENDENT phases —
+    *
+    *   Phase A (conversation): one full-page refresh → LWW upsert → floor-bounded delete-by-omission
+    *     (only on a cleanly-parsed success) → onConversationSyncStarted/Completed/Error.
+    *   Phase B (message): warm only. Fetch EXACTLY ONE changelog page with the `(updatedAt, id)` cursor,
+    *     always ingest it (LWW), advance the cursor to the page's server cursor (`meta.cursor`), split
+    *     new-vs-orphan on `sentAt` vs the pre-sweep watermark → onMessageSyncStarted/Completed/Error.
+    *
+    * Cold start (no watermark) skips the changelog entirely and fires conversation-phase callbacks ONLY.
+    * A superseded / cancelled / disconnected sweep aborts silently (no terminal, no write).
+    */
+/** Result of the one-page conversation refresh. */
+interface ConversationRefresh {
+        rows: ConversationRow[];
+        /** The conversationIds the (capped) server page returned. */
+        presentIds: string[];
+        /**
+            * Floor for delete-by-omission — the oldest `updatedAt` in the page when MORE pages remain
+            * (server is newest-first by `updatedAt`); `0` when the page is the complete list (fully
+            * authoritative). An absent cached conversation is purged only if its `updatedAt > floor`.
+            */
+        floor: number;
+        /**
+            * True only when the body was a genuine, fully-parsed success (transport-ok AND every row parsed;
+            * a clean EMPTY list is still `true`). `false` on a degraded-but-200 (malformed / missing / non-
+            * array / any unparseable row) — delete-by-omission is then skipped entirely (BEH-SYNC-16).
+            */
+        parsedCleanly: boolean;
+        /**
+            * `false` when the page cannot prove any cached conversation absent: more rows remain on the server
+            * and none sits below the pinned block at the top (BEH-SYNC-15). Delete-by-omission then removes
+            * nothing, though the refresh still completes normally. Omitted means `true`.
+            */
+        canOmit?: boolean;
+        /** The conversations in the pinned block at the top of the page, in order. */
+        pinnedIds?: string[];
+        /** True when that block is provably the whole pinned set: a non-pinned row follows it, or the list ended. */
+        pinnedSetComplete?: boolean;
+}
+/** The reconnect changelog cursor: the pair `(updatedAt, id)` of the last row served (BEH-SYNC-09). */
+interface ChangelogCursor {
+        updatedAt: number;
+        id: number;
+}
+/** One page of the message changelog sweep. */
+interface ChangelogPage {
+        /** The rows that parsed; unreadable rows are passed over by design (BEH-SYNC-21). */
+        rows: MessageRow[];
+        /** More changes remain — decided from the rows RECEIVED, never from the rows parsed. */
+        hasMore: boolean;
+        /** How many rows the server sent (parsed or not). */
+        received: number;
+        /**
+            * The server's cursor for the page (`meta.cursor`: updatedAt + id of the last row served), or
+            * `null` when the page carried none / an invalid one. Taken only from a non-empty page.
+            */
+        cursor: ChangelogCursor | null;
+}
+interface SyncEngineDeps {
+        store: OfflineStore;
+        flushOutbox: () => Promise<void>;
+        fetchConversations: () => Promise<ConversationRefresh>;
+        /** `live()` turns false once the request has timed out (see `answered`): it then writes nothing. */
+        fetchChangelogPage: (cursor: ChangelogCursor, live?: () => boolean) => Promise<ChangelogPage>;
+        /**
+            * Store steps that run over the WHOLE changelog page, before the orphan skip: a message only a list
+            * store holds must still see its delete, pin change or refresh. Never inserts a message row.
+            */
+        applyChangelogToStores?: (rows: MessageRow[]) => Promise<void>;
+        /**
+            * Clear the pin on cached conversations outside a provably complete pinned set (BEH-CPIN-05). This is
+            * how an admin reorder, or an unpin made elsewhere, reaches the cache without a frame.
+            */
+        reconcileConversationPins?: (pinnedIds: string[]) => Promise<void>;
+        /**
+            * The changelog's my-threads step (BEH-THR-05), over the whole page once it is cached. `cachedIds` are
+            * the ids the message cache held BEFORE the page, which tell a new reply from an already-cached one.
+            */
+        applyChangelogThreads?: (rows: MessageRow[], cachedIds: {
+                [id: string]: true;
+        }) => Promise<void>;
+        /** On a `PARTIAL` changelog outcome, refresh the top of my threads with one request (BEH-THR-05). */
+        fetchMyThreadsFirstPage?: (live?: () => boolean) => Promise<void>;
+        /** Swept messages that were ALREADY cached (edits/deletes/reactions/receipts) → onMessagesSynced. */
+        onSyncedMessages?: (rows: MessageRow[]) => void;
+        /** Swept messages NOT yet cached (genuinely new) → onMessageReceived. */
+        onNewSyncedMessages?: (rows: MessageRow[]) => void;
+        observer?: SyncObserver;
+        config: {
+                autoSendPendingOnReconnect: boolean;
+        };
+        /**
+            * Purge the FULL footprint of conversations removed by delete-by-omission — SENT + pending/sending/
+            * failed outbox rows + attachment rows + media bytes + the conversation row — and dequeue them from
+            * the live outbox (BEH-SYNC-17). Wired in OfflineRuntime; falls back to `store.deleteConversations`.
+            */
+        purgeConversations?: (conversationIds: string[]) => Promise<void>;
+        /** Wait for the realtime cache writes queued so far (a live own-removal purge) before deleting by omission. */
+        flushFrameWrites?: () => Promise<void>;
+        /** Schedule a silent background eviction pass after a sweep that ingested a page (BEH-SYNC-26). */
+        scheduleEviction?: () => void;
+        /**
+            * Refresh the blocked-users set after a settled sweep when its last successful fetch is older than
+            * 12 h (BEH-CONV-15). Best-effort; never fails the sweep.
+            */
+        refreshBlockedUsersIfStale?: () => Promise<void>;
+        /** The shared cooldown between two sweeps (BEH-SYNC-04 / BEH-SYNC-28). Defaults to 10 s. */
+        cooldownMs?: number;
+        /** How long one sweep request waits for its answer before it fails as no answer. Defaults to 15 s. */
+        requestTimeoutMs?: number;
+        /** Realtime connectivity; a deferred reconnect sweep is skipped while disconnected. */
+        isConnected?: () => boolean;
+}
+declare class SyncEngine {
+        constructor(deps: SyncEngineDeps);
+        getState(): SyncState;
+        /** Timestamp of the last completed/attempted sweep — the shared throttle anchor. */
+        getLastSweepAt(): number;
+        /**
+            * Cancel any in-flight sweep and discard its late responses (auth change, clearOfflineCache). Always
+            * releases the single-flight latch (BEH-SYNC-34) and drops a deferred reconnect.
+            */
+        cancel(): void;
+        /**
+            * Reconnect entry point. `autoSendPendingOnReconnect` gates ONLY the outbox flush; it never
+            * suppresses the sweep. Throttling only ever DELAYS (BEH-SYNC-03/04): a reconnect during a sweep
+            * coalesces into exactly one follow-up, and one inside the shared cooldown is deferred to the end of
+            * the window — never dropped, so queued messages do not wait for the next reconnect.
+            */
+        onReconnected(): Promise<void>;
+        /**
+            * Manual forced sweep. Routes through the SAME throttle as the auto path — single-flight + cooldown
+            * against the shared last-sweep anchor — and is **settle-exempt** and does **no outbox flush**.
+            * Fire-and-forget when no callback is given. With a callback: rejects `IN_PROGRESS` if a sweep is
+            * running, `COOLDOWN` (carrying `retryAfterMs`) if a sweep completed within the cooldown; otherwise
+            * starts a sweep-only catch-up and calls back with `null` at once — the acceptance. The sweep's
+            * lifecycle and outcome arrive on the sync listener's phase callbacks (BEH-SYNC-28).
+            */
+        forceSyncNow(callback?: (error: any) => void): void;
+}
+/** A response the server completed (2xx) whose body could not be read: iOS's code for it, matched. */
+declare const OFFLINE_SYNC_ERROR_MALFORMED = "ERROR_JSON_EXCEPTION";
+/**
+    * The error a sync phase reports (BEH-SYNC-29), always carrying a `code`. The REST layer rejects with
+    * the SDK's `{ error: { code, … } }` wrapper, which the phase callbacks used to hand over as it was, so
+    * `error.code` read undefined (live E2E SYNC-09, ADV-04). The wrapped error is handed over instead:
+    *  - no answer at all (the request was cut, or the network dropped) keeps the platform's not-connected
+    *    code, `FAILED_TO_FETCH` (BEH-READ-05);
+    *  - a completed 2xx whose body could not be parsed (a truncated page) is not a connectivity failure:
+    *    `ERROR_JSON_EXCEPTION`, as iOS reports a malformed 200 (its HTTP status rides in `details`);
+    *  - a server error keeps the server's code; a non-2xx whose body could not be parsed (an HTML 429 /
+    *    502 from a proxy) keeps FAILED_TO_FETCH with its HTTP status in `details.httpStatus`.
+    * An error that already has a code (a timeout, a degraded page, a missing cursor) is unchanged.
+    */
+declare function syncPhaseError(e: any): any;
+/**
+    * The cached conversations a cleanly parsed list page proves deleted (BEH-SYNC-15/16): absent from the
+    * page and, on a partial page (`floor` > 0), ranked above its floor by a known `updatedAt`; on a
+    * complete page (floor 0) every absent one. Shared by the sweep and the first page of an app's
+    * conversation-list read, so both purge exactly alike.
+    *
+    * includeBlockedUsers: delete-by-omission must see the WHOLE cache. Relying on the default read to
+    * hide blocked rows would make the skip below invisible — and would silently change if that default
+    * ever moved. The blocked rows are skipped EXPLICITLY instead.
+    *
+    * R156 / BEH-SYNC-15 (Android GroupRemovalReconciler.reconcileByOmission): absence proves deletion ONLY
+    * for a conversation the server has returned before (`serverReturned`) AND that existed before this
+    * fetch was dispatched (`writeSeq <= dispatchSeq`). A LOCAL-ONLY row — a first send to a new peer no
+    * server answer has yet returned — and a row written during the request window (a realtime receive or an
+    * own send) are kept regardless of the floor: the page could not know about them. `dispatchSeq` is the
+    * store's conversation write stamp captured the moment the fetch went out; it defaults to
+    * `MAX_SAFE_INTEGER` ("no row is after dispatch") for callers that cannot capture it, so only the
+    * `serverReturned` marker and the floor apply — exactly Android's two-argument overload.
+    */
+declare function conversationsOmittedBy(store: OfflineStore, presentIds: string[], floor: number, dispatchSeq?: number): Promise<string[]>;
+/**
+    * A `forceSyncNow` refusal: a CometChatException with a message, as the other SDKs answer (API parity
+    * M10). A cooldown carries the remaining ms in `details.retryAfterMs`, and at the top level as before.
+    */
+declare function forceSyncRefusal(code: string, message: string, retryAfterMs?: number): any;
+
+/**
+    * Pure eviction pass — enforces the cache budgets in the fixed order of BEH-EVICT-02 (Android
+    * `EvictionPolicy.runPass` :61-75):
+    *
+    *   1. TTL             — drop whole conversations not accessed within cacheDurationDays.
+    *   2. per-conversation — trim each conversation's OLDEST SENT messages beyond
+    *                         maxMessagesPerConversation (tail-only, contiguous window).
+    *   3. conversation LRU — evict whole least-recently-accessed conversations beyond
+    *                         maxConversations (pinned rows neither count nor go, BEH-CPIN-08).
+    *   4. snapshot TTL, then snapshot LRU — recorded entity-list reads past snapshotTtlDays, then the
+    *                         least recently used beyond maxSnapshotQueries (BEH-SNAP-10/11).
+    *   5. storage budget  — over maxStorageSize (UTF-8 bytes of cached content, BEH-EVICT-09): whole
+    *                         snapshots first, then whole conversations, then the saved and my-threads
+    *                         tails (BEH-SNAP-12, BEH-PIN-06; Android `enforceDbByteBudget` :332-389).
+    *   6. media w/ message — drop cached bytes whose message was evicted above (§9), any budget.
+    *   7. media LRU        — evict least-recently-accessed media until under maxMediaCacheSize; protected
+    *                         and unadopted upload copies are not counted (BEH-UPLOAD-11, BEH-EVICT-10).
+    *
+    * Invariants: never evicts PENDING/SENDING/FAILED (outbox) messages or the
+    * conversations that hold them; never protected media; tail-only so no interior
+    * holes. A `0`/absent cap disables ONLY that dimension. Eviction is SILENT — it
+    * fires no developer callback of any kind (BEH-EVICT-04).
+    *
+    * @module offline/cache/EvictionPolicy
+    */
+interface EvictionConfig {
+        cacheDurationDays: number;
+        maxMessagesPerConversation: number;
+        maxConversations: number;
+        maxStorageSize: number;
+        maxMediaCacheSize: number;
+        maxSnapshotQueries?: number;
+        snapshotTtlDays?: number;
+}
+interface EvictionDeps {
+        store: OfflineStore;
+        media: MediaFileStore | null;
+        config: EvictionConfig;
+        now?: () => number;
+}
+declare class EvictionPolicy {
+        constructor(deps: EvictionDeps);
+        /** Run one full eviction pass. Debounced/scheduled by the CacheManager (never per-write). */
+        runPass(): Promise<void>;
+}
+
+/**
+    * Cache-management coordinator: the single SyncState source, the debounced
+    * eviction scheduler, the sync/cache observability fan-out, and the cache-size /
+    * clear operations.
+    *
+    * It implements SyncObserver — the SyncEngine and EvictionPolicy report through
+    * it, and it forwards to the registered public SyncListeners.
+    *
+    * @module offline/cache/CacheManager
+    */
+interface CacheManagerDeps {
+        store: OfflineStore;
+        media: MediaFileStore | null;
+        eviction: EvictionPolicy;
+        evictDebounceMs?: number;
+        /** Row → public model mappers for the phase-completed callbacks (identity if omitted). */
+        toConversationModels?: (rows: ConversationRow[]) => any[];
+        toMessageModels?: (rows: MessageRow[]) => any[];
+}
+declare class CacheManager implements SyncObserver {
+        constructor(deps: CacheManagerDeps);
+        onSyncStarted(): void;
+        onSyncEnded(): void;
+        onConversationSyncStarted(): void;
+        onConversationSyncCompleted(conversations: ConversationRow[]): void;
+        onConversationSyncError(error: any): void;
+        onMessageSyncStarted(): void;
+        onMessageSyncCompleted(messages: MessageRow[], outcome: SyncOutcome): void;
+        onMessageSyncError(error: any): void;
+        getSyncState(): SyncState;
+        /**
+            * Registrations live in the process-wide registry, not on this instance — a new CacheManager is
+            * built on every offline start, so an instance-owned listener would be dropped on each restart.
+            */
+        addSyncListener(name: string, listener: SyncListener): void;
+        removeSyncListener(name: string): void;
+        /** Schedule a debounced eviction pass — called after writes, never per-write. */
+        scheduleEviction(): void;
+        /**
+            * The offline cache's own bytes: the store's logical size plus the cached media. Never the origin's
+            * `navigator.storage.estimate()`, which counts every database and cache of the app's origin — the
+            * app's own data included (API parity M13; Android, iOS and RN measure the offline store only).
+            */
+        getCacheSize(): Promise<number>;
+        /**
+            * Empty the per-user cache in place, incl. media + pending outbox (BEH-AUTH-14). The store stays
+            * open and keeps its key. The public `clearOfflineCache()` goes through the runtime, which also
+            * announces DISCARDED for the unsent messages; this is the storage half only.
+            */
+        clearOfflineCache(): Promise<void>;
+        /**
+            * Release this start's resources. It deliberately does NOT clear the sync registrations: they
+            * outlive the instance, so that a logout/login, a settings-change restart or the server switch
+            * flipping back on does not silently stop a consumer's callbacks.
+            */
+        dispose(): void;
+}
+
+/**
+    * Encryption was requested but cannot run on this build/device — the BUILD/LINK failure class
+    *. In the browser that means no `crypto.subtle`, i.e. an insecure origin.
+    *
+    * The caller MUST resolve this through `encryptionFailureBehavior` and must never respond by opening
+    * a plaintext cache on its own initiative.
+    */
+declare class OfflineEncryptionUnavailableError extends Error {
+        constructor(message: string);
+}
+/**
+    * The stored key exists but cannot be opened: the wrapped data key fails authentication under its
+    * wrapping key, or the record is not one this build wrote (missing fields, unknown version). That is a
+    * lost key — the PERMANENT class (BEH-ENC-11), handled on the first occurrence by a wipe that rotates
+    * to a fresh key. Android `OfflineEncryptionFailureClassifier` :113-120 (`AEADBadTagException`,
+    * `OfflineKeyUnreadableException`).
+    *
+    * A failure READING the record (the key store itself erroring) is never this: it cannot tell a locked
+    * store from a lost key, so it stays unclassified (BEH-ENC-12).
+    */
+declare class OfflineKeyUnreadableError extends Error {
+        constructor(message: string);
+}
+/** Coverage tier actually achieved at rest — exactly these three values (BEH-ENC-14, R57). */
+export type AtRestTier = "NONE" | "SQLCIPHER" | "FIELD_AES_GCM";
+/** Key-protection tier actually achieved — exactly these three values (BEH-ENC-14, R57). */
+export type KeyStorageTier = "KEYSTORE" | "SOFTWARE" | "NONE";
+/**
+    * What is never encrypted, on every tier (BEH-ENC-14: `leakage` is always filled in). Downloaded media
+    * files stay ordinary files on disk because platform media loaders read them by path.
+    */
+declare const MEDIA_LEAKAGE = "cached media bytes, which are stored unencrypted outside the database";
+/**
+    * The fixed cross-SDK introspection shape. Every SDK returns exactly these keys so an
+    * integrator or auditor gets the same answer everywhere.
+    *
+    * NEVER carries the key, any prefix of it, or its length.
+    */
+export interface OfflineEncryptionStatus {
+        /** What the developer configured. */
+        enabled: boolean;
+        /** The coverage tier actually achieved. */
+        atRest: AtRestTier;
+        /** The key tier actually achieved. */
+        keyStorage: KeyStorageTier;
+        /** Is the cipher engine actually present/linked? `enabled: true` + `false` here is the key support signal. */
+        cipherAvailable: boolean;
+        /** Human-readable cipher description, or null. */
+        cipher: string | null;
+        /** What is NOT encrypted — always filled in (media files everywhere; lookup metadata on browsers). */
+        leakage: string;
+}
+/** The status reported when encryption was never switched on. */
+declare const DISABLED_ENCRYPTION_STATUS: OfflineEncryptionStatus;
+/**
+    * Field-level cipher + blind-index provider. One instance per open `(app, user)` store.
+    *
+    * Every method is async because WebCrypto is; callers MUST therefore complete all crypto BEFORE
+    * opening an IndexedDB transaction (see `RowCodec`).
+    */
+interface OfflineCrypto {
+        /** Encrypt a UTF-8 string into a stored envelope. Fresh random IV per call. */
+        encrypt(plaintext: string): Promise<string>;
+        /** Decrypt a stored envelope. Throws `OfflineDecryptError` on a wrong key / tampered / malformed value. */
+        decrypt(envelope: string): Promise<string>;
+        /** JSON-serialize then encrypt. `undefined` round-trips as `null`. */
+        encryptJson(value: unknown): Promise<string>;
+        /** Decrypt then JSON-parse. Throws `OfflineDecryptError` on either failure. */
+        decryptJson(envelope: string): Promise<unknown>;
+        /**
+            * Deterministic blind index over an identifier, so filter-before-decrypt still works.
+            *
+            * Field-AGNOSTIC by design — see `WebCryptoProvider` for why per-field domain separation would
+            * silently break conversation scoping.
+            */
+        bi(value: string): Promise<string>;
+        /** `bi` over a list, preserving order. */
+        biAll(values: string[]): Promise<string[]>;
+        /** This runtime's achieved tiers, for the public status API. */
+        status(): OfflineEncryptionStatus;
+        /** Drop in-memory key material. Called on logout and on same-user restart. */
+        dispose(): void;
+        /** True once `dispose()` ran (optional: a crypto without it is taken as live). */
+        isDisposed?(): boolean;
+}
+
+/**
+    * Row-level codec for the `COV-CONTENT` (browser) tier — the ONE choke point deciding what is sealed,
+    * what becomes a blind index, and what stays readable.
+    *
+    * ## Why a codec and not inline crypto
+    *
+    * WebCrypto is genuinely asynchronous: `await crypto.subtle.encrypt(...)` resolves on a macrotask, and
+    * an IndexedDB transaction commits as soon as it goes idle at the end of a microtask checkpoint. So
+    * crypto **can never be interleaved with an open transaction** — the transaction would silently commit
+    * mid-flight and the following request would throw `TransactionInactiveError`. (The store's existing
+    * `await reqP(...)` chains are safe precisely because they resolve in the request's own `onsuccess`
+    * microtask; see the note in `IndexedDbOfflineStore.upsertMessages`.)
+    *
+    * Every function here therefore runs strictly BEFORE a write transaction opens or AFTER a read
+    * transaction has produced its rows.
+    *
+    * ## The stored shape
+    *
+    * Sensitive values move into a single sealed bundle, `__enc`, and the queryable identifiers are
+    * replaced in place by HMAC blind indexes so the existing index scans and predicates keep working
+    * untouched. Decoding restores the original row exactly, so nothing above this layer can tell the
+    * difference.
+    *
+    * @module offline/crypto/RowCodec
+    */
+/** Field holding the sealed bundle on a stored row. */
+declare const ENC_FIELD = "__enc";
+/**
+    * Field holding, on a sealed message / list / snapshot row, the UTF-8 byte size of the plaintext payload
+    * it sealed. `maxStorageSize` counts plaintext bytes on an encrypted store too (BEH-EVICT-09), and the
+    * eviction pass must size the store without opening every row, so the size is recorded at seal time.
+    * A size is not content. A row sealed before this field existed has none; see `storedPayloadBytes`.
+    */
+declare const PLAIN_BYTES_FIELD = "__plainBytes";
+/** A message row as it sits in IndexedDB while encryption is on. */
+interface StoredMessageRow extends MessageRow {
+        /** Sealed `{ payload, conversationId, senderUid, receiverId, tags, mentions }`. */
+        __enc?: string;
+        /** UTF-8 bytes of the sealed plaintext `payload` (see `PLAIN_BYTES_FIELD`). */
+        __plainBytes?: number;
+        /**
+            * Blind index of the conversationId DERIVED from this row's own sender/receiver.
+            *
+            * `purgeConversationFootprint` has to catch pending sends still keyed by the raw `receiverId`, and
+            * it did that by re-deriving the canonical id from the row at read time. That derivation is string
+            * surgery on uids — impossible once those columns are hashes — so it is precomputed here, where the
+            * plaintext is still in hand. Absent when it would equal `conversationId`.
+            */
+        __derivedConversationId?: string;
+}
+/** A conversation row as it sits in IndexedDB while encryption is on. */
+interface StoredConversationRow extends ConversationRow {
+        /** Sealed `{ conversationWith, lastMessage, conversationId, tags, peerTags }`. */
+        __enc?: string;
+}
+/** A blocked-users row as it sits in IndexedDB while encryption is on. */
+interface StoredBlockedUserRow extends BlockedUserRow {
+        /** Sealed `{ uid, user }`. */
+        __enc?: string;
+}
+/** A snapshot page as it sits in IndexedDB while encryption is on. */
+interface StoredSnapshotPageRow extends SnapshotPageRow {
+        /** Sealed `{ signature, scope, response }`. */
+        __enc?: string;
+        /** UTF-8 bytes of the sealed plaintext `response` (see `PLAIN_BYTES_FIELD`). */
+        __plainBytes?: number;
+}
+/** An attachment row as it sits in IndexedDB while encryption is on. */
+interface StoredAttachmentRow extends AttachmentRow {
+        /** Sealed `{ attachmentId, name, fileUrl, localPath }`. */
+        __enc?: string;
+}
+/**
+    * Plaintext row → stored row.
+    *
+    * `localMessageId` stays readable: it is the primary key, it is a client-minted handle rather than
+    * content, and it is already named in the declared leakage set. Keeping it readable is also what lets
+    * the attachment↔message joins keep working without a second index.
+    */
+declare function encodeMessageRow(crypto: OfflineCrypto, row: MessageRow): Promise<StoredMessageRow>;
+/** Seal one flag value as its own envelope (see `pinnedBy` above). */
+declare function sealFlagValue(crypto: OfflineCrypto, value: string): Promise<string>;
+/** Stored row → plaintext row. Throws `OfflineDecryptError` when the row cannot be recovered. */
+declare function decodeMessageRow(crypto: OfflineCrypto, stored: StoredMessageRow): Promise<MessageRow>;
+/** A list-store row as it sits in IndexedDB while encryption is on. */
+interface StoredListRow extends ListRow {
+        /** Sealed `{ payload, conversationId, scopeKey }`. */
+        __enc?: string;
+        /** UTF-8 bytes of the sealed plaintext `payload` (see `PLAIN_BYTES_FIELD`). */
+        __plainBytes?: number;
+}
+/**
+    * The payload and the conversation are sealed; `conversationId` and a conversation `scopeKey` become
+    * blind indexes so scoped reads and removals stay plain key/index matches. The sort keys and the item
+    * id stay readable: they are ordering metadata (message ids and timestamps), like the message row's.
+    */
+declare function encodeListRow(crypto: OfflineCrypto, row: ListRow): Promise<StoredListRow>;
+declare function decodeListRow(crypto: OfflineCrypto, stored: StoredListRow): Promise<ListRow>;
+/** A list store's scope key as stored: a conversation id is blind-indexed; the global `""` is not. */
+declare function encodeListScope(crypto: OfflineCrypto, scopeKey: string): Promise<string>;
+declare function encodeConversationRow(crypto: OfflineCrypto, row: ConversationRow): Promise<StoredConversationRow>;
+declare function decodeConversationRow(crypto: OfflineCrypto, stored: StoredConversationRow): Promise<ConversationRow>;
+/**
+    * The blocked-users store names people the current user has a blocking relationship with — that is
+    * content, and `uid` is also the primary key, so it becomes a blind index with the original kept in
+    * the sealed bundle (the same shape the attachment row uses for its URL key). The two direction
+    * booleans stay readable: the offline `BlockedUsersRequest` filters on them, and they carry no
+    * identity on their own.
+    */
+declare function encodeBlockedUserRow(crypto: OfflineCrypto, row: BlockedUserRow): Promise<StoredBlockedUserRow>;
+declare function decodeBlockedUserRow(crypto: OfflineCrypto, stored: StoredBlockedUserRow): Promise<BlockedUserRow>;
+declare function decodeBlockedUserRows(crypto: OfflineCrypto, rows: StoredBlockedUserRow[]): Promise<BlockedUserRow[]>;
+/**
+    * A snapshot page holds a VERBATIM server response — user names, avatars, group descriptions — so
+    * `response` is sealed. `signature` embeds the read's predicates (tags, uids, scopes) and `scope`
+    * embeds a guid or message id, so both are blind-indexed: lookup is an exact-equality match on the
+    * signature and invalidation is an exact-equality match on `(readType, scope)`, and equality is
+    * exactly what a blind index preserves.
+    *
+    * `readType`, `pageIndex`, `hasNext` and the two timestamps stay readable — they are the enum, the
+    * page number and the eviction clocks, none of which say anything about who or what was fetched.
+    */
+declare function encodeSnapshotRow(crypto: OfflineCrypto, row: SnapshotPageRow): Promise<StoredSnapshotPageRow>;
+declare function decodeSnapshotRow(crypto: OfflineCrypto, stored: StoredSnapshotPageRow): Promise<SnapshotPageRow>;
+/**
+    * `attachmentId` is the media URL (see `OfflineRuntime.cacheMediaForMessages`), so it is content and
+    * must not be readable — but it is also the primary key. It therefore becomes a blind index, with the
+    * original kept inside the sealed bundle for decode.
+    */
+declare function encodeAttachmentRow(crypto: OfflineCrypto, row: AttachmentRow): Promise<StoredAttachmentRow>;
+declare function decodeAttachmentRow(crypto: OfflineCrypto, stored: StoredAttachmentRow): Promise<AttachmentRow>;
+/** An upload-batch row as it sits in IndexedDB while encryption is on. */
+interface StoredUploadBatchRow extends UploadBatchRow {
+        /** Sealed `{ batchKey, batchId, receiverId, parentMessageId }`. */
+        __enc?: string;
+}
+/** An upload-file row as it sits in IndexedDB while encryption is on. */
+interface StoredUploadFileRow extends UploadFileRow {
+        /** Sealed `{ batchKey, fileId, name, localKey, mediaRef, attachmentJson, failureMessage }`. */
+        __enc?: string;
+}
+/**
+    * The durable outbox for offline media uploads.
+    *
+    * These rows are outbox state, and they are far from inert:
+    * `batchKey` embeds the peer's uid or guid, `name` is the outgoing file's name, and `attachmentJson`
+    * carries the hosted media URL. `batchKey` is also the primary key and the index the file rows are
+    * scoped by, so it becomes a blind index while the original travels inside the sealed bundle.
+    *
+    * `orderIndex` stays readable because `listUploadFiles` sorts on it to restore insertion order.
+    */
+declare function encodeUploadBatchRow(crypto: OfflineCrypto, row: UploadBatchRow): Promise<StoredUploadBatchRow>;
+declare function decodeUploadBatchRow(crypto: OfflineCrypto, stored: StoredUploadBatchRow): Promise<UploadBatchRow>;
+declare function encodeUploadFileRow(crypto: OfflineCrypto, row: UploadFileRow): Promise<StoredUploadFileRow>;
+declare function decodeUploadFileRow(crypto: OfflineCrypto, stored: StoredUploadFileRow): Promise<UploadFileRow>;
+/**
+    * Decode a page of message rows, or throw `OfflineStoreCorruptError` when any row will not open.
+    *
+    * The store's key was proven at open, so a message row that will not decrypt under it is damaged
+    * (a tampered or truncated envelope). It is never skipped: a skipped outbox row is a queued send lost
+    * without a word, and a skipped page row a hole the read cannot see. The caller treats the error by the
+    * corruption rules (BEH-ENC-11): the store is rebuilt and the loss announced.
+    */
+declare function decodeMessageRows(crypto: OfflineCrypto, rows: StoredMessageRow[]): Promise<MessageRow[]>;
+declare function decodeConversationRows(crypto: OfflineCrypto, rows: StoredConversationRow[]): Promise<ConversationRow[]>;
+declare function encodeMessageRows(crypto: OfflineCrypto, rows: MessageRow[]): Promise<StoredMessageRow[]>;
+declare function encodeConversationRows(crypto: OfflineCrypto, rows: ConversationRow[]): Promise<StoredConversationRow[]>;
+/**
+    * Translate a query into the stored domain, so the existing index ranges and the shared
+    * `Projections` predicates keep matching without knowing encryption exists.
+    *
+    * The one predicate that cannot survive mechanically is `inScope`'s 1:1 branch: it BUILDS a canonical
+    * pair id out of `selfUid` + `uid`, which is impossible once those are hashes. So the canonical id is
+    * built here from the plaintext and passed down pre-hashed as `scopeConversationId`.
+    *
+    * Everything `matchesMessage` touches beyond tags/mentions — categories, types, the deleted/reply/
+    * quoted flags, parentMessageId — is declared-readable metadata and needs no translation.
+    */
+declare function encodeQuery(crypto: OfflineCrypto, q: LocalQuery): Promise<LocalQuery>;
+/**
+    * The plaintext payload size of a stored message / list / snapshot row, in UTF-8 bytes (BEH-EVICT-09).
+    * A plaintext row is measured directly. A sealed row reports the size recorded when it was sealed; a
+    * sealed row written before that field existed reports its sealed size instead — an over-estimate (the
+    * envelope is about a third larger), so such a cache is trimmed a little early, never past the budget —
+    * until it is next rewritten.
+    */
+declare function storedPayloadBytes(stored: any, plainField: "payload" | "response"): number;
+
+/** Fixed primary-key of the single key record. One key per `(app, user)`; the DB is already per-user. */
+declare const PRIMARY_KEY_ID = "primary";
+/** Current key-record layout version. */
+declare const KEY_RECORD_V1 = 1;
+/**
+    * The stored key record.
+    *
+    * `kek` is a **non-extractable** `CryptoKey`, persisted by IndexedDB's structured clone. The browser
+    * keeps its raw bytes in its own key store, never in the object we can read back — that is the whole
+    * of the `KEY-SW` claim. `wrappedDek` is the DEK sealed under that KEK, so the DEK never touches disk
+    * in the clear.
+    */
+interface StoredKeyRecord {
+        id: string;
+        version: number;
+        /** Non-extractable AES-GCM wrapping key. */
+        kek: CryptoKey;
+        /** AES-GCM(kek, dekBytes) — the sealed 32-byte data key. */
+        wrappedDek: ArrayBuffer;
+        /** IV for the DEK seal. */
+        wrapIv: ArrayBuffer;
+        /** HKDF salt for the content/index sub-key derivation. */
+        salt: ArrayBuffer;
+        createdAt: number;
+}
+/**
+    * Get-or-create storage for the key record.
+    *
+    * `provision` MUST be atomic across tabs: two tabs racing at first login
+    * must end up with exactly ONE key, or rows written under one are unreadable under the other.
+    */
+interface KeyVault {
+        /** Return the existing record, or create-and-return one. At most one key per `(app, user)`, ever. */
+        provision(create: () => Promise<StoredKeyRecord>): Promise<StoredKeyRecord>;
+        /** Delete the key record. Called FIRST on logout / user switch, before any data. */
+        destroy(): Promise<void>;
+}
+
+/**
+    * `KeyVault` over the offline IndexedDB — the browser's key home.
+    *
+    * The record lives in the SAME database as the rows it protects: browser storage is
+    * evictable as a unit, so co-locating means an eviction can never leave ciphertext without its key.
+    *
+    * @module offline/crypto/IdbKeyVault
+    */
+declare class IdbKeyVault implements KeyVault {
+        constructor(db: IDBDatabase);
+        /**
+            * Is a key record stored? Read without creating one: the open asks this first, because a store that
+            * already holds rows sealed under a key that is now gone must never get a fresh key minted over them
+            * (the rows could never open again and would be dropped silently) — that is a lost key (BEH-ENC-11).
+            */
+        peek(): Promise<boolean>;
+        /**
+            * Get-or-create, safe against the login-time multi-tab race.
+            *
+            * Two tabs logging in at once can both find no key and both generate one; if both wrote, rows
+            * written under one would be unreadable under the other. So the write is an `add` (insert-if-absent)
+            * on a fixed primary key: exactly one tab can succeed, and the loser's transaction aborts on the
+            * uniqueness violation and re-reads the winner's record.
+            *
+            * Key generation itself stays OUTSIDE any transaction — it is async WebCrypto work, and an IndexedDB
+            * transaction auto-commits the moment it has no pending request.
+            */
+        provision(create: () => Promise<StoredKeyRecord>): Promise<StoredKeyRecord>;
+        /**
+            * Delete the key record.
+            *
+            * Ordering matters: on logout/user-switch this runs BEFORE the data is dropped, so a
+            * crash in between leaves an unreadable store — which the ordinary self-heal wipes — rather than a
+            * readable one.
+            */
+        destroy(): Promise<void>;
+}
+
+/**
+    * Browser `OfflineCrypto` — the `COV-CONTENT` / `KEY-SW` tier.
+    *
+    * Content fields are sealed with AES-256-GCM; queryable identifiers become HMAC-SHA-256 blind indexes
+    * so the existing filter-before-decrypt reads keep working. Both sub-keys are HKDF-derived from one
+    * 32-byte DEK, which is itself sealed under a non-extractable WebCrypto key held in the same
+    * IndexedDB as the data (the sanctioned exception to the no-sub-key rule).
+    *
+    * @module offline/crypto/WebCryptoProvider
+    */
+/** Reported by the status API. */
+declare const BROWSER_CIPHER = "AES-256-GCM (fields) / HMAC-SHA-256 (blind index)";
+/**
+    * The declared readable-metadata set for the `COV-CONTENT` tier (a content-encrypting target
+    * must publish its exact leakage set). Surfaced verbatim through the status API and the customer docs.
+    *
+    * NOTE the last clause: cached media BYTES are stored by the media tier (OPFS / node:fs), which sits
+    * outside the database and outside this cipher entirely. Declared here so the disclosure is honest.
+    */
+declare const BROWSER_LEAKAGE: string;
+/**
+    * Can this runtime encrypt at all?
+    *
+    * `crypto.subtle` is undefined on an insecure origin, so this single check also covers the
+    * secure-context requirement. A `false` here is the browser's BUILD/LINK case and is
+    * governed by `encryptionFailureBehavior` — it must NEVER silently fall through to plaintext.
+    */
+declare function webCryptoAvailable(): boolean;
+declare class WebCryptoProvider implements OfflineCrypto {
+        /**
+            * Open (or first-time provision) the `(app, user)` key and derive the working sub-keys.
+            *
+            * The vault owns the cross-tab race; this only supplies the generator.
+            */
+        static create(vault: KeyVault): Promise<WebCryptoProvider>;
+        encrypt(plaintext: string): Promise<string>;
+        decrypt(envelope: string): Promise<string>;
+        encryptJson(value: unknown): Promise<string>;
+        decryptJson(envelope: string): Promise<unknown>;
+        /**
+            * Deterministic blind index over an identifier.
+            *
+            * TWO deliberate properties, both load-bearing:
+            *
+            * 1. **No per-field domain separation.** Every identifier is hashed under the one `indexKey` with no
+            *    field tag mixed in. `Projections.inScope` decides whether an outbox row is still provisional
+            *    with a STRUCTURAL comparison — `row.conversationId === row.receiverId` — and
+            *    `rowConversationIds` re-derives a canonical id from `senderUid`/`receiverId` to catch
+            *    unreconciled pending sends. Both compare one field against another, so a per-field salt would
+            *    make equal plaintexts hash differently and silently return zero rows.
+            *
+            * 2. **No case folding or trimming.** The plaintext read path compares identifiers with `===` and
+            *    tags with `Array.includes`, both case-sensitive; canonicalisation (ASCII-lowercasing, pair
+            *    ordering) already happened upstream in `ConversationKey`. Normalising again here would make
+            *    tags `"Foo"` and `"foo"` collide and diverge from the unencrypted path. The normalisation IS
+            *    "the exact UTF-8 bytes of the string" — that is the discipline every write and query shares.
+            */
+        bi(value: string): Promise<string>;
+        biAll(values: string[]): Promise<string[]>;
+        status(): OfflineEncryptionStatus;
+        /** True once dispose() ran: the in-memory keys are gone. */
+        isDisposed(): boolean;
+        dispose(): void;
+}
+
+/** Current ciphertext envelope version tag. */
+declare const ENVELOPE_V1 = "cc1";
+/** Current blind-index version tag. */
+declare const BLIND_INDEX_V1 = "bi1";
+/**
+    * The key material is gone from memory (a same-user restart suspended it, or logout disposed it). Not a
+    * fault in any stored value: a read racing that moment fails with this, never as a decrypt failure,
+    * so it can never be mistaken for damage (BEH-ENC-11).
+    */
+declare class OfflineCryptoDisposedError extends Error {
+        constructor(message: string);
+}
+declare class OfflineDecryptError extends Error {
+        constructor(message: string);
+}
+/** Pack an IV + ciphertext into the stored envelope form. */
+declare function packEnvelope(iv: Uint8Array, ciphertext: Uint8Array): string;
+/**
+    * Is this value one of our ciphertext envelopes? A string that is NOT an envelope while encryption is
+    * on means a plaintext row from an earlier build — the caller self-heals rather than trying to decrypt.
+    */
+declare function isEnvelope(value: unknown): boolean;
+/** Split a stored envelope back into its IV and ciphertext. */
+declare function unpackEnvelope(value: string): {
+        iv: Uint8Array;
+        ciphertext: Uint8Array;
+};
+/** Pack an HMAC into the stored blind-index form. */
+declare function packBlindIndex(mac: Uint8Array): string;
+/** Is this value one of our blind indexes? */
+declare function isBlindIndex(value: unknown): boolean;
+
+/** Bytes → unpadded base64url. */
+declare function toBase64Url(bytes: Uint8Array): string;
+/** Unpadded base64url → bytes. Throws on any character outside the alphabet. */
+declare function fromBase64Url(s: string): Uint8Array;
+
+/** UTF-8 bytes of a string. */
+declare function utf8Encode(s: string): Uint8Array;
+/** String from UTF-8 bytes. */
+declare function utf8Decode(bytes: Uint8Array): string;
+/**
+    * Number of UTF-8 bytes `s` encodes to, without allocating — what `utf8Encode(s).length` returns. A
+    * lone surrogate counts as U+FFFD (3 bytes), as `TextEncoder` encodes it.
+    */
+declare function utf8ByteLength(s: string): number;
+/**
+    * The plaintext size, in UTF-8 bytes, of a stored payload — a string as is, anything else as its JSON.
+    * The unit of `maxStorageSize` (BEH-EVICT-09).
+    */
+declare function payloadUtf8Bytes(payload: unknown): number;
+
+/**
+    * Field authority for the message pin / save / follow flags (BEH-FLAG-02).
+    *
+    * Every cache write of a message names where its data came from. A write replaces a flag only when
+    * that source is authoritative for it, and there a missing value means "cleared". Every other source
+    * leaves the stored value alone. That is the whole difference between a REST list page (which knows
+    * the message's pin, save and follow state) and, say, a realtime edit frame (which carries none of it).
+    *
+    * @module offline/flags/FlagAuthority
+    */
+/** Where a message write came from. */
+declare enum FlagSource {
+        /** Not authoritative for any flag: the stored values are kept. The safe default. */
+        NONE = "NONE",
+        /** A REST message list page. Every list read sends `withThreadSubscribed`. */
+        REST_LIST = "REST_LIST",
+        /** The reconnect changelog, which sends `withThreadSubscribed`. */
+        CHANGELOG = "CHANGELOG",
+        /** `getMessageDetails`, which sends `withThreadSubscribed`. */
+        DETAILS = "DETAILS",
+        /** The pin / unpin response. */
+        PIN_ACK = "PIN_ACK",
+        /** A pin / unpin frame. Pin frames strip the actor's `savedAt`, so they never write it. */
+        PIN_FRAME = "PIN_FRAME",
+        /** The save / unsave response. */
+        SAVE_ACK = "SAVE_ACK",
+        /** A save / unsave frame. */
+        SAVE_FRAME = "SAVE_FRAME"
+}
+type Flags = Pick<MessageRow, "pinnedAt" | "pinnedBy" | "savedAt" | "threadSubscribed">;
+/**
+    * The flag keys `source` may write for `msg`, read through the model's normalised getters. Keys the
+    * source is not authoritative for are absent, so the store keeps its value. An authoritative source
+    * whose message lacks the flag yields `null` (cleared).
+    *
+    * A deleted message always loses its pin and save, whatever the source (BEH-FLAG-03).
+    */
+declare function flagsFor(msg: any, source: FlagSource): Flags;
+/**
+    * The store-side half of BEH-FLAG-03: once a row is deleted, nothing may leave a pin or a save on it.
+    * Applied at every write choke point, after carry-forward, so the order events arrive in cannot matter.
+    */
+declare function clearFlagsIfDeleted<T extends {
+        deletedAt?: number | null;
+}>(row: T): T;
+export {};
 

@@ -1,27 +1,64 @@
 {
   "name": "@cometchat/chat-sdk-javascript",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "description": "A complete chat solution.",
   "main": "CometChat.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "types": "./CometChat.d.ts",
+  "exports": {
+    ".": {
+      "types": "./CometChat.d.ts",
+      "default": "./CometChat.js"
+    },
+    "./CometChat": {
+      "types": "./CometChat.d.ts",
+      "default": "./CometChat.js"
+    },
+    "./CometChat.js": {
+      "types": "./CometChat.d.ts",
+      "default": "./CometChat.js"
+    },
+    "./electron/main": {
+      "types": "./electron/lib/offline/electron/main/registerOfflineIpc.d.ts",
+      "default": "./electron/lib/offline/electron/main/registerOfflineIpc.js"
+    },
+    "./electron/preload": {
+      "types": "./electron/lib/offline/electron/preload.d.ts",
+      "default": "./electron/lib/offline/electron/preload.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "electron/main": [
+        "./electron/lib/offline/electron/main/registerOfflineIpc.d.ts"
+      ],
+      "electron/preload": [
+        "./electron/lib/offline/electron/preload.d.ts"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "better-sqlite3-multiple-ciphers": "*",
+    "electron": "*"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3-multiple-ciphers": {
+      "optional": true
+    },
+    "electron": {
+      "optional": true
+    }
   },
   "keywords": [
     "CometChat",
     "chat",
     "messaging",
-    "chat",
     "sdk",
-    "pro",
     "message",
-    "sdk",
-    "messaging",
-    "sdk",
     "audio",
-    "chat",
     "video",
-    "chat",
-    "webRTC"
+    "webRTC",
+    "offline"
   ],
   "author": "CometChat",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -32,6 +69,5 @@
   "bugs": {
     "url": "https://github.com/cometchat-pro/javascript-chat-sdk/issues"
   },
-  "homepage": "https://github.com/cometchat-pro/javascript-chat-sdk#readme",
-  "types": "./CometChat.d.ts"
+  "homepage": "https://github.com/cometchat-pro/javascript-chat-sdk#readme"
 }
