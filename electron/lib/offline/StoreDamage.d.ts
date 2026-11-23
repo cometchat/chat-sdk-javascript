@@ -37,6 +37,21 @@ export declare function isStoreCorruption(e: any): boolean;
  * `storeErrorCode` finds it in the renderer. Other errors are returned unchanged.
  */
 export declare function tagStoreError(e: any): any;
+/**
+ * The `name` the Electron main process sets on the error it throws when its IPC sender policy rejects a
+ * call (a subframe, a page whose origin is not allowed, or a pre-open sender once an allow-list is set).
+ * Shared so the renderer can tell a trust rejection from any other open failure across IPC.
+ */
+export declare const OFFLINE_SENDER_REJECTED_NAME = "OfflineSenderRejectedError";
+/**
+ * True when `e` is the main process's sender-policy rejection, recognised across IPC by the `name` main
+ * sets or the message it carries (Electron wraps the message with its own prefix, so both are matched).
+ *
+ * A trust rejection is NOT an absent native engine: the factory must stay online-only for the session,
+ * never switch sideways to the weaker browser store (which would silently run the app on a different
+ * store and hide the rejection).
+ */
+export declare function isSenderRejectedError(e: any): boolean;
 declare type DamageHandler = (error: any, store?: any) => void;
 /** @internal The offline runtime installs the rebuild here. */
 export declare function setStoreDamageHandler(h: DamageHandler | null): void;

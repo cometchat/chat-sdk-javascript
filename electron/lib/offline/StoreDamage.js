@@ -15,7 +15,7 @@
  * @module offline/StoreDamage
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reportStoreDamage = exports.setStoreDamageHandler = exports.tagStoreError = exports.isStoreCorruption = exports.storeErrorCode = exports.OfflineStoreCorruptError = void 0;
+exports.reportStoreDamage = exports.setStoreDamageHandler = exports.isSenderRejectedError = exports.OFFLINE_SENDER_REJECTED_NAME = exports.tagStoreError = exports.isStoreCorruption = exports.storeErrorCode = exports.OfflineStoreCorruptError = void 0;
 /** A stored value that should open and does not: a row that will not decrypt under the store's key. */
 class OfflineStoreCorruptError extends Error {
     constructor(message) {
@@ -75,6 +75,28 @@ function tagStoreError(e) {
     return out;
 }
 exports.tagStoreError = tagStoreError;
+/**
+ * The `name` the Electron main process sets on the error it throws when its IPC sender policy rejects a
+ * call (a subframe, a page whose origin is not allowed, or a pre-open sender once an allow-list is set).
+ * Shared so the renderer can tell a trust rejection from any other open failure across IPC.
+ */
+exports.OFFLINE_SENDER_REJECTED_NAME = "OfflineSenderRejectedError";
+/**
+ * True when `e` is the main process's sender-policy rejection, recognised across IPC by the `name` main
+ * sets or the message it carries (Electron wraps the message with its own prefix, so both are matched).
+ *
+ * A trust rejection is NOT an absent native engine: the factory must stay online-only for the session,
+ * never switch sideways to the weaker browser store (which would silently run the app on a different
+ * store and hide the rejection).
+ */
+function isSenderRejectedError(e) {
+    if (!e)
+        return false;
+    if (e.name === exports.OFFLINE_SENDER_REJECTED_NAME)
+        return true;
+    return /CometChat offline: rejected .+ from an untrusted sender/.test(String(e.message || ""));
+}
+exports.isSenderRejectedError = isSenderRejectedError;
 let handler = null;
 /** @internal The offline runtime installs the rebuild here. */
 function setStoreDamageHandler(h) {

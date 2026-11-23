@@ -7,10 +7,14 @@
  *
  * ## Where the key lives
  *
- * 32 CSPRNG bytes, sealed by `safeStorage.encryptString()` — the OS secret store (Keychain on macOS,
- * DPAPI on Windows, libsecret on Linux) — and written beside the database as a sidecar file. It is
- * unsealed and used ENTIRELY in the main process; the renderer never receives key material and no key
- * ever crosses IPC. That is strictly stronger than the browser tier.
+ * 32 CSPRNG bytes, sealed by `safeStorage` — the OS secret store (Keychain on macOS, DPAPI on Windows,
+ * libsecret on Linux) — and written beside the database as a sidecar file. It is unsealed and used
+ * ENTIRELY in the main process; the renderer never receives key material and no key ever crosses IPC.
+ * That is strictly stronger than the browser tier.
+ *
+ * Electron 46 removed the synchronous `safeStorage` calls, and what they sealed opens under the
+ * asynchronous ones. The async calls are used only where the sync ones are absent, so an Electron that has
+ * the sync calls keeps the path it always had.
  *
  * `safeStorage` is a main-process API, so all of this is unavailable in a renderer by construction.
  *
@@ -25,7 +29,7 @@
  * @module offline/electron/main/SqliteCipher
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.classifyMainOpenFailure = exports.probeReadable = exports.applyKeyAndProve = exports.engineVersion = exports.DatabaseUnreadableError = exports.destroyDbKey = exports.loadOrCreateDbKey = exports.toHexKeyPragma = exports.isWeakSafeStorageBackend = exports.KeyUnsealError = exports.KeyVaultTransientError = exports.CIPHER_SCHEME = exports.ELECTRON_CIPHER = exports.DB_KEY_BYTES = void 0;
+exports.classifyMainOpenFailure = exports.probeReadable = exports.applyKeyAndProve = exports.engineVersion = exports.DatabaseUnreadableError = exports.destroyDbKey = exports.loadOrCreateDbKey = exports.secretStoreUsable = exports.toHexKeyPragma = exports.runKeySteps = exports.isWeakSafeStorageBackend = exports.KeyUnsealError = exports.KeyVaultTransientError = exports.CIPHER_SCHEME = exports.ELECTRON_CIPHER = exports.DB_KEY_BYTES = void 0;
 const OfflineCrypto_1 = require("../../crypto/OfflineCrypto");
 /** Bytes in the raw database key. SQLCipher's raw-key form is exactly this, hex-encoded. */
 exports.DB_KEY_BYTES = 32;
@@ -94,6 +98,71 @@ function isWeakSafeStorageBackend(ss, platform) {
     return backend === "basic_text";
 }
 exports.isWeakSafeStorageBackend = isWeakSafeStorageBackend;
+/** The asynchronous calls only when the synchronous ones are absent, and only when all three of them exist. */
+function usesAsyncSafeStorage(ss) {
+    const hasSync = typeof ss.isEncryptionAvailable === "function" &&
+        typeof ss.encryptString === "function" &&
+        typeof ss.decryptString === "function";
+    return (!hasSync &&
+        typeof ss.isAsyncEncryptionAvailable === "function" &&
+        typeof ss.encryptStringAsync === "function" &&
+        typeof ss.decryptStringAsync === "function");
+}
+function storeAvailable(ss) {
+    return usesAsyncSafeStorage(ss) ? ss.isAsyncEncryptionAvailable() : ss.isEncryptionAvailable();
+}
+function seal(ss, plain) {
+    return usesAsyncSafeStorage(ss) ? ss.encryptStringAsync(plain) : ss.encryptString(plain);
+}
+/** The opened value, and whether the store wants it sealed again (its key rotated). */
+function unseal(ss, sealed) {
+    if (!usesAsyncSafeStorage(ss))
+        return { result: ss.decryptString(sealed), shouldReEncrypt: false };
+    return ss.decryptStringAsync(sealed).then((r) => {
+        if (r && r.isTemporarilyUnavailable === true)
+            throw new KeyUnsealError("the OS secret store is temporarily unavailable", "TRANSIENT");
+        return { result: r && r.result, shouldReEncrypt: !!(r && r.shouldReEncrypt) };
+    });
+}
+/**
+ * Run key-store steps: a yielded Promise is awaited, and any other value goes straight back. So with the
+ * synchronous `safeStorage` an open still runs, and throws, synchronously, as it does on older Electron; only
+ * the asynchronous calls make it a Promise. One body serves both.
+ */
+function runKeySteps(steps) {
+    const advance = (start) => {
+        let next = start;
+        while (!next.done) {
+            const value = next.value;
+            if (value && typeof value.then === "function") {
+                return value.then((r) => advance(steps.next(r)), (e) => advance(steps.throw(e)));
+            }
+            next = steps.next(value);
+        }
+        return next.value;
+    };
+    return advance(steps.next());
+}
+exports.runKeySteps = runKeySteps;
+/** The sidecar's temporary name while it is being replaced. */
+const KEY_FILE_TMP = ".tmp";
+/** Write the new sidecar under a temporary name, then rename it over the old one. A failure leaves the old one. */
+function replaceKeyFile(fs, keyFile, sealed) {
+    const tmp = keyFile + KEY_FILE_TMP;
+    try {
+        fs.writeFileSync(tmp, sealed, { mode: 0o600, flush: true });
+        fs.renameSync(tmp, keyFile);
+    }
+    catch (e) {
+        try {
+            fs.rmSync(tmp, { force: true });
+        }
+        catch (rmErr) {
+            /* the next replace overwrites it, and a wipe removes it */
+        }
+        throw e;
+    }
+}
 /** Lowercase hex of a byte buffer. */
 function toHex(bytes) {
     if (bytes && typeof bytes.toString === "function" && bytes.length !== undefined) {
@@ -138,6 +207,25 @@ function toHexKeyPragma(keyHex) {
 }
 exports.toHexKeyPragma = toHexKeyPragma;
 /**
+ * Can an encrypted open resolve a key at all? Used by the format check, which must not mint one (R134). A
+ * store that throws has not confirmed anything, so that reads as usable and the open surfaces the error.
+ */
+function secretStoreUsable(ss) {
+    if (!ss)
+        return false;
+    return runKeySteps(usableSteps(ss));
+}
+exports.secretStoreUsable = secretStoreUsable;
+function* usableSteps(ss) {
+    try {
+        const available = yield storeAvailable(ss);
+        return available === true && !isWeakSafeStorageBackend(ss);
+    }
+    catch (e) {
+        return true;
+    }
+}
+/**
  * Read the sealed key, or mint one on first use.
  *
  * Throws `OfflineEncryptionUnavailableError` when there is no usable OS secret store (BUILD/LINK — a
@@ -146,13 +234,17 @@ exports.toHexKeyPragma = toHexKeyPragma;
  * The distinction decides whether the caller retries or self-heals, so it is never guessed.
  */
 function loadOrCreateDbKey(deps) {
+    return runKeySteps(loadOrCreateSteps(deps));
+}
+exports.loadOrCreateDbKey = loadOrCreateDbKey;
+function* loadOrCreateSteps(deps) {
     const ss = deps.safeStorage;
     if (!ss) {
         throw new OfflineCrypto_1.OfflineEncryptionUnavailableError("Offline encryption requires Electron safeStorage, which is not available in this process");
     }
     let available = false;
     try {
-        available = ss.isEncryptionAvailable();
+        available = yield storeAvailable(ss);
     }
     catch (e) {
         throw new KeyVaultTransientError("safeStorage.isEncryptionAvailable() threw: " + ((e && e.message) || String(e)));
@@ -178,28 +270,43 @@ function loadOrCreateDbKey(deps) {
         catch (e) {
             throw new KeyVaultTransientError("could not read the offline key file: " + ((e && e.message) || String(e)));
         }
-        let hex;
+        let opened;
         try {
-            hex = ss.decryptString(sealed);
+            opened = yield unseal(ss, sealed);
         }
         catch (e) {
-            throw new KeyUnsealError("could not unseal the offline key: " + ((e && e.message) || String(e)), unsealFailureClass(ss, e));
+            if (e instanceof KeyUnsealError)
+                throw e;
+            const failureClass = yield unsealFailureClass(ss, e);
+            throw new KeyUnsealError("could not unseal the offline key: " + ((e && e.message) || String(e)), failureClass);
         }
-        if (/^[0-9a-f]{64}$/.test(hex))
+        const hex = opened.result;
+        if (/^[0-9a-f]{64}$/.test(hex)) {
+            if (opened.shouldReEncrypt) {
+                // The OS store rotated its key: the sidecar follows, best-effort. The key itself did not change,
+                // and the old sidecar still opens until the next launch tries again, so it is replaced whole: written
+                // in place, a crash or a full disk would truncate the only copy of the key.
+                try {
+                    replaceKeyFile(deps.fs, deps.keyFile, yield seal(ss, hex));
+                }
+                catch (e) {
+                    /* best-effort */
+                }
+            }
             return hex;
+        }
         // The store answered, and what it returned is not a key (a damaged file): counted, never deleted here.
         throw new KeyUnsealError("the offline key file does not hold a key", "UNCLASSIFIED");
     }
     const fresh = toHex(deps.randomBytes(exports.DB_KEY_BYTES));
     try {
-        deps.fs.writeFileSync(deps.keyFile, ss.encryptString(fresh), { mode: 0o600 });
+        deps.fs.writeFileSync(deps.keyFile, yield seal(ss, fresh), { mode: 0o600 });
     }
     catch (e) {
         throw new KeyVaultTransientError("could not write the offline key file: " + ((e && e.message) || String(e)));
     }
     return fresh;
 }
-exports.loadOrCreateDbKey = loadOrCreateDbKey;
 /**
  * Why a sealed key did not unseal. A locked-store error says so itself. The plain `safeStorage` decrypt
  * error does not, so the store is asked to seal and unseal something new: if that works, the store is
@@ -207,11 +314,18 @@ exports.loadOrCreateDbKey = loadOrCreateDbKey;
  * wiping could not help and the failure is temporary.
  */
 function unsealFailureClass(ss, e) {
+    if (e && e.isTemporarilyUnavailable === true)
+        return "TRANSIENT";
     if (SECRET_STORE_LOCKED.test(String((e && e.message) || "").toLowerCase()))
         return "TRANSIENT";
+    return runKeySteps(probeSteps(ss));
+}
+function* probeSteps(ss) {
     try {
         const probe = "cometchat-secret-store-probe";
-        return ss.decryptString(ss.encryptString(probe)) === probe ? "UNCLASSIFIED" : "TRANSIENT";
+        const sealed = yield seal(ss, probe);
+        const opened = yield unseal(ss, sealed);
+        return opened.result === probe ? "UNCLASSIFIED" : "TRANSIENT";
     }
     catch (probeErr) {
         return "TRANSIENT";
@@ -224,6 +338,14 @@ function destroyDbKey(deps) {
     }
     catch (e) {
         /* best-effort: a key that cannot be deleted still leaves an unreadable database */
+    }
+    try {
+        // A replace a crash cut short. Usually there is none, and the wipe touches only what is there.
+        if (deps.fs.existsSync(deps.keyFile + KEY_FILE_TMP))
+            deps.fs.rmSync(deps.keyFile + KEY_FILE_TMP, { force: true });
+    }
+    catch (e) {
+        /* best-effort, as above */
     }
 }
 exports.destroyDbKey = destroyDbKey;
@@ -320,18 +442,32 @@ exports.applyKeyAndProve = applyKeyAndProve;
  * that error is rethrown as it is, so the open classifies it TRANSIENT — no store this session,
  * nothing deleted, never counted (BEH-ENC-11/12). Wrapping it as unreadable wiped a store, and its
  * unsent outbox, that another process merely had open.
+ *
+ * Only a file that is not a database (a wrong key, a wrong scheme) or is corrupt is unreadable
+ * (PERMANENT). Any other error — an I/O error, a file that cannot be opened — is rethrown as it is, so
+ * the open counts it UNCLASSIFIED and wipes only on the third launch in a row (BEH-ENC-11/12, R18;
+ * Android OfflineEncryptionFailureClassifier PERMANENT_NAMES: not-a-database and corrupt only).
  */
 function probeReadable(db) {
     try {
         db.prepare("SELECT count(*) AS n FROM sqlite_master").get();
     }
     catch (e) {
-        if (classifyMainOpenFailure(e) === "TRANSIENT")
+        if (!isUnreadableFile(e))
             throw e;
         throw new DatabaseUnreadableError("the local database could not be read: " + ((e && e.message) || String(e)));
     }
 }
 exports.probeReadable = probeReadable;
+/** A probe-read error saying the file is not a database or is corrupt (SQLITE_NOTADB / SQLITE_CORRUPT). */
+function isUnreadableFile(e) {
+    if (classifyMainOpenFailure(e) === "TRANSIENT")
+        return false;
+    const code = String((e && e.code) || "");
+    if (/^SQLITE_(CORRUPT|NOTADB)(_|$)/.test(code))
+        return true;
+    return /not a database|malformed|corrupt/.test(String((e && e.message) || "").toLowerCase());
+}
 /** A locked OS secret store (macOS Keychain's errSecInteractionNotAllowed), lowercased. */
 const SECRET_STORE_LOCKED = /user interaction is not allowed|errsecinteractionnotallowed|-25308/;
 /**

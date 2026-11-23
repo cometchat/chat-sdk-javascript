@@ -97,7 +97,13 @@ export declare enum OfflineCacheResetReason {
     /** An unclassifiable open failure repeated on three consecutive launches (BEH-ENC-12). */
     ESCALATED = "ESCALATED",
     /** The `encryption` setting no longer matches the cache on disk (BEH-ENC-16). */
-    ENCRYPTION_CHANGED = "ENCRYPTION_CHANGED"
+    ENCRYPTION_CHANGED = "ENCRYPTION_CHANGED",
+    /**
+     * The cache on disk was written by a later SDK version that this one cannot read (an app rolled back
+     * to an older SDK), so it was rebuilt. Each unsent message that could still be read failed with
+     * `DISCARDED` first; the count is unknown if none could be read.
+     */
+    SCHEMA_RESET = "SCHEMA_RESET"
 }
 /** Catch-up sync state. */
 export declare enum SyncState {

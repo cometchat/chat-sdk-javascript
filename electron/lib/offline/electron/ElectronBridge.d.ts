@@ -12,7 +12,7 @@
  *
  * @module offline/electron/ElectronBridge
  */
-import { AttachmentRow, BlockedUserRow, ConversationRow, LocalQuery, MessageRow, SendState, SnapshotMeta, SnapshotPageRow, UploadBatchRow, UploadFileRow, WriteResult, ListKind, ListOps, ListScope, MessageFlagUpdate } from "../OfflineTypes";
+import { AttachmentRow, BlockedUserRow, ConversationRow, LocalQuery, MessageRow, SendState, SnapshotMeta, SnapshotPageRow, UploadBatchRow, UploadFileRow, WriteResult, ListKind, ListOps, ListRow, ListScope, MessageFlagUpdate } from "../OfflineTypes";
 /**
  * What the main process reports back from an `open`.
  *
@@ -48,6 +48,12 @@ export interface OfflineOpenResult {
         pendingLost: number | null;
         unsent?: MessageRow[];
     };
+    /**
+     * On a failed open: unsent messages that are gone or can no longer be read, though no store opened and
+     * no reset is announced (an encryption change to plaintext with neither database name free). Each is
+     * DISCARDED.
+     */
+    lostUnsent?: MessageRow[];
 }
 /** Global key the preload exposes the metadata bridge under. */
 export declare const COMETCHAT_DB_BRIDGE = "cometchatDb";
@@ -61,6 +67,7 @@ export declare const COMETCHAT_NATIVE_BRIDGE = "cometchatNative";
 export interface CometChatDbBridge {
     open(appId: string, uid: string, options?: {
         encryption?: boolean;
+        plaintextFallback?: boolean;
     }): Promise<OfflineOpenResult>;
     upsertMessages(rows: MessageRow[]): Promise<WriteResult[]>;
     listMessages(q: LocalQuery): Promise<MessageRow[]>;
@@ -78,6 +85,7 @@ export interface CometChatDbBridge {
     setThreadSubscribed(rootId: number | string, value: boolean): Promise<void>;
     getListScope(kind: ListKind, scopeKey: string): Promise<ListScope>;
     applyListOps(kind: ListKind, scopeKey: string, ops: ListOps, expectRev: number): Promise<boolean>;
+    getListRowsByItem(kinds: ListKind[], itemIds: string[]): Promise<ListRow[]>;
     deleteListItems(kinds: ListKind[], itemIds: string[]): Promise<void>;
     deleteListRowsByConversation(conversationId: string, kinds: ListKind[]): Promise<void>;
     refreshListCopies(items: {
@@ -90,7 +98,7 @@ export interface CometChatDbBridge {
         outboxKeys: string[];
         outboxRows?: MessageRow[];
     }>;
-    purgeAbsentInInterior(conversationId: string, presentServerIds: number[], minLocalSortTs: number, maxLocalSortTs: number, topLevelOnly: boolean): Promise<{
+    purgeAbsentInInterior(conversationId: string, presentServerIds: number[], minLocalSortTs: number, maxLocalSortTs: number, topLevelOnly: boolean, parentMessageId?: number, minId?: number, maxId?: number): Promise<{
         mediaKeys: string[];
     }>;
     advanceReceipts(conversationId: string, selfUid: string, uptoMessageId: number, deliveredAt?: number, readAt?: number): Promise<boolean>;
@@ -145,6 +153,7 @@ export interface CometChatDbBridge {
     touchSnapshot(signature: string, ts: number): Promise<void>;
     logicalByteSize(): Promise<number>;
     transitionSendState(localMessageId: string, from: SendState[], to: SendState, failureReason?: string): Promise<boolean>;
+    transitionSendStates(localMessageIds: string[], from: SendState[], to: SendState): Promise<string[]>;
     readMeta(key: string): Promise<string | null>;
     writeMeta(entries: {
         [key: string]: string | number | null;
@@ -173,6 +182,11 @@ export interface CometChatNativeBridge {
     has(key: string): Promise<boolean>;
     remove(key: string): Promise<void>;
     totalBytes(): Promise<number>;
+    /** Every stored file's name and size, `.tmp` writes left out (the orphan reclaim and media budget). */
+    listKeys(): Promise<{
+        key: string;
+        size: number;
+    }[]>;
     wipe(): Promise<void>;
     /** Delete an `(app, user)`'s media folder (and the legacy per-user one) without opening it. */
     wipeMediaByName(appId: string, uid: string): Promise<void>;

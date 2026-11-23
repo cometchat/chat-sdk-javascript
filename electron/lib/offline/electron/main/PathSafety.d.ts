@@ -38,10 +38,15 @@ export declare function resolveInside(base: string, name: string): string;
  * `h_<sha256(utf8(appId NUL uid)) hex>`. Throws on an id that is not usable at all (`isIdentity`).
  */
 export declare function safeStem(appId: unknown, uid: unknown): string;
-/** `<userData>/cometchat-offline` paths for one (app, user): the folder, `.db` and `.key`. */
+/**
+ * `<userData>/cometchat-offline` paths for one (app, user): the folder, `.db`, `.key`, and the second
+ * database name an encryption change uses when it cannot delete the old file (R125). A `~` is never in a
+ * stem, so no pair's second name is another pair's first.
+ */
 export declare function offlineDbPaths(userData: string, appId: unknown, uid: unknown): {
     dir: string;
     dbFile: string;
+    alternateDbFile: string;
     keyFile: string;
 };
 /**

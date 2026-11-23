@@ -28,17 +28,38 @@ function extractMentions(payload) {
 }
 exports.extractMentions = extractMentions;
 /**
- * The attachment list on a message payload, in the two shapes the server uses: the modern
- * `data.attachments` array and the legacy singular `data.attachment`. Same accessor the media
- * caching path already relies on (`OfflineRuntime.cacheMediaForMessages`).
+ * The attachment list on a message payload: `data.attachments` only, every entry counted, a null one
+ * too (R56; Android MessagePayloadProjection.of:77-99 reads only that array and counts its length).
  */
 function payloadAttachments(payload) {
     const data = payload === null || payload === void 0 ? void 0 : payload.data;
-    if (!data)
-        return [];
-    if (Array.isArray(data.attachments))
-        return data.attachments.filter(Boolean);
-    return data.attachment ? [data.attachment] : [];
+    return data && Array.isArray(data.attachments) ? data.attachments : [];
+}
+/**
+ * Java `String.regionMatches(true, 0, prefix, 0, prefix.length)`: each char equal, or equal after a
+ * one-char upper-case mapping, or after a one-char lower-case mapping of that. Locale-free, so a
+ * dotless `ı` matches `i` as it does on Android (R56).
+ */
+function startsWithIgnoringCase(s, prefix) {
+    if (s.length < prefix.length)
+        return false;
+    const upper = (c) => {
+        const u = c.toUpperCase();
+        return u.length === 1 ? u : c; // Java Character.toUpperCase maps one char to one char
+    };
+    const lower = (c) => c.toLowerCase().charAt(0); // U+0130 lowers to "i" + U+0307 here, "i" in Java
+    for (let i = 0; i < prefix.length; i++) {
+        const a = s.charAt(i);
+        const b = prefix.charAt(i);
+        if (a === b)
+            continue;
+        const ua = upper(a);
+        const ub = upper(b);
+        if (ua === ub || lower(ua) === lower(ub))
+            continue;
+        return false;
+    }
+    return true;
 }
 /** Does this payload carry at least one attachment? Write-time projection for `hasAttachments`. */
 function extractHasAttachments(payload) {
@@ -56,12 +77,12 @@ exports.extractHasAttachments = extractHasAttachments;
  * imports (and unit-testable without them). The four values are Band-1 wire vocabulary, not internal.
  */
 function attachmentTypeOf(att) {
-    const mime = String((att && att.mimeType) || "").toLowerCase();
-    if (mime.indexOf("image/") === 0)
+    const mime = String((att && att.mimeType) || "");
+    if (startsWithIgnoringCase(mime, "image/"))
         return "image";
-    if (mime.indexOf("video/") === 0)
+    if (startsWithIgnoringCase(mime, "video/"))
         return "video";
-    if (mime.indexOf("audio/") === 0)
+    if (startsWithIgnoringCase(mime, "audio/"))
         return "audio";
     return "file";
 }
@@ -115,6 +136,11 @@ function inScope(r, q) {
     return true;
 }
 exports.inScope = inScope;
+/** Whether `list` holds `value`, ignoring ASCII case. */
+function includesIgnoringCase(list, value) {
+    const v = String(value == null ? "" : value).toLowerCase();
+    return list.some((x) => String(x).toLowerCase() === v);
+}
 /**
  * Column-backed predicate for a cached message read. Never inspects `payload`;
  * only evaluates the locally-computable filters.
@@ -125,13 +151,16 @@ exports.inScope = inScope;
  * exactly what `hasAttachments` / `attachmentTypes` / `hasReactions` are.
  */
 function matchesMessage(r, q) {
-    if (q.categories && !q.categories.includes(r.category))
+    // Category and type compare case-insensitively (Android LocalMessageQuery.matchesPredicates:131-138).
+    if (q.categories && q.categories.length && !includesIgnoringCase(q.categories, r.category))
         return false;
-    if (q.types && !q.types.includes(r.type))
+    if (q.types && q.types.length && !includesIgnoringCase(q.types, r.type))
         return false;
     if (q.hideDeleted && r.deletedAt)
         return false;
-    if (q.hideReplies && r.parentMessageId != null)
+    // hideReplies hides replies from a conversation read; a thread read is its replies, so it is ignored
+    // there (Android LocalMessageQuery.matchesPredicates:140-151).
+    if (q.hideReplies && q.parentMessageId == null && r.parentMessageId != null)
         return false;
     if (q.parentMessageId != null && r.parentMessageId !== q.parentMessageId)
         return false;

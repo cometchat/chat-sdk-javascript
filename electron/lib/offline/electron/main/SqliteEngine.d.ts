@@ -12,8 +12,15 @@
  *
  * @module offline/electron/main/SqliteEngine
  */
-import { AttachmentRow, BlockedUserRow, ConversationRow, LocalQuery, MessageRow, SendState, SnapshotMeta, SnapshotPageRow, UploadBatchRow, UploadFileRow, WriteResult, ListKind, ListOps, ListScope, MessageFlagUpdate } from "../../OfflineTypes";
+import { AttachmentRow, BlockedUserRow, ConversationRow, LocalQuery, MessageRow, SendState, SnapshotMeta, SnapshotPageRow, UploadBatchRow, UploadFileRow, WriteResult, ListKind, ListOps, ListRow, ListScope, MessageFlagUpdate } from "../../OfflineTypes";
 import { OfflineOpenResult } from "../ElectronBridge";
+/**
+ * The schema version this build writes, stamped in `PRAGMA user_version` (and `sync_meta.schemaVersion`) on
+ * every open (KI-87 / KI-95, Android OfflineSQLiteHelper.java:102-126). 0 is a file from before the stamp,
+ * brought up by the additive path below. A file stamped higher was written by a later SDK: it is dropped and
+ * rebuilt, announced as SCHEMA_RESET with its unsent messages DISCARDED (Android onDowngrade:126-142).
+ */
+export declare const ELECTRON_SCHEMA_VERSION = 1;
 /**
  * The oldest `electron` and `better-sqlite3-multiple-ciphers` offline supports (R65). Both are optional
  * peers declared with no version range, so an app on an older release still installs and builds; the
@@ -64,7 +71,15 @@ export declare class SqliteEngine {
     probeCipher(): boolean;
     open(appId: string, uid: string, options?: {
         encryption?: boolean;
-    }): OfflineOpenResult;
+        plaintextFallback?: boolean;
+    }): OfflineOpenResult | Promise<OfflineOpenResult>;
+    /** The open waiting on the asynchronous `safeStorage`, if any. */
+    private opening;
+    /** Counts wipes of the open or opening store: one during an async key step ends that open. */
+    private wipes;
+    /** A wipe landed while an open waited for its key: that key is for a store that is gone. */
+    private openOverrun;
+    private openSteps;
     /**
      * Bring up a connection: key it, prove it, then configure and migrate.
      *
@@ -73,9 +88,17 @@ export declare class SqliteEngine {
      */
     private attach;
     /**
+     * Version-gate the schema (Android OfflineSQLiteHelper onCreate / onUpgrade / onDowngrade :102-142): a file
+     * a later SDK stamped higher is dropped and rebuilt (its unsent rows read first, best effort, for the
+     * SCHEMA_RESET announcement); an older one is brought up to the current tables and columns; then the
+     * version is stamped. One transaction: a failure leaves the file as it was and fails the open.
+     */
+    private migrate;
+    /**
      * Bring an already-created database up to the current column set. Idempotent: each column is added
      * only when `PRAGMA table_info` says it is absent, so this is a no-op on a freshly created file and
-     * on every subsequent open.
+     * on every subsequent open. Only the duplicate-column error (another open added it first) is
+     * expected; any other failure fails the open.
      */
     private addMissingColumns;
     /** The tiers this connection actually achieved. */
@@ -93,7 +116,14 @@ export declare class SqliteEngine {
      * one. A failed key delete is logged and the database is still removed. Idempotent.
      */
     wipeByName(appId: string, uid: string): void;
-    /** Remove the database and its WAL sidecars. Does NOT touch the key. */
+    /** Is the database or a WAL sidecar on disk? */
+    private databaseFilesExist;
+    /**
+     * R125: after trying to delete `file`, where the rebuilt store goes: the first name unless a file that
+     * will not delete holds it. `null` when neither name is free.
+     */
+    private rebuildName;
+    /** Remove the database and its WAL sidecars. Does NOT touch the key. Resolves whether they went. */
     private removeDatabaseFiles;
     wipe(): void;
     private toDbMessage;
@@ -113,6 +143,8 @@ export declare class SqliteEngine {
     reconcileOnAck(localMessageId: string, serverRow: MessageRow): void;
     /** Atomic check-and-set of an outbox row's send state (BEH-SEND-03). One UPDATE, so it cannot interleave. */
     transitionSendState(localMessageId: string, from: SendState[], to: SendState, failureReason?: string): boolean;
+    /** Several checked moves in ONE transaction: all commit or none (see OfflineStore). */
+    transitionSendStates(localMessageIds: string[], from: SendState[], to: SendState): string[];
     setSendState(localMessageId: string, state: SendState, failureReason?: string): void;
     replaceIfPresent(row: MessageRow): boolean | "OUTBOX_ROW";
     mergeReaction(messageId: number | string, emoji: string, reactorUid: string | undefined, added: boolean, selfUid: string): boolean;
@@ -133,7 +165,7 @@ export declare class SqliteEngine {
     /** Read-time delete-by-omission — SENT rows strictly interior to the page's bounds and absent from
      *  it, whole-footprint (message + tags + attachment rows). Interior/SENT-only; replies-exempt in
      *  top-level-only mode. See `OfflineStore.purgeAbsentInInterior`. */
-    purgeAbsentInInterior(conversationId: string, presentServerIds: number[], minLocalSortTs: number, maxLocalSortTs: number, topLevelOnly: boolean): {
+    purgeAbsentInInterior(conversationId: string, presentServerIds: number[], minLocalSortTs: number, maxLocalSortTs: number, topLevelOnly: boolean, parentMessageId?: number, minId?: number, maxId?: number): {
         mediaKeys: string[];
     };
     advanceReceipts(conversationId: string, selfUid: string, uptoMessageId: number, deliveredAt?: number, readAt?: number): boolean;
@@ -221,6 +253,7 @@ export declare class SqliteEngine {
     applyListOps(kind: ListKind, scopeKey: string, ops: ListOps, expectRev: number): boolean;
     /** Bump the `rev` of the stores a removal touched, so an in-flight page sees the local change. */
     private bumpListRevs;
+    getListRowsByItem(kinds: ListKind[], itemIds: string[]): ListRow[];
     deleteListItems(kinds: ListKind[], itemIds: string[]): void;
     private deleteListRowsByConversationTx;
     deleteListRowsByConversation(conversationId: string, kinds: ListKind[]): void;

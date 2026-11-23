@@ -145,9 +145,26 @@ class NodeFsMediaEngine {
         }
     }
     totalBytes() {
+        let sum = 0;
+        this.eachFile((_name, size) => (sum += size));
+        return sum;
+    }
+    /**
+     * Every file in the open roots but a partial `.tmp` write, as its file name and size (Android
+     * `MediaFileStore.listKeys`). A safe key is its own file name; a hashed one (`h_…`) lists as that name.
+     */
+    listKeys() {
+        const out = [];
+        this.eachFile((name, size) => {
+            if (!/\.tmp$/.test(name))
+                out.push({ key: name, size });
+        });
+        return out;
+    }
+    /** Visit each file of the open roots (a missing root visits none). */
+    eachFile(visit) {
         const fs = require("node:fs");
         const path = require("node:path");
-        let sum = 0;
         for (const dir of [this.root, this.legacyRoot]) {
             if (!dir)
                 continue;
@@ -156,7 +173,7 @@ class NodeFsMediaEngine {
                     try {
                         const st = fs.statSync(path.join(dir, name));
                         if (st.isFile())
-                            sum += st.size;
+                            visit(name, st.size);
                     }
                     catch {
                         /* skip */
@@ -164,10 +181,9 @@ class NodeFsMediaEngine {
                 }
             }
             catch {
-                /* dir missing → 0 */
+                /* dir missing → nothing */
             }
         }
-        return sum;
     }
     wipe() {
         if (this.root)

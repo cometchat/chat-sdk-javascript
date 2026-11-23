@@ -80,13 +80,18 @@ function safeStem(appId, uid) {
     return "h_" + MediaFileName_1.sha256Hex(a + "\0" + u);
 }
 exports.safeStem = safeStem;
-/** `<userData>/cometchat-offline` paths for one (app, user): the folder, `.db` and `.key`. */
+/**
+ * `<userData>/cometchat-offline` paths for one (app, user): the folder, `.db`, `.key`, and the second
+ * database name an encryption change uses when it cannot delete the old file (R125). A `~` is never in a
+ * stem, so no pair's second name is another pair's first.
+ */
 function offlineDbPaths(userData, appId, uid) {
     const stem = safeStem(appId, uid);
     const dir = resolveInside(userData, "cometchat-offline");
     return {
         dir: dir,
         dbFile: resolveInside(dir, `${stem}.db`),
+        alternateDbFile: resolveInside(dir, `${stem}~alt.db`),
         keyFile: resolveInside(dir, `${stem}.key`),
     };
 }

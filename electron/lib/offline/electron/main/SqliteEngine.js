@@ -14,7 +14,7 @@
  * @module offline/electron/main/SqliteEngine
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.readUnsentFromFile = exports.sqliteFileFormat = exports.SqliteEngine = exports.peerVersionProblem = exports.MIN_SQLITE_DRIVER_MAJOR = exports.MIN_ELECTRON_MAJOR = void 0;
+exports.readUnsentFromFile = exports.sqliteFileFormat = exports.SqliteEngine = exports.peerVersionProblem = exports.MIN_SQLITE_DRIVER_MAJOR = exports.MIN_ELECTRON_MAJOR = exports.ELECTRON_SCHEMA_VERSION = void 0;
 const FlagAuthority_1 = require("../../flags/FlagAuthority");
 const Projections_1 = require("../../Projections");
 const ConversationFilters_1 = require("../../read/ConversationFilters");
@@ -44,6 +44,13 @@ const ID_SORT_MAX = Number.MAX_SAFE_INTEGER;
 function idNum(r) {
     return r.id != null ? Number(r.id) : ID_SORT_MAX;
 }
+/**
+ * The schema version this build writes, stamped in `PRAGMA user_version` (and `sync_meta.schemaVersion`) on
+ * every open (KI-87 / KI-95, Android OfflineSQLiteHelper.java:102-126). 0 is a file from before the stamp,
+ * brought up by the additive path below. A file stamped higher was written by a later SDK: it is dropped and
+ * rebuilt, announced as SCHEMA_RESET with its unsent messages DISCARDED (Android onDowngrade:126-142).
+ */
+exports.ELECTRON_SCHEMA_VERSION = 1;
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS messages (
   localMessageId  TEXT PRIMARY KEY,
@@ -365,6 +372,10 @@ class SqliteEngine {
          */
         this.writeSeqCounter = 0;
         this.writeSeqSeeded = false;
+        /** The open waiting on the asynchronous `safeStorage`, if any. */
+        this.opening = null;
+        /** Counts wipes of the open or opening store: one during an async key step ends that open. */
+        this.wipes = 0;
         /** A rebuild during the current open, reported once with its result (BEH-ENC-15/16). */
         this.pendingReset = null;
         this.MSG_COLS = "localMessageId,id,conversationId,senderUid,receiverType,receiverId,type,category," +
@@ -457,6 +468,34 @@ class SqliteEngine {
         }
     }
     open(appId, uid, options) {
+        // An open waiting on the asynchronous `safeStorage` (Electron 46) holds this engine: the next one runs after it.
+        if (this.opening) {
+            const again = () => this.open(appId, uid, options);
+            return this.opening.then(again, again);
+        }
+        const res = SqliteCipher_1.runKeySteps(this.openSteps(appId, uid, options));
+        if (res && typeof res.then === "function") {
+            const done = () => {
+                this.opening = null;
+            };
+            this.opening = res.then(done, done);
+        }
+        return res;
+    }
+    /** A wipe landed while an open waited for its key: that key is for a store that is gone. */
+    openOverrun(epoch, wantEncryption) {
+        if (epoch === this.wipes)
+            return null;
+        try {
+            SqliteCipher_1.destroyDbKey(this.keyDeps());
+        }
+        catch {
+            /* best-effort; the next open replaces a stray key */
+        }
+        return failedOpen("TRANSIENT", "the store was wiped while it was opening", wantEncryption);
+    }
+    *openSteps(appId, uid, options) {
+        const epoch = this.wipes;
         const wantEncryption = !!(options && options.encryption);
         const fs = require("node:fs");
         const { app } = require("electron");
@@ -471,7 +510,9 @@ class SqliteEngine {
             return failedOpen("BUILD_LINK", tooOld, false);
         const dir = paths.dir;
         fs.mkdirSync(dir, { recursive: true });
-        const file = paths.dbFile;
+        // R125: a store under the second name is the live one, so a file under the first is what an earlier
+        // encryption change could not delete.
+        let file = fs.existsSync(paths.alternateDbFile) ? paths.alternateDbFile : paths.dbFile;
         // Already open for this user AT THE SAME TIER. A tier change has to reopen — the key is applied
         // per connection, so an existing handle cannot acquire or shed encryption.
         if (this.db && this.dbFile === file && this.encrypted === wantEncryption) {
@@ -481,6 +522,10 @@ class SqliteEngine {
             this.close();
         this.dbFile = file;
         this.keyFile = paths.keyFile;
+        // Its rows were DISCARDED and its reset fired by the launch that made the change: quietly, and tried
+        // again at each open until it goes.
+        if (file === paths.alternateDbFile && this.databaseFilesExist(paths.dbFile))
+            this.removeDatabaseFiles(paths.dbFile);
         // Resolve the driver BEFORE touching the key store. Minting a key first would write sealed key
         // material to disk only to discover the cipher engine is missing and abandon it — leaving a
         // stray sidecar next to a database that was never encrypted.
@@ -528,14 +573,16 @@ class SqliteEngine {
         // wipe it at rest and rebuild in the configured format, announced as ENCRYPTION_CHANGED — never
         // reported as WRONG_KEY and never left dormant.
         this.pendingReset = null;
-        let format = sqliteFileFormat(fs, file);
-        // A file without the plaintext header is an earlier ENCRYPTED store only if its sealed key is beside
-        // it: an encrypted store is never created without one (the key is minted before the file), and the
-        // key goes first on every wipe. Under `encryption: false` with no key, the header was destroyed —
-        // a damaged plaintext store, not a setting change: the open below fails its probe and rebuilds it
-        // as CORRUPTED (BEH-ENC-11), never as ENCRYPTION_CHANGED.
-        if (!wantEncryption && format === "ENCRYPTED" && !fs.existsSync(paths.keyFile))
-            format = "PLAINTEXT";
+        // A file of a full header without the SQLite one counts as the encrypted format, also under
+        // `encryption: false` with no key beside it (a damaged plaintext header, R123): ENCRYPTION_CHANGED
+        // with an unknown count, as the read below finds no key (Android `OfflineStoreProvider` :456).
+        const format = sqliteFileFormat(fs, file);
+        // R134: the format compared is the one the store will open in. PLAINTEXT_FALLBACK with no key to be had
+        // opens plaintext, so a plaintext cache is no change: keep it, no reset. The renderer applies the
+        // fallback from this failure and reopens it. ONLINE_ONLY cannot keep it and goes on to the wipe below.
+        if (wantEncryption && format === "PLAINTEXT" && options && options.plaintextFallback && !(yield SqliteCipher_1.secretStoreUsable(this.keyDeps().safeStorage))) {
+            return failedOpen("BUILD_LINK", "Offline encryption requires an OS secret store, and none is usable", false);
+        }
         if ((wantEncryption && format === "PLAINTEXT") || (!wantEncryption && format === "ENCRYPTED")) {
             // Read what the rebuild loses: the plaintext file directly; an encrypted file with its existing
             // key (never minting one). Unreadable → the count is unknown (null), never 0.
@@ -543,7 +590,7 @@ class SqliteEngine {
             if (format === "ENCRYPTED") {
                 try {
                     if (fs.existsSync(paths.keyFile))
-                        oldKey = SqliteCipher_1.loadOrCreateDbKey(this.keyDeps());
+                        oldKey = yield SqliteCipher_1.loadOrCreateDbKey(this.keyDeps());
                 }
                 catch {
                     oldKey = null;
@@ -570,7 +617,26 @@ class SqliteEngine {
                     /* best-effort; the next encrypted open self-heals a stray key */
                 }
             }
+            // JS-9: reading the old key above (and the unsent rows) is an async yield. A wipe (clearOfflineCache)
+            // landing in that window means this rebuild would recreate a store that was just destroyed. Check the
+            // open epoch before the destructive rebuild — exactly as the WRONG_KEY and rotation branches do.
+            const overrun = this.openOverrun(epoch, wantEncryption);
+            if (overrun) {
+                this.pendingReset = null;
+                return overrun;
+            }
             this.removeDatabaseFiles(file);
+            const target = this.rebuildName(file, paths);
+            if (target === null) {
+                // Neither name can be freed: nothing opens, the next start retries. Going to plaintext the key is
+                // already gone, so the rows read above can never be read again; going to encrypted they stay.
+                const failed = failedOpen("TRANSIENT", "no database name could be freed for the encryption change", wantEncryption);
+                if (!wantEncryption && lostRows && lostRows.length)
+                    failed.lostUnsent = lostRows;
+                return failed;
+            }
+            file = target;
+            this.dbFile = file;
             this.pendingReset = { reason: "ENCRYPTION_CHANGED", pendingLost, unsent: lostRows || [] };
         }
         let keyHex = null;
@@ -588,18 +654,47 @@ class SqliteEngine {
         }
         if (wantEncryption) {
             try {
-                keyHex = SqliteCipher_1.loadOrCreateDbKey(this.keyDeps());
+                keyHex = yield SqliteCipher_1.loadOrCreateDbKey(this.keyDeps());
             }
             catch (e) {
                 if (e instanceof OfflineCrypto_1.OfflineEncryptionUnavailableError) {
-                    return failedOpen("BUILD_LINK", (e && e.message) || String(e), false);
+                    // PLAINTEXT_FALLBACK would reopen this without a key, and an encrypted file under that is a format
+                    // change, which deletes the file and its key. The engine is here (R126 is a build with no cipher,
+                    // stopped above) and the sealed key is still beside the file, so only the secret store is not
+                    // answering, a keyring not up yet for one: keep both, no store this launch, never counted. Android:
+                    // a key source still awaited never reclassifies the file (OfflineStoreProvider.encryptedOpenPossible
+                    // :556-559). safeStorage cannot tell late from gone for good, so that case waits too.
+                    if (format === "ENCRYPTED" && options && options.plaintextFallback && fs.existsSync(paths.keyFile)) {
+                        return failedOpen("TRANSIENT", (e && e.message) || String(e), true);
+                    }
+                    // ONLINE_ONLY with no key: the old file went above and no store opens. The loss still goes out.
+                    const failed = failedOpen("BUILD_LINK", (e && e.message) || String(e), false);
+                    if (this.pendingReset)
+                        failed.reset = this.pendingReset;
+                    this.pendingReset = null;
+                    return failed;
                 }
                 // Busy / locked / disk full / a locked or unworking secret store: TRANSIENT, never counted. A
                 // sealed key that does not unseal under a working store, or a vault error that cannot tell a locked
                 // vault from a lost key, is UNCLASSIFIED: the renderer counts it once per launch and escalates
                 // on the 3rd launch (BEH-ENC-11/12) instead of staying closed forever.
-                return failedOpen(SqliteCipher_1.classifyMainOpenFailure(e), (e && e.message) || String(e), true);
+                {
+                    const failed = failedOpen(SqliteCipher_1.classifyMainOpenFailure(e), (e && e.message) || String(e), true);
+                    // BEH-ENC-15/16 — when the format-change branch above already deleted the old file and set
+                    // pendingReset, the unsent rows are gone: the loss MUST be announced (ENCRYPTION_CHANGED + its
+                    // DISCARDED rows) even though the new key could not be resolved. The OfflineEncryptionUnavailable
+                    // branch already does this; this classified-failure return dropped it, so the loss was silent
+                    // (no ENCRYPTION_CHANGED, no DISCARDED callbacks).
+                    if (this.pendingReset) {
+                        failed.reset = this.pendingReset;
+                        this.pendingReset = null;
+                    }
+                    return failed;
+                }
             }
+            const overrun = this.openOverrun(epoch, wantEncryption);
+            if (overrun)
+                return overrun;
         }
         try {
             this.attach(file, keyHex, driver);
@@ -617,7 +712,6 @@ class SqliteEngine {
                 // (`OfflineSQLiteManager` :476): a key that failed to open the file is not trusted to key its
                 // replacement.
                 this.close();
-                this.removeDatabaseFiles(file);
                 // A wipe that loses the outbox is announced (BEH-ENC-15); the rows were inside the file that
                 // could not be read, so the count is unknown.
                 if (!this.pendingReset) {
@@ -633,15 +727,29 @@ class SqliteEngine {
                 if (keyHex) {
                     try {
                         SqliteCipher_1.destroyDbKey(this.keyDeps());
-                        keyHex = SqliteCipher_1.loadOrCreateDbKey(this.keyDeps());
+                        keyHex = yield SqliteCipher_1.loadOrCreateDbKey(this.keyDeps());
                     }
                     catch (rotateErr) {
                         // A failed rotation opens NO store this session, under either encryptionFailureBehavior,
-                        // and is never BUILD/LINK or plaintext; the next launch retries (BEH-ENC-11).
+                        // and is never BUILD/LINK or plaintext. The key goes first, so the database is still there,
+                        // nothing was lost and nothing is announced; the next launch retries (BEH-ENC-11).
                         this.pendingReset = null;
                         return failedOpen("TRANSIENT", "offline key rotation failed: " + ((rotateErr && rotateErr.message) || String(rotateErr)), true);
                     }
                 }
+                const overrun = this.openOverrun(epoch, wantEncryption);
+                if (overrun)
+                    return overrun;
+                this.removeDatabaseFiles(file);
+                const target = this.rebuildName(file, paths);
+                if (target === null) {
+                    // Neither name can be freed: nothing opens and nothing is announced. The next start finds the same
+                    // unreadable file, and the launch that can delete it rebuilds and announces once.
+                    this.pendingReset = null;
+                    return failedOpen("TRANSIENT", "no database name could be freed for the rebuild", wantEncryption);
+                }
+                file = target;
+                this.dbFile = file;
                 try {
                     this.attach(file, keyHex, driver);
                 }
@@ -682,27 +790,60 @@ class SqliteEngine {
         // Keep temp b-trees and sorter spill in memory: on an encrypted database a temp file on disk
         // would hold plaintext pages the cipher never sees.
         this.db.pragma("temp_store = MEMORY");
-        this.db.exec(SCHEMA);
-        this.addMissingColumns();
+        this.migrate();
         // R156: a fresh connection re-seeds the write-seq counter from this database's MAX(writeSeq).
         this.writeSeqSeeded = false;
         this.writeSeqCounter = 0;
     }
     /**
+     * Version-gate the schema (Android OfflineSQLiteHelper onCreate / onUpgrade / onDowngrade :102-142): a file
+     * a later SDK stamped higher is dropped and rebuilt (its unsent rows read first, best effort, for the
+     * SCHEMA_RESET announcement); an older one is brought up to the current tables and columns; then the
+     * version is stamped. One transaction: a failure leaves the file as it was and fails the open.
+     */
+    migrate() {
+        const onDisk = Number(this.db.pragma("user_version", { simple: true })) || 0;
+        this.db.transaction(() => {
+            if (onDisk > exports.ELECTRON_SCHEMA_VERSION) {
+                let unsent;
+                try {
+                    unsent = unsentReportRows(this.db).filter((r) => r.sendState === "PENDING" || r.sendState === "SENDING");
+                }
+                catch {
+                    unsent = null; // the newer schema is unreadable here: an unknown count, never 0
+                }
+                const tables = this.db
+                    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+                    .all()
+                    .map((r) => r.name);
+                for (const t of tables)
+                    this.db.exec(`DROP TABLE IF EXISTS "${String(t).replace(/"/g, '""')}"`);
+                if (!this.pendingReset)
+                    this.pendingReset = { reason: "SCHEMA_RESET", pendingLost: unsent ? unsent.length : null, unsent: unsent || [] };
+            }
+            this.db.exec(SCHEMA);
+            this.addMissingColumns();
+            this.db.pragma(`user_version = ${exports.ELECTRON_SCHEMA_VERSION}`);
+            this.metaSet(OfflineConstants_1.SYNC_META_KEYS.schemaVersion, exports.ELECTRON_SCHEMA_VERSION);
+        })();
+    }
+    /**
      * Bring an already-created database up to the current column set. Idempotent: each column is added
      * only when `PRAGMA table_info` says it is absent, so this is a no-op on a freshly created file and
-     * on every subsequent open.
+     * on every subsequent open. Only the duplicate-column error (another open added it first) is
+     * expected; any other failure fails the open.
      */
     addMissingColumns() {
         for (const c of ADDED_COLUMNS) {
+            const cols = this.db.prepare(`PRAGMA table_info(${c.table})`).all();
+            if (cols.some((col) => col && col.name === c.column))
+                continue;
             try {
-                const cols = this.db.prepare(`PRAGMA table_info(${c.table})`).all();
-                if (cols.some((col) => col && col.name === c.column))
-                    continue;
                 this.db.exec(`ALTER TABLE ${c.table} ADD COLUMN ${c.column} ${c.ddl}`);
             }
-            catch {
-                /* a concurrent open may have added it first — the next statement would fail loudly anyway */
+            catch (e) {
+                if (!/duplicate column name/i.test(String((e && e.message) || e)))
+                    throw e;
             }
         }
     }
@@ -749,7 +890,9 @@ class SqliteEngine {
         const paths = PathSafety_1.offlineDbPaths(app.getPath("userData"), appId, uid);
         const file = paths.dbFile;
         const keyFile = paths.keyFile;
-        if (this.db && this.dbFile === file) {
+        if (this.dbFile === file || this.dbFile === paths.alternateDbFile)
+            this.wipes++;
+        if (this.db && (this.dbFile === file || this.dbFile === paths.alternateDbFile)) {
             this.close();
             this.dbFile = "";
             this.keyFile = "";
@@ -762,8 +905,29 @@ class SqliteEngine {
             // A database without its key is unreadable; carry on and remove it.
         }
         this.removeDatabaseFiles(file);
+        if (this.databaseFilesExist(paths.alternateDbFile))
+            this.removeDatabaseFiles(paths.alternateDbFile); // R125
     }
-    /** Remove the database and its WAL sidecars. Does NOT touch the key. */
+    /** Is the database or a WAL sidecar on disk? */
+    databaseFilesExist(file) {
+        try {
+            const fs = require("node:fs");
+            return ["", "-wal", "-shm"].some((suffix) => fs.existsSync(file + suffix));
+        }
+        catch {
+            return false;
+        }
+    }
+    /**
+     * R125: after trying to delete `file`, where the rebuilt store goes: the first name unless a file that
+     * will not delete holds it. `null` when neither name is free.
+     */
+    rebuildName(file, paths) {
+        if (this.databaseFilesExist(file))
+            return file === paths.dbFile ? paths.alternateDbFile : null;
+        return this.databaseFilesExist(paths.dbFile) ? paths.alternateDbFile : paths.dbFile;
+    }
+    /** Remove the database and its WAL sidecars. Does NOT touch the key. Resolves whether they went. */
     removeDatabaseFiles(file) {
         try {
             const fs = require("node:fs");
@@ -772,18 +936,20 @@ class SqliteEngine {
                     fs.rmSync(file + suffix, { force: true });
                 }
                 catch {
-                    /* ignore */
+                    /* checked below */
                 }
             }
         }
         catch {
-            /* ignore */
+            /* checked below */
         }
+        return !this.databaseFilesExist(file);
     }
     wipe() {
         const file = this.dbFile;
         const encrypted = this.encrypted;
         const deps = file && encrypted ? this.keyDeps() : null;
+        this.wipes++;
         this.close();
         if (!file)
             return;
@@ -792,6 +958,10 @@ class SqliteEngine {
         if (deps)
             SqliteCipher_1.destroyDbKey(deps);
         this.removeDatabaseFiles(file);
+        // R125: the store's other name, whichever one it is, may hold a file that would not delete.
+        const other = file.endsWith("~alt.db") ? file.slice(0, -"~alt.db".length) + ".db" : file.slice(0, -".db".length) + "~alt.db";
+        if (this.databaseFilesExist(other))
+            this.removeDatabaseFiles(other);
         this.dbFile = "";
         this.keyFile = "";
         this.encrypted = false;
@@ -1085,6 +1255,12 @@ class SqliteEngine {
             .run(to, to === "FAILED" ? failureReason !== null && failureReason !== void 0 ? failureReason : null : null, localMessageId, ...from);
         return !!res && res.changes > 0;
     }
+    /** Several checked moves in ONE transaction: all commit or none (see OfflineStore). */
+    transitionSendStates(localMessageIds, from, to) {
+        if (!localMessageIds || !localMessageIds.length || !from || !from.length)
+            return [];
+        return this.db.transaction(() => localMessageIds.filter((id) => this.transitionSendState(id, from, to)))();
+    }
     setSendState(localMessageId, state, failureReason) {
         this.db
             .prepare("UPDATE messages SET sendState = ?, failureReason = ? WHERE localMessageId = ?")
@@ -1252,7 +1428,7 @@ class SqliteEngine {
     /** Read-time delete-by-omission — SENT rows strictly interior to the page's bounds and absent from
      *  it, whole-footprint (message + tags + attachment rows). Interior/SENT-only; replies-exempt in
      *  top-level-only mode. See `OfflineStore.purgeAbsentInInterior`. */
-    purgeAbsentInInterior(conversationId, presentServerIds, minLocalSortTs, maxLocalSortTs, topLevelOnly) {
+    purgeAbsentInInterior(conversationId, presentServerIds, minLocalSortTs, maxLocalSortTs, topLevelOnly, parentMessageId, minId, maxId) {
         const present = {};
         for (const id of presentServerIds)
             present[String(id)] = true;
@@ -1266,10 +1442,12 @@ class SqliteEngine {
             const delTags = this.db.prepare("DELETE FROM message_tags WHERE localMessageId = ?");
             const delMsg = this.db.prepare("DELETE FROM messages WHERE localMessageId = ?");
             for (const r of rows) {
-                const interior = r.localSortTs > minLocalSortTs && r.localSortTs < maxLocalSortTs;
+                const interior = StoreShared_1.strictlyInterior(r.localSortTs, r.id, minLocalSortTs, maxLocalSortTs, minId, maxId);
                 const absent = r.id != null && present[String(r.id)] !== true;
                 const topOk = !topLevelOnly || r.parentMessageId == null;
-                if (r.sendState === "SENT" && interior && absent && topOk) {
+                // A thread's page proves only that thread's replies absent (Android MessageOmissionReconciler:120).
+                const inScope = parentMessageId == null || String(r.parentMessageId) === String(parentMessageId);
+                if (r.sendState === "SENT" && interior && absent && topOk && inScope) {
                     for (const a of getAtt.all(r.localMessageId))
                         if (a.localPath)
                             mediaKeys.push(a.localPath);
@@ -1510,10 +1688,7 @@ class SqliteEngine {
                 if (prevRow)
                     StoreShared_1.keepAdvanceOnly(merged, prevRow, row);
                 StoreShared_1.resolvePins(merged, prevRow, row);
-                // Recency is device-local + monotonic-forward — a server upsert must not lower it. Keep the max.
-                if (existing) {
-                    merged.lastAccessedTs = Math.max(this.fromDbConversation(existing).lastAccessedTs || 0, row.lastAccessedTs || 0);
-                }
+                merged.lastAccessedTs = StoreShared_1.seedRecency(prevRow, row);
                 // R156: every conversation-row write advances the monotonic write stamp (serverReturned rides
                 // in `merged` from the plaintext `{...prevRow, ...row}` merge, so it stays sticky).
                 merged.writeSeq = this.nextConvWriteSeq();
@@ -1589,9 +1764,9 @@ class SqliteEngine {
         return !!res && res.changes > 0;
     }
     mergeConversationLastMessageIfPresent(conversationId, lastMessage, lastMessageId, sortTs, createIfAbsent) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c;
         const existing = this.db
-            .prepare("SELECT localSortTs, updatedAt, lastAccessedTs FROM conversations WHERE conversationId = ?")
+            .prepare("SELECT localSortTs, updatedAt, lastAccessedTs, lastMessage, lastMessageId FROM conversations WHERE conversationId = ?")
             .get(conversationId);
         // Create-if-absent: synthesize a brand-new chat's row when it isn't cached and an identity was
         // supplied. `updatedAt` left NULL (server LWW fills it); unread starts at 0.
@@ -1603,23 +1778,22 @@ class SqliteEngine {
             // is stamped so the new row outranks a fetch dispatched before it.
             this.db
                 .prepare("INSERT OR IGNORE INTO conversations (conversationId, conversationType, conversationWith, lastMessage, lastMessageId, unreadCount, updatedAt, localSortTs, lastAccessedTs, tags, newestCachedMessageId, oldestCachedMessageId, writeSeq) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
-                .run(conversationId, createIfAbsent.conversationType, createIfAbsent.conversationWith != null ? JSON.stringify(createIfAbsent.conversationWith) : null, lastMessage != null ? JSON.stringify(lastMessage) : null, lastMessageId !== null && lastMessageId !== void 0 ? lastMessageId : null, 0, null, sortTs, sortTs * 1000, // lastAccessedTs: device-local ms (BEH-EVICT-08); sortTs is seconds
+                .run(conversationId, createIfAbsent.conversationType, createIfAbsent.conversationWith != null ? JSON.stringify(createIfAbsent.conversationWith) : null, lastMessage != null ? JSON.stringify(lastMessage) : null, lastMessageId !== null && lastMessageId !== void 0 ? lastMessageId : null, 0, null, sortTs, Date.now(), // lastAccessedTs: device now on create (BEH-EVICT-08, Android SqliteOfflineStore:805)
             JSON.stringify([]), null, null, this.nextConvWriteSeq());
             return true;
         }
-        // LWW by the sort stamp — a strictly-older send loses (a newer received/synced state must not be clobbered).
-        if (sortTs > 0 && sortTs < ((_a = existing.localSortTs) !== null && _a !== void 0 ? _a : 0))
-            return false;
-        // Field-merge: override last message + forward-bump the device-local sort/recency stamps only.
+        // Field-merge: the last message if it is newer (identity-aware, so a skewed clock decides nothing) +
+        // forward-bump the device-local sort/recency stamps only.
         // Never write `updatedAt` on a local preview/reorder — it is the server LWW cursor; preserving it
         // lets the next getConversations always win.
-        const nextUpdatedAt = (_b = existing.updatedAt) !== null && _b !== void 0 ? _b : null;
-        const nextSortTs = Math.max((_c = existing.localSortTs) !== null && _c !== void 0 ? _c : 0, sortTs);
-        const nextAccessed = Math.max((_d = existing.lastAccessedTs) !== null && _d !== void 0 ? _d : 0, sortTs * 1000);
+        const newer = StoreShared_1.isPreviewNewer(existing, lastMessageId, sortTs);
+        const nextUpdatedAt = (_a = existing.updatedAt) !== null && _a !== void 0 ? _a : null;
+        const nextSortTs = Math.max((_b = existing.localSortTs) !== null && _b !== void 0 ? _b : 0, sortTs);
+        const nextAccessed = (_c = existing.lastAccessedTs) !== null && _c !== void 0 ? _c : 0; // a preview write leaves recency alone (Android :809-811)
         // R156: a local bump of an existing row advances the write stamp (serverReturned untouched).
         this.db
             .prepare("UPDATE conversations SET lastMessage = ?, lastMessageId = ?, updatedAt = ?, localSortTs = ?, lastAccessedTs = ?, writeSeq = ? WHERE conversationId = ?")
-            .run(lastMessage != null ? JSON.stringify(lastMessage) : null, lastMessageId !== null && lastMessageId !== void 0 ? lastMessageId : null, nextUpdatedAt, nextSortTs, nextAccessed, this.nextConvWriteSeq(), conversationId);
+            .run(newer ? (lastMessage != null ? JSON.stringify(lastMessage) : null) : existing.lastMessage, newer ? (lastMessageId !== null && lastMessageId !== void 0 ? lastMessageId : null) : existing.lastMessageId, nextUpdatedAt, nextSortTs, nextAccessed, this.nextConvWriteSeq(), conversationId);
         return true;
     }
     listConversations(q) {
@@ -2052,7 +2226,8 @@ class SqliteEngine {
         if (rootId == null)
             return;
         this.db
-            .prepare("UPDATE messages SET threadSubscribed = ? WHERE id = ? OR parentMessageId = ?")
+            // A deleted message takes no flag write (BEH-FLAG-03, Android FlagMerge.patch).
+            .prepare("UPDATE messages SET threadSubscribed = ? WHERE (id = ? OR parentMessageId = ?) AND (deletedAt IS NULL OR deletedAt = 0)")
             .run(value ? 1 : 0, String(rootId), Number(rootId));
     }
     clearPerUserFlags(conversationId) {
@@ -2128,6 +2303,18 @@ class SqliteEngine {
             bump.run(t.kind, t.scopeKey);
         }
     }
+    getListRowsByItem(kinds, itemIds) {
+        if (!itemIds || !itemIds.length || !kinds || !kinds.length)
+            return [];
+        const find = this.db.prepare("SELECT * FROM list_rows WHERE itemId = ?");
+        const out = [];
+        for (const id of itemIds) {
+            for (const d of find.all(String(id)))
+                if (kinds.indexOf(d.kind) !== -1)
+                    out.push(this.fromDbListRow(d));
+        }
+        return out;
+    }
     deleteListItems(kinds, itemIds) {
         if (!itemIds || !itemIds.length || !kinds || !kinds.length)
             return;
@@ -2202,7 +2389,7 @@ function sqliteFileFormat(fs, file) {
             const buf = Buffer.alloc(16);
             const n = fs.readSync(fd, buf, 0, 16, 0);
             if (n < 16)
-                return "ENCRYPTED";
+                return "NONE"; // shorter than a header: an open failure for the ordinary open, not a format
             return buf.toString("latin1") === "SQLite format 3\u0000" ? "PLAINTEXT" : "ENCRYPTED";
         }
         finally {
@@ -2214,6 +2401,14 @@ function sqliteFileFormat(fs, file) {
     }
 }
 exports.sqliteFileFormat = sqliteFileFormat;
+/** A connection's unsent rows as safe report rows (no payload). Throws when they cannot be read. */
+function unsentReportRows(db) {
+    const rows = db
+        .prepare("SELECT localMessageId, conversationId, senderUid, receiverType, receiverId, type, category, " +
+        "sendState, failureReason, localSortTs, parentMessageId FROM messages WHERE sendState != 'SENT'")
+        .all();
+    return (rows || []).map((r) => ({ ...r, payload: null, tags: [], mentions: [] }));
+}
 /**
  * The unsent rows of a database file about to be rebuilt (BEH-ENC-16), as safe report rows — opened
  * read-only, with `keyHex` when the file is encrypted. `null` when the file cannot be read. A file
@@ -2226,11 +2421,7 @@ function readUnsentFromFile(Database, file, keyHex) {
         db = new Database(file, { readonly: true });
         if (keyHex)
             SqliteCipher_1.applyKeyAndProve(db, keyHex);
-        const rows = db
-            .prepare("SELECT localMessageId, conversationId, senderUid, receiverType, receiverId, type, category, " +
-            "sendState, failureReason, localSortTs, parentMessageId FROM messages WHERE sendState != 'SENT'")
-            .all();
-        return (rows || []).map((r) => ({ ...r, payload: null, tags: [], mentions: [] }));
+        return unsentReportRows(db);
     }
     catch (e) {
         if (SqliteCipher_1.classifyMainOpenFailure(e) === "TRANSIENT")

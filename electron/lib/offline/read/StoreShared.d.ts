@@ -78,8 +78,26 @@ export declare function compareSnapshotLru(a: SnapshotMeta, b: SnapshotMeta): nu
  * rehydrated model keep them) unless the write is authoritative — and never with the write-only
  * `tagsAuthoritative` key. `existing` is the stored row, decoded (plaintext payload), or null for a
  * first insert, which takes the payload as it is.
+ *
+ * R133: the same for the embedded quoted message of a write whose request set `hideQuotedMessages`
+ * (`row.keepStoredQuote`), present or absent (Android FlagMerge.merge, QUOTE_KEYS).
  */
 export declare function keepStoredMessageTags(row: MessageRow, existing: MessageRow | null | undefined): MessageRow;
+/**
+ * BEH-EVICT-08 (updated 2026-11-09, ENG-41324): a conversation's device-local recency on an upsert
+ * (Android ConversationMergePolicy.resolveOnUpsert). A cached row keeps its own value: no server
+ * write moves it (re-saving never changes the time; listing/scrolling/syncing is not an access).
+ *
+ * A NEW row seeds from its SORT time — the last message's sent time, else `updatedAt`, carried on the
+ * row as `localSortTs` — capped at now, NOT the device's `now`. Seeding every first insert with `now`
+ * is the bug: when the user scrolls their whole list the oldest conversations are saved LAST, so they
+ * look the most recently used, and the next cleanup keeps those and evicts the conversations actually
+ * in use. A locally created row (own send / realtime receive) carries a `localSortTs` ≈ now, so it
+ * still seeds at ~now; an explicit `lastAccessedTs` from such a seam wins, capped at now. A new row
+ * with no sort time at all seeds at 0 (the rule's floor — Android ConversationMergePolicy), so an
+ * unsortable row is treated as least-recently-used, never as "just now".
+ */
+export declare function seedRecency(existing: any, incoming: any): number;
 /**
  * BEH-CONV-12: a conversation write that did not apply `withUserAndGroupTags` (no `peerTags` key) keeps
  * the stored peer's `conversationWith.tags`, so the rehydrated model never loses them either.
@@ -154,6 +172,26 @@ export declare function previewForDelivery(row: any, receipts?: {
     [id: string]: PreviewReceipt;
 }): any;
 /**
+ * BEH-SEND-30 / D19: `localMessageId → send-state` for every own unsent outbox row (PENDING / SENDING /
+ * FAILED), read once per conversation read from the sendState index. The values are exactly the
+ * `MessageStatus` strings, so a conversation whose preview is one of these rows reports that state.
+ */
+export declare function unsentPreviewStatuses(store: {
+    pending(conversationId?: string): Promise<MessageRow[]>;
+}): Promise<{
+    [lid: string]: string;
+}>;
+/**
+ * BEH-SEND-30 / D19: an own unsent/failed conversation preview must report its send-state
+ * (`PENDING` / `SENDING` or `FAILED`), never `SENT` or null. The preview is parsed straight from the
+ * stored payload (not through `rowToMessage`, which derives status), so the status is applied here from
+ * the live unsent row matched by the preview's `localMessageId` — it tracks a later `FAILED`. No-op for a
+ * server-sourced (SENT) preview, which has no unsent row.
+ */
+export declare function applyPreviewSendState(model: any, preview: any, statuses?: {
+    [lid: string]: string;
+}): void;
+/**
  * BEH-CONV-17: put a cached 1:1's delivered peer flags on its model, recomputed per read and never taken
  * from the stored peer JSON — with `withBlockedInfo`, `blockedByMe` from the blocked-users store (the
  * ASCII-lowercased uid set) and `hasBlockedMe` from the protected column; without it both false, as the
@@ -169,11 +207,50 @@ export declare function decorateBlockedFlags(model: any, row: any, withBlockedIn
  * and older pages, oldest-first for an after-cursor page) with the matching queued rows (`queuedAsc`,
  * oldest compose time first) into the page, in that same scan order.
  *
- * Android LocalMessageQuery.paginate: the newest page is the last `limit` of sent-then-queued; an
- * anchored newer page is the first `limit` rows past the anchor, so queued rows come only once the sent
- * rows are used up; an older page never holds a queued row.
+ * Android LocalMessageQuery.paginate (updated, BEH-READ-31): the newest page is EVERY queued row plus
+ * the newest sent rows up to `limit` — it may exceed `limit` only when the queued rows alone do, and the
+ * queued count is itself capped by `maxPendingMessages`. An anchored newer page is the first `limit` rows
+ * past the anchor, so queued rows come only once the sent rows are used up; an older page never holds a
+ * queued row.
  */
 export declare function pendingLastPlan<T extends MessageRow>(q: LocalQuery, queuedAsc: T[], defaultLimit: number): {
     sentQuery: LocalQuery | null;
     assemble: (sent: T[]) => T[];
 };
+/**
+ * The list-preview newer-guard:
+ * does a message with server id `incomingId` (or none, a fresh compose) replace the stored preview? No
+ * preview, or one with no server id (an un-acked or failed own send), gives way to anything. Two server ids
+ * compare as ids, so clock skew in `localSortTs` decides nothing. `sortTs` 0 is the store's own refresh of a
+ * preview (an edit, or a fallback after a delete), which is not an arrival and always applies. The one case
+ * "gives way to anything" is too broad — an EARLIER own send's ack must not hijack a newer unsent send's
+ * preview (Item 1) — is handled at the ack seam (cacheConversationFromAckedSend) via {@link ackHijacksUnsentPreview},
+ * the only JS path that writes an own server-confirmed message over an unsent preview.
+ */
+export declare function isPreviewNewer(existing: {
+    lastMessage?: unknown;
+    lastMessageId?: number | string | null;
+    localSortTs?: number | null;
+}, incomingId: number | string | null | undefined, sortTs: number): boolean;
+/**
+ * BEH-CONV-01/06 · BEH-SEND-30 (Item 1): would acking THIS own send hijack a DIFFERENT, newer unsent send's
+ * preview? True when the cached preview is an own unsent send (no server id) whose `data.localMessageId`
+ * differs from this ack's. The preview is the latest-composed unsent send, so a different own send being
+ * acked is necessarily an earlier one — judged by identity, not time, because an offline send's ack carries
+ * the server's (reconnect) sentAt. Call it ONLY on the own-send ack seam (so a peer's receive, which can also
+ * carry a localMessageId, is never mistaken for an own send). The send's own ack matches the id and refreshes.
+ */
+export declare function ackHijacksUnsentPreview(existing: {
+    lastMessage?: unknown;
+    lastMessageId?: number | string | null;
+}, ackLocalMessageId: string | null | undefined): boolean;
+/** The `localMessageId` a stored preview payload carries (`data.localMessageId`, else `localMessageId`), or
+ *  null. Accepts a decoded object (IndexedDB) or a JSON string (the SQLite column). */
+export declare function previewLocalId(payload: unknown): string | null;
+/**
+ * Delete-by-omission's interior test (BEH-READ-20/22): strictly between the page's oldest and newest row
+ * in reading order, `localSortTs` then server id, so a row sharing a boundary's second is still placed
+ * (Android MessageOmissionReconciler:137-141, LocalMessageQuery.compareReadingOrder). With no bound ids
+ * the test is on time alone.
+ */
+export declare function strictlyInterior(ts: number, id: number | null | undefined, minTs: number, maxTs: number, minId?: number, maxId?: number): boolean;

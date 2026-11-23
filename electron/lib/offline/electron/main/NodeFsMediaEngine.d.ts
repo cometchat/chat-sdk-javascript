@@ -29,6 +29,16 @@ export declare class NodeFsMediaEngine {
     has(key: string): boolean;
     remove(key: string): void;
     totalBytes(): number;
+    /**
+     * Every file in the open roots but a partial `.tmp` write, as its file name and size (Android
+     * `MediaFileStore.listKeys`). A safe key is its own file name; a hashed one (`h_…`) lists as that name.
+     */
+    listKeys(): {
+        key: string;
+        size: number;
+    }[];
+    /** Visit each file of the open roots (a missing root visits none). */
+    private eachFile;
     wipe(): void;
     /** Delete an `(app, user)`'s media without opening it: the new folder, then the legacy one. */
     wipeMediaByName(appId: string, uid: string): void;

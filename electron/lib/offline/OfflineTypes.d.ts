@@ -46,6 +46,11 @@ export interface MessageRow {
      * Write-only: never stored.
      */
     tagsAuthoritative?: boolean;
+    /**
+     * R133: this write's request set `hideQuotedMessages`, so its payload says nothing about the quoted
+     * message and the stored one is kept. Write-only: never stored.
+     */
+    keepStoredQuote?: boolean;
     mentions: string[];
     /**
      * Write-time projection: does the payload carry at least one attachment? (Offline Read Coverage §5
@@ -442,6 +447,12 @@ export interface OfflineStore {
      * dispatches, so neither a second tab nor a retry can send the same row twice.
      */
     transitionSendState(localMessageId: string, from: SendState[], to: SendState, failureReason?: string): Promise<boolean>;
+    /**
+     * `transitionSendState` for several rows in ONE transaction: all of the moves commit or none does
+     * (a failure rejects with nothing changed). Rows gone or not in `from` are skipped. Resolves with
+     * the ids that moved.
+     */
+    transitionSendStates(localMessageIds: string[], from: SendState[], to: SendState): Promise<string[]>;
     /** One `sync_meta` value as a string, or `null` when absent. */
     readMeta(key: string): Promise<string | null>;
     /** Write several `sync_meta` values in one transaction; `null` deletes a key. */
@@ -508,9 +519,10 @@ export interface OfflineStore {
      * them. Interior-only (never the boundary rows, never above-newest/below-oldest), SENT-only (never
      * the outbox), whole-footprint (message row + attachment rows). When `topLevelOnly`, purge only rows
      * with no `parentMessageId` (replies exempt — a `hideReplies`-only read). Returns media byte keys to
-     * reclaim. No-op if there is no interior.
+     * reclaim. No-op if there is no interior. With `minId` / `maxId` (the bounding rows' server ids) the
+     * interior is strict in (localSortTs, id) order.
      */
-    purgeAbsentInInterior(conversationId: string, presentServerIds: number[], minLocalSortTs: number, maxLocalSortTs: number, topLevelOnly: boolean): Promise<{
+    purgeAbsentInInterior(conversationId: string, presentServerIds: number[], minLocalSortTs: number, maxLocalSortTs: number, topLevelOnly: boolean, parentMessageId?: number, minId?: number, maxId?: number): Promise<{
         mediaKeys: string[];
     }>;
     /**
@@ -704,6 +716,8 @@ export interface OfflineStore {
      * that has not started). Returns `false` on a conflict, and the caller re-reads and retries.
      */
     applyListOps(kind: ListKind, scopeKey: string, ops: ListOps, expectRev: number): Promise<boolean>;
+    /** Every row held of messages `itemIds` in the stores of `kinds`, in every scope (BEH-FLAG-01). */
+    getListRowsByItem(kinds: ListKind[], itemIds: string[]): Promise<ListRow[]>;
     /** Remove entries by id from every store of `kinds`, in every scope (deletes, unpins, unsaves). */
     deleteListItems(kinds: ListKind[], itemIds: string[]): Promise<void>;
     /**
@@ -733,7 +747,18 @@ export interface MediaFileStore {
     remove(key: string): Promise<void>;
     ref(key: string): MediaRef;
     totalBytes(): Promise<number>;
+    /**
+     * Every stored file, as its key and its size in bytes (Android `MediaFileStore.listKeys`): partial
+     * `.tmp` writes are not listed, and a failed listing yields an empty list. A store without it gets
+     * no orphan reclaim and the attachment rows' sizes as its media budget.
+     */
+    listKeys?(): Promise<MediaKeyEntry[]>;
     wipe(): Promise<void>;
+}
+/** One stored media file: the key it was put under (the file name for a hashed Electron name). */
+export interface MediaKeyEntry {
+    key: string;
+    size: number;
 }
 /** What the engine is handed at login — one bundle per runtime. */
 export interface StorageAdapter {

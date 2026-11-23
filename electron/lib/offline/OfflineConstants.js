@@ -5,7 +5,7 @@
  * @module offline/OfflineConstants
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FORCE_SYNC_COOLDOWN_MS = exports.OFFLINE_SYNC_ERROR = exports.OFFLINE_MESSAGE_ERROR = exports.SYNC_REQUEST_TIMEOUT_MS = exports.OUTBOX_LATE_ANSWER_HOLD_MS = exports.OUTBOX_MEDIA_FLOOR_BYTES_PER_S = exports.OUTBOX_MEDIA_SEND_TIMEOUT_MS = exports.OUTBOX_SEND_TIMEOUT_MS = exports.OUTBOX_UNANSWERED_META_PREFIX = exports.OUTBOX_ATTEMPTS_META_PREFIX = exports.SYNC_META_KEYS = exports.uploadBatchKey = exports.STORES = exports.offlineLegacyMediaNamespace = exports.offlineMediaNamespace = exports.offlineDbName = exports.isLargeGroup = exports.GROUP_SIZE_LARGE = exports.SNAPSHOT_READ_TYPE = exports.BLOCKED_USERS_PAGE_SIZE = exports.BLOCKED_USERS_REFRESH_MS = exports.AGENTIC_USER_ROLE = exports.OFFLINE_START_TIMEOUT_MS = exports.OFFLINE_OPEN_TIMEOUT_MS = exports.OFFLINE_SCHEMA_VERSION = void 0;
+exports.FORCE_SYNC_COOLDOWN_MS = exports.OFFLINE_SYNC_ERROR = exports.OFFLINE_MESSAGE_ERROR = exports.SYNC_REQUEST_TIMEOUT_MS = exports.OUTBOX_RECONNECT_DRAIN_TIMEOUT_MS = exports.OUTBOX_LATE_ANSWER_HOLD_MS = exports.OUTBOX_MEDIA_FLOOR_BYTES_PER_S = exports.OUTBOX_MEDIA_SEND_TIMEOUT_MS = exports.OUTBOX_SEND_TIMEOUT_MS = exports.OUTBOX_UNANSWERED_META_PREFIX = exports.OUTBOX_ATTEMPTS_META_PREFIX = exports.SYNC_META_KEYS = exports.uploadBatchKey = exports.STORES = exports.offlineLegacyMediaNamespace = exports.offlineMediaNamespace = exports.offlineDbName = exports.isLargeGroup = exports.GROUP_SIZE_LARGE = exports.SNAPSHOT_READ_TYPE = exports.BLOCKED_USERS_PAGE_SIZE = exports.BLOCKED_USERS_REFRESH_MS = exports.AGENTIC_USER_ROLE = exports.OFFLINE_START_TIMEOUT_MS = exports.OFFLINE_OPEN_TIMEOUT_MS = exports.OFFLINE_SCHEMA_VERSION = void 0;
 /**
  * Bumped on an additive schema change. v2 adds the two upload-batch stores (`upload_batches` /
  * `upload_files`) for offline direct-to-storage uploads; v3 adds `crypto_keys`, which holds the
@@ -131,15 +131,15 @@ exports.STORES = {
 /**
  * Canonical key for an upload batch — the `(receiverType, receiverId, parentMessageId)` triple
  * (OU-2). One durable batch per triple; `create` and `getExisting` resolve to the same key. A
- * main-conversation batch (no parent) uses the `main` sentinel so it never collides with a thread
- * batch. `receiverType` is ASCII-lowercased for stability; `receiverId` is kept verbatim.
+ * main-conversation batch (no parent, or parent `0`, Android's main-conversation value) uses the `main`
+ * sentinel so it never collides with a thread batch. `receiverType` and `receiverId` are kept verbatim:
+ * Android matches the triple exactly (UploadBatchStore.findBatch:228-233, a `long` parent with 0 = main).
  */
 function uploadBatchKey(receiverType, receiverId, parentMessageId) {
-    const type = (receiverType || "").replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
-    const parent = parentMessageId === undefined || parentMessageId === null || String(parentMessageId) === ""
+    const parent = parentMessageId === undefined || parentMessageId === null || String(parentMessageId) === "" || String(parentMessageId) === "0"
         ? "main"
         : String(parentMessageId);
-    return `up_${type}_${receiverId}_${parent}`;
+    return `up_${receiverType || ""}_${receiverId}_${parent}`;
 }
 exports.uploadBatchKey = uploadBatchKey;
 /** `sync_meta` keys. */
@@ -205,6 +205,11 @@ exports.OUTBOX_MEDIA_FLOOR_BYTES_PER_S = 16384;
  */
 exports.OUTBOX_LATE_ANSWER_HOLD_MS = 120000;
 /**
+ * How long a reconnect sweep waits for its outbox drain before it runs anyway (Android
+ * RECONNECT_DRAIN_TIMEOUT_MILLIS, 20 s): a long upload must not hold catch-up. The drain keeps running.
+ */
+exports.OUTBOX_RECONNECT_DRAIN_TIMEOUT_MS = 20000;
+/**
  * How long one request of the reconnect sweep (conversations, changelog page, my threads, blocked
  * users) waits for its answer before it fails as no answer — Android's JSON REST timeout, 15 s. Without
  * it a request caught by a network drop holds the sweep, and its single-flight latch, for as long as
@@ -232,6 +237,13 @@ exports.OFFLINE_MESSAGE_ERROR = {
      * string, identical across SDKs.
      */
     NOT_FOUND: "ERROR_OFFLINE_MESSAGE_NOT_FOUND",
+    /**
+     * KI-30: a queued media message whose copied file is gone cannot be sent; it fails PERMANENT with
+     * Android's code (core/Outbox.java onPermanentUnsendable:1926-1942).
+     */
+    UNSENDABLE: "ERROR_OFFLINE_MESSAGE_UNSENDABLE",
+    /** A send refused because the queue is full: Android's code (core/Outbox.java queueException:2580). */
+    PENDING_QUEUE_LIMIT: "ERROR_PENDING_QUEUE_LIMIT",
 };
 /** Public reject codes for `forceSyncNow(callback)`. */
 exports.OFFLINE_SYNC_ERROR = {

@@ -108,6 +108,12 @@ var OfflineCacheResetReason;
     OfflineCacheResetReason["ESCALATED"] = "ESCALATED";
     /** The `encryption` setting no longer matches the cache on disk (BEH-ENC-16). */
     OfflineCacheResetReason["ENCRYPTION_CHANGED"] = "ENCRYPTION_CHANGED";
+    /**
+     * The cache on disk was written by a later SDK version that this one cannot read (an app rolled back
+     * to an older SDK), so it was rebuilt. Each unsent message that could still be read failed with
+     * `DISCARDED` first; the count is unknown if none could be read.
+     */
+    OfflineCacheResetReason["SCHEMA_RESET"] = "SCHEMA_RESET";
 })(OfflineCacheResetReason = exports.OfflineCacheResetReason || (exports.OfflineCacheResetReason = {}));
 /** Catch-up sync state. */
 var SyncState;

@@ -103,8 +103,9 @@ export declare const STORES: {
 /**
  * Canonical key for an upload batch — the `(receiverType, receiverId, parentMessageId)` triple
  * (OU-2). One durable batch per triple; `create` and `getExisting` resolve to the same key. A
- * main-conversation batch (no parent) uses the `main` sentinel so it never collides with a thread
- * batch. `receiverType` is ASCII-lowercased for stability; `receiverId` is kept verbatim.
+ * main-conversation batch (no parent, or parent `0`, Android's main-conversation value) uses the `main`
+ * sentinel so it never collides with a thread batch. `receiverType` and `receiverId` are kept verbatim:
+ * Android matches the triple exactly (UploadBatchStore.findBatch:228-233, a `long` parent with 0 = main).
  */
 export declare function uploadBatchKey(receiverType: string, receiverId: string, parentMessageId?: string | number | null): string;
 /** `sync_meta` keys. */
@@ -170,6 +171,11 @@ export declare const OUTBOX_MEDIA_FLOOR_BYTES_PER_S = 16384;
  */
 export declare const OUTBOX_LATE_ANSWER_HOLD_MS = 120000;
 /**
+ * How long a reconnect sweep waits for its outbox drain before it runs anyway (Android
+ * RECONNECT_DRAIN_TIMEOUT_MILLIS, 20 s): a long upload must not hold catch-up. The drain keeps running.
+ */
+export declare const OUTBOX_RECONNECT_DRAIN_TIMEOUT_MS = 20000;
+/**
  * How long one request of the reconnect sweep (conversations, changelog page, my threads, blocked
  * users) waits for its answer before it fails as no answer — Android's JSON REST timeout, 15 s. Without
  * it a request caught by a network drop holds the sweep, and its single-flight latch, for as long as
@@ -197,6 +203,13 @@ export declare const OFFLINE_MESSAGE_ERROR: {
      * string, identical across SDKs.
      */
     readonly NOT_FOUND: "ERROR_OFFLINE_MESSAGE_NOT_FOUND";
+    /**
+     * KI-30: a queued media message whose copied file is gone cannot be sent; it fails PERMANENT with
+     * Android's code (core/Outbox.java onPermanentUnsendable:1926-1942).
+     */
+    readonly UNSENDABLE: "ERROR_OFFLINE_MESSAGE_UNSENDABLE";
+    /** A send refused because the queue is full: Android's code (core/Outbox.java queueException:2580). */
+    readonly PENDING_QUEUE_LIMIT: "ERROR_PENDING_QUEUE_LIMIT";
 };
 /** Public reject codes for `forceSyncNow(callback)`. */
 export declare const OFFLINE_SYNC_ERROR: {

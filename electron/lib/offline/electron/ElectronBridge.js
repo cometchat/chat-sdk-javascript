@@ -43,10 +43,10 @@ exports.DB_METHODS = [
     "deleteSnapshotsBySignature", "listSnapshotMeta", "touchSnapshot",
     // Pin / save / follow flags and the pinned / saved / my-threads list stores.
     "applyMessageFlags", "clearPerUserFlags", "setThreadSubscribed", "getListScope", "applyListOps",
-    "deleteListItems", "deleteListRowsByConversation", "refreshListCopies",
+    "getListRowsByItem", "deleteListItems", "deleteListRowsByConversation", "refreshListCopies",
     "logicalByteSize", "wipe", "wipeByName",
-    "transitionSendState", "readMeta", "writeMeta", "clearInPlace", "probeCipher",
+    "transitionSendState", "transitionSendStates", "readMeta", "writeMeta", "clearInPlace", "probeCipher",
 ];
 exports.MEDIA_METHODS = [
-    "openMedia", "put", "get", "has", "remove", "totalBytes", "wipe", "wipeMediaByName",
+    "openMedia", "put", "get", "has", "remove", "totalBytes", "listKeys", "wipe", "wipeMediaByName",
 ];

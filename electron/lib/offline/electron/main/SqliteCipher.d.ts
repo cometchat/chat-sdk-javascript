@@ -6,10 +6,14 @@
  *
  * ## Where the key lives
  *
- * 32 CSPRNG bytes, sealed by `safeStorage.encryptString()` — the OS secret store (Keychain on macOS,
- * DPAPI on Windows, libsecret on Linux) — and written beside the database as a sidecar file. It is
- * unsealed and used ENTIRELY in the main process; the renderer never receives key material and no key
- * ever crosses IPC. That is strictly stronger than the browser tier.
+ * 32 CSPRNG bytes, sealed by `safeStorage` — the OS secret store (Keychain on macOS, DPAPI on Windows,
+ * libsecret on Linux) — and written beside the database as a sidecar file. It is unsealed and used
+ * ENTIRELY in the main process; the renderer never receives key material and no key ever crosses IPC.
+ * That is strictly stronger than the browser tier.
+ *
+ * Electron 46 removed the synchronous `safeStorage` calls, and what they sealed opens under the
+ * asynchronous ones. The async calls are used only where the sync ones are absent, so an Electron that has
+ * the sync calls keeps the path it always had.
  *
  * `safeStorage` is a main-process API, so all of this is unavailable in a renderer by construction.
  *
@@ -56,9 +60,18 @@ export declare class KeyUnsealError extends Error {
 }
 /** The `safeStorage` surface actually used. Injected so it can be faked in tests. */
 export interface SafeStorageLike {
-    isEncryptionAvailable(): boolean;
-    encryptString(plainText: string): any;
-    decryptString(encrypted: any): string;
+    /** Removed in Electron 46. */
+    isEncryptionAvailable?(): boolean;
+    encryptString?(plainText: string): any;
+    decryptString?(encrypted: any): string;
+    /** Newer Electron; used only where the calls above are absent, which is from Electron 46. */
+    isAsyncEncryptionAvailable?(): Promise<boolean>;
+    encryptStringAsync?(plainText: string): Promise<any>;
+    decryptStringAsync?(encrypted: any): Promise<{
+        shouldReEncrypt?: boolean;
+        result: string;
+        isTemporarilyUnavailable?: boolean;
+    }>;
     /**
      * Linux only, newer Electron: the backend `safeStorage` picked (`gnome_libsecret`, `kwallet*`, …
      * or `basic_text`). Optional — absent on other platforms and older Electron.
@@ -75,11 +88,18 @@ export interface SafeStorageLike {
  * API can never report `keyStorage: "KEYSTORE"` for it.
  */
 export declare function isWeakSafeStorageBackend(ss: SafeStorageLike, platform?: string): boolean;
+/**
+ * Run key-store steps: a yielded Promise is awaited, and any other value goes straight back. So with the
+ * synchronous `safeStorage` an open still runs, and throws, synchronously, as it does on older Electron; only
+ * the asynchronous calls make it a Promise. One body serves both.
+ */
+export declare function runKeySteps<T>(steps: Iterator<any, T, any>): T | Promise<T>;
 /** The `node:fs` surface actually used. */
 export interface FsLike {
     existsSync(p: string): boolean;
     readFileSync(p: string): any;
     writeFileSync(p: string, data: any, opts?: any): void;
+    renameSync(from: string, to: string): void;
     rmSync(p: string, opts?: any): void;
 }
 /** Everything the key store needs from its host, injected rather than `require`d. */
@@ -108,6 +128,11 @@ export interface KeyStoreDeps {
  */
 export declare function toHexKeyPragma(keyHex: string): string;
 /**
+ * Can an encrypted open resolve a key at all? Used by the format check, which must not mint one (R134). A
+ * store that throws has not confirmed anything, so that reads as usable and the open surfaces the error.
+ */
+export declare function secretStoreUsable(ss: SafeStorageLike | null): boolean | Promise<boolean>;
+/**
  * Read the sealed key, or mint one on first use.
  *
  * Throws `OfflineEncryptionUnavailableError` when there is no usable OS secret store (BUILD/LINK — a
@@ -115,7 +140,7 @@ export declare function toHexKeyPragma(keyHex: string): string;
  * way that may well work next time, and `KeyUnsealError` when the sealed key exists but will not unseal.
  * The distinction decides whether the caller retries or self-heals, so it is never guessed.
  */
-export declare function loadOrCreateDbKey(deps: KeyStoreDeps): string;
+export declare function loadOrCreateDbKey(deps: KeyStoreDeps): any;
 /** Delete the sealed key. Runs BEFORE the data files on logout / user switch. */
 export declare function destroyDbKey(deps: KeyStoreDeps): void;
 /** The minimum of better-sqlite3 used here, so tests can supply a stand-in. */
@@ -175,6 +200,11 @@ export declare function applyKeyAndProve(db: DatabaseLike, keyHex: string): void
  * that error is rethrown as it is, so the open classifies it TRANSIENT — no store this session,
  * nothing deleted, never counted (BEH-ENC-11/12). Wrapping it as unreadable wiped a store, and its
  * unsent outbox, that another process merely had open.
+ *
+ * Only a file that is not a database (a wrong key, a wrong scheme) or is corrupt is unreadable
+ * (PERMANENT). Any other error — an I/O error, a file that cannot be opened — is rethrown as it is, so
+ * the open counts it UNCLASSIFIED and wipes only on the third launch in a row (BEH-ENC-11/12, R18;
+ * Android OfflineEncryptionFailureClassifier PERMANENT_NAMES: not-a-database and corrupt only).
  */
 export declare function probeReadable(db: DatabaseLike): void;
 /**
